@@ -1,60 +1,78 @@
+/*global store*/
+/*global worker*/
 
-var select_string = function(context){
-  var return_val = document.createElement('input');
+/* exported openNav*/
+/* exported populate_menu*/
 
-  return_val.setAttribute('value', context.value);
-  
-  return_val.addEventListener('change', function(){context.value = this.value;});
+var SelectString = function (context) {
+  var return_val = document.createElement('input')
 
-  return return_val;
+  return_val.setAttribute('value', context.value)
+
+  return_val.addEventListener('change', function () {
+    context.value = this.value
+  })
+
+  return return_val
 }
 
-var select_number = function(context){
-  var return_val = document.createElement('input');
-  
-  return_val.setAttribute('type', 'number');
-  return_val.setAttribute('min', 1);
-  return_val.setAttribute('max', 120);
-  return_val.setAttribute('value', context.value);
-  
-  return_val.addEventListener('change', function(){context.value = this.value;});
+var SelectNumber = function (context) {
+  var return_val = document.createElement('input')
 
-  return return_val;
+  return_val.setAttribute('type', 'number')
+  return_val.setAttribute('min', 1)
+  return_val.setAttribute('max', 120)
+  return_val.setAttribute('value', context.value)
+
+  return_val.addEventListener('change', function () {
+    context.value = this.value
+  })
+
+  return return_val
 }
 
-var select_boolean = function(context){
-  var return_val = document.createElement('input');
-  
-  return_val.setAttribute('type', 'checkbox');
-  return_val.checked = context.value;
-  
-  return_val.addEventListener('change', function(){context.value = this.checked;});
-  
-  return return_val;
+var select_boolean = function (context) {
+  var return_val = document.createElement('input')
+
+  return_val.setAttribute('type', 'checkbox')
+  return_val.checked = context.value
+
+  return_val.addEventListener('change', function () {
+    context.value = this.checked
+  })
+
+  return return_val
 }
 
-var execute = function(context){
-  var return_val = document.createElement('button');
-  return_val.innerHTML = 'Send';
-  return_val.addEventListener("click", context.value);
-  return return_val;
+var execute = function (context) {
+  var return_val = document.createElement('button')
+  return_val.innerHTML = 'Send'
+  return_val.addEventListener('click', context.value)
+  return return_val
 }
 
-var connect_ws = function(data){
-  console.log('connect_ws', options.websockets.settings.url.value);
-  worker.postMessage({cmd: 'ws_con', url: options.websockets.settings.url.value});
+var connect_ws = function (data) {
+  console.log('connect_ws', options.websockets.settings.url.value)
+  worker.postMessage({
+    cmd: 'ws_con',
+    url: options.websockets.settings.url.value
+  })
 }
 
-var disconnect_ws = function(data){
-  console.log('disconnect_ws');
-  worker.postMessage({cmd: 'ws_discon'});
+var disconnect_ws = function (data) {
+  console.log('disconnect_ws')
+  worker.postMessage({
+    cmd: 'ws_discon'
+  })
 }
 
-var send_via_ws = function(data){
-  console.log('send_via_ws');
-  worker.postMessage({cmd: 'ws_send', data: options.websockets.settings.test_message.value});
+var send_via_ws = function (data) {
+  console.log('send_via_ws')
+  worker.postMessage({
+    cmd: 'ws_send',
+    data: options.websockets.settings.test_message.value
+  })
 }
-
 
 var options = {
   game_loop: {
@@ -62,7 +80,7 @@ var options = {
     settings: {
       fps: {
         description: 'FPS',
-        type: select_number,
+        type: SelectNumber,
         value: 10
       },
       log_fps: {
@@ -74,16 +92,15 @@ var options = {
   },
   camera: {
     description: 'camera',
-    settings: {
-    }
+    settings: {}
   },
   websockets: {
     description: 'websockets',
     settings: {
       url: {
         description: 'Server URL',
-        type: select_string,
-        value: 'wss://game-of-tides-mrdunk.c9users.io:8081'
+        type: SelectString,
+        value: 'wss://192.168.192.251:8081'
       },
       connect: {
         description: 'Connect WebSocket',
@@ -95,9 +112,9 @@ var options = {
         type: execute,
         value: disconnect_ws
       },
-      test_message:{
+      test_message: {
         description: 'test message:',
-        type: select_string,
+        type: SelectString,
         value: 'test'
       },
       test_send: {
@@ -107,43 +124,53 @@ var options = {
       }
     }
   }
-};
-
-var openNav = function(){
-  document.getElementById("nav_menu").style.height = "100%";
 }
 
-var closeNav = function(){
-  document.getElementById("nav_menu").style.height = "0%";
+var openNav = function () {
+  document.getElementById('nav_menu').style.height = '100%'
 }
 
-var populate_menu = function(){
-  var content = document.createElement('ul');
-  document.getElementsByClassName('overlay-content')[0].appendChild(content);
-  
-  for(var section in options){
-    var section_content = document.createElement('li');
-    content.appendChild(section_content);
-    
-    var section_description = document.createElement('div');
-    section_content.appendChild(section_description);
-    section_description.innerHTML = options[section].description;
-    
-    var section_list = document.createElement('ul');
-    section_content.appendChild(section_list);
-    
-    for(var setting in options[section].settings){
-      var data = options[section].settings[setting];
-      if(true){
-        var setting_content = document.createElement('li');
-        section_list.appendChild(setting_content);
-        
-        var setting_description = document.createElement('div');
-        setting_content.appendChild(setting_description);
-        setting_description.innerHTML = data.description;
-        
-        setting_description.appendChild(data.type(data));
+var closeNav = function () {
+  document.getElementById('nav_menu').style.height = '0%'
+}
+
+var populate_menu = function () {
+  var content = document.createElement('ul')
+  document.getElementsByClassName('overlay-content')[0].appendChild(content)
+
+  for (var section in options) {
+    var section_content = document.createElement('li')
+    content.appendChild(section_content)
+
+    var section_description = document.createElement('div')
+    section_content.appendChild(section_description)
+    section_description.innerHTML = options[section].description
+
+    var section_list = document.createElement('ul')
+    section_content.appendChild(section_list)
+
+    for (var setting in options[section].settings) {
+      var data = options[section].settings[setting]
+      if (true) {
+        var setting_content = document.createElement('li')
+        section_list.appendChild(setting_content)
+
+        var setting_description = document.createElement('div')
+        setting_content.appendChild(setting_description)
+        setting_description.innerHTML = data.description
+
+        setting_description.appendChild(data.type(data))
       }
     }
   }
+}
+
+console.log(options)
+store.set('test', options)
+console.log(store.get('test'))
+console.log(store.get('test_b'))
+
+var options_saved = store.get('options')
+if (typeof options_saved !== 'undefined') {
+
 }

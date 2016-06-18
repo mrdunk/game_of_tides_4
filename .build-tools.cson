@@ -1,0 +1,189 @@
+providers: [
+  {
+    key: "bt"
+    config:
+      commands: [
+        {
+          project: "/home/duncan/Working/game_of_tides_4"
+          source: "/home/duncan/Working/game_of_tides_4/.build-tools.cson"
+          name: "build"
+          command: "/usr/bin/g++ -Wall -std=c++11 -I ../ ../websocket.cc -o websocket.bin -lssl -lcrypto"
+          wd: "./backend/build/"
+          env: {}
+          modifier:
+            save_all: {}
+            dependency:
+              list: [
+                [
+                  "0"
+                  "1"
+                  "clean"
+                ]
+                [
+                  "0"
+                  "2"
+                  "setup"
+                ]
+              ]
+              abort: true
+          environment:
+            name: "child_process"
+            config:
+              stdoe: "both"
+          stdout:
+            pipeline: []
+          stderr:
+            pipeline: []
+          output:
+            console:
+              close_success: true
+              queue_in_buffer: true
+              colors: true
+              stdin: false
+            linter:
+              no_trace: false
+              immediate: false
+            file:
+              path: "./backend/build/build.log"
+              queue_in_file: true
+          version: 2
+        }
+        {
+          project: "/home/duncan/Working/game_of_tides_4"
+          source: "/home/duncan/Working/game_of_tides_4/.build-tools.cson"
+          name: "clean"
+          command: "rm -rf ./backend/build/"
+          wd: "."
+          env: {}
+          modifier: {}
+          environment:
+            name: "child_process"
+            config:
+              stdoe: "both"
+          stdout:
+            pipeline: []
+          stderr:
+            pipeline: []
+          output:
+            console:
+              close_success: true
+              queue_in_buffer: true
+              colors: false
+              stdin: false
+          version: 2
+        }
+        {
+          project: "/home/duncan/Working/game_of_tides_4"
+          source: "/home/duncan/Working/game_of_tides_4/.build-tools.cson"
+          name: "setup"
+          command: " mkdir -p ./backend/build"
+          wd: "."
+          env: {}
+          modifier:
+            shell:
+              command: "bash -c"
+          environment:
+            name: "child_process"
+            config:
+              stdoe: "both"
+          stdout:
+            pipeline: []
+          stderr:
+            pipeline: []
+          output:
+            console:
+              close_success: true
+              queue_in_buffer: true
+              colors: false
+              stdin: false
+          version: 2
+        }
+        {
+          project: "/home/duncan/Working/game_of_tides_4"
+          source: "/home/duncan/Working/game_of_tides_4/.build-tools.cson"
+          name: "run"
+          command: "./build/websocket.bin"
+          wd: "./backend/"
+          env: {}
+          modifier: {}
+          environment:
+            name: "child_process"
+            config:
+              stdoe: "both"
+          stdout:
+            pipeline: []
+          stderr:
+            pipeline: []
+          output:
+            console:
+              close_success: true
+              queue_in_buffer: true
+              colors: false
+              stdin: false
+          version: 2
+        }
+        {
+          project: "/home/duncan/Working/game_of_tides_4"
+          source: "/home/duncan/Working/game_of_tides_4/.build-tools.cson"
+          name: "build_and_run"
+          command: "echo \"done!\""
+          wd: "."
+          env: {}
+          modifier:
+            dependency:
+              list: [
+                [
+                  "0"
+                  "0"
+                  "build"
+                ]
+                [
+                  "0"
+                  "3"
+                  "run"
+                ]
+              ]
+              abort: true
+          environment:
+            name: "child_process"
+            config:
+              stdoe: "both"
+          stdout:
+            pipeline: []
+          stderr:
+            pipeline: []
+          output:
+            console:
+              close_success: true
+              queue_in_buffer: true
+              colors: false
+              stdin: false
+          version: 2
+        }
+        {
+          project: "/home/duncan/Working/game_of_tides_4"
+          source: "/home/duncan/Working/game_of_tides_4/.build-tools.cson"
+          name: "webserver"
+          command: "python -m SimpleHTTPServer"
+          wd: "./frontend/"
+          env: {}
+          modifier:
+            shell:
+              command: "bash -c"
+          environment:
+            name: "child_process"
+            config:
+              stdoe: "both"
+          stdout:
+            pipeline: []
+          stderr:
+            pipeline: []
+          output:
+            file:
+              path: "./frontend/webserver.log"
+              queue_in_file: true
+          version: 2
+        }
+      ]
+  }
+]
