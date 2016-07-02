@@ -4,7 +4,7 @@ body {
 }
 
 .overlay {
-    height: 0%;
+    height: 0;
     width: 100%;
     position: fixed;
     z-index: 2;
@@ -39,7 +39,7 @@ body {
     position: absolute;
     top: 20px;
     right: 45px;
-    font-size: 60px !important;
+    font-size: 60px;
 }
 
 .openbtn {
@@ -54,7 +54,7 @@ body {
   .overlay {overflow-y: auto;}
   .overlay a, li {font-size: 14px}
   .closebtn {
-    font-size: 40px !important;
+    font-size: 40px;
     top: 15px;
     right: 35px;
   }

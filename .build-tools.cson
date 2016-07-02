@@ -7,7 +7,7 @@ providers: [
           project: "/home/duncan/Working/game_of_tides_4"
           source: "/home/duncan/Working/game_of_tides_4/.build-tools.cson"
           name: "build"
-          command: "/usr/bin/g++ -Wall -std=c++11 -I ../ ../websocket.cc -o websocket.bin -lssl -lcrypto"
+          command: "/usr/bin/g++ -Wall -std=c++11 -I ../ -I ../../ ../hello_cpp_world.cc -o hw.bin -lssl -lcrypto"
           wd: "./backend/build/"
           env: {}
           modifier:
@@ -102,7 +102,7 @@ providers: [
           project: "/home/duncan/Working/game_of_tides_4"
           source: "/home/duncan/Working/game_of_tides_4/.build-tools.cson"
           name: "run"
-          command: "./build/websocket.bin"
+          command: "./build/hw.bin"
           wd: "./backend/"
           env: {}
           modifier: {}

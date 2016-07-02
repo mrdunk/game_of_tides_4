@@ -1,4 +1,6 @@
-#include "terrain.h"
+// Copyright 2016 duncan lat (mrdunk@gmail.com)
+
+#include "backend/terrain.h"
 
 void Terrain::addDataSource(DataSourceBase *p_data_source) {
   // TODO(duncan): Add check for duplicate data_sources.

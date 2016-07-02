@@ -1,6 +1,6 @@
 /*global options*/
 
-var game_loop = {};;
+var game_loop = {};
 game_loop.options = new Options();
 (function () {
   game_loop.last_drawn = window.performance.now();

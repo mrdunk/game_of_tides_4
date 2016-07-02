@@ -1,0 +1,8 @@
+{
+  "execPath": "/usr/bin/g++",
+  "gccDefaultCFlags": "-Wall -c",
+  "gccDefaultCppFlags": "-Wall -std=c++11 -c",
+  "gccErrorLimit": 10,
+  "gccIncludePaths": "./backend/, ./",
+  "gccSuppressWarnings": false
+}

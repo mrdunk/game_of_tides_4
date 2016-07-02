@@ -1,7 +1,19 @@
-#include <iostream>
-#include "terrain.h"
+// Copyright 2016 duncan lat (mrdunk@gmail.com)
 
-int main() {
+#include <iostream>
+#include <string>
+#include "backend/data_transport_ws.h"
+#include "backend/terrain.h"
+
+int debug;
+
+int main(int argc, char * argv[]) {
+  if (argc > 1 && std::string(argv[1]) == "-d") {
+    debug = 1;
+  } else {
+    debug = 0;
+  }
+
   std::cout << "Hello World!" << std::endl;
   std::cout << k_top_level_mask << std::endl;
 
@@ -24,4 +36,9 @@ int main() {
   std::cout << generator.getRecursionFromIndex((uint64_t)1 << 58)  << std::endl;
   std::cout << generator.getRecursionFromIndex((uint64_t)1 << 57)  << std::endl;
 
+
+  // set up an external io_service to run websocket endpoints on.
+  asio::io_service ios;
+  TransportWS<std::string> ws_server(&ios);
+  ios.run();
 }

@@ -1,3 +1,8 @@
+// Copyright 2016 duncan lat (mrdunk@gmail.com)
+
+#ifndef BACKEND_TERRAIN_H_
+#define BACKEND_TERRAIN_H_
+
 #include <map>
 #include <vector>
 
@@ -19,17 +24,17 @@ typedef struct Point {
 } Point;
 
 class Face {
-public:
+ public:
   Face() : populated_{false} {}
   bool isPopulated() { return populated_; }
   Point points[3];
 
-private:
+ private:
   bool populated_;
 };
 
 class DataSourceBase {
-public:
+ public:
   int getRecursionFromIndex(uint64_t index) {
     for (int i = 0; i < 61; ++i) {
       if (((uint64_t)1 << i) & index) {
@@ -45,7 +50,7 @@ public:
 };
 
 class DataSourceCache : DataSourceBase {
-public:
+ public:
   Face getFace(uint64_t index) {
     Face Face;
     if (cache_.count(index)) {
@@ -54,14 +59,14 @@ public:
   }
   void cacheFace(uint64_t index, Face Face) { cache_[index] = Face; }
 
-private:
+ private:
   std::map<uint64_t, Face> cache_;
 };
 
 class DataSourceGenerate : public DataSourceBase {
-public:
+ public:
   Face getFace(uint64_t index) {
-    // TODO: put this data in an array.
+    // TODO(duncan): put this data in an array.
     Face parent_face;
     if ((index & k_top_level_mask) == index) {
       if (index & k_top_level_shape_0) {
@@ -149,14 +154,16 @@ public:
     return parent_face;
   }
 
-private:
+ private:
 };
 
 class Terrain {
-public:
+ public:
   void addDataSource(DataSourceBase *p_data_source);
   Face getFace(uint64_t index);
 
-private:
+ private:
   std::vector<DataSourceBase *> data_sources_;
 };
+
+#endif  // BACKEND_TERRAIN_H_

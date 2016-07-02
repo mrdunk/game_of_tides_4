@@ -19,7 +19,7 @@ var WebSocketWrapper = function(){
         return;
       }
     }
-        
+
     if(!this_.web_socket || this_.web_socket.readyState === this_.web_socket.CLOSED){
       this_.web_socket = new WebSocket(data.url);//, ['soap', 'xmpp']); //[data.protocol]);
       this_.web_socket.onopen = this_.onopen;
@@ -37,7 +37,7 @@ var WebSocketWrapper = function(){
     }
     self.postMessage('Error: WebSocketWrapper.connect(): web_socket not in an expected state.');
   };
-  
+
   this.send = function(data){
     if(!this_.web_socket || this_.web_socket.readyState !== this_.web_socket.OPEN) {
       self.postMessage('WebSocket not connected.');
@@ -45,28 +45,28 @@ var WebSocketWrapper = function(){
     }
     this_.web_socket.send(data);
   };
-  
+
   this.close = function(){
     if(!this_.web_socket || this_.web_socket.readyState !== this_.web_socket.OPEN) {
       self.postMessage('Attempted disconnect when WebSocket not connected.');
       return;
     }
-    this_.web_socket.close();      
+    this_.web_socket.close();
   };
-  
+
   this.onopen = function(event){
     self.postMessage('WS open');
     this_.web_socket.send('Ping');
   };
-  
+
   this_.onclose = function(){
     self.postMessage('WS close');
   };
-  
+
   this_.onmessage = function(){
     self.postMessage('WS receive');
   };
-  
+
   this_.onerror = function(){
     self.postMessage('WS error');
   };
@@ -108,5 +108,3 @@ self.addEventListener('message', function(e) {
       self.postMessage('Unknown command: ' + data.msg);
   }
 }, false);
-
-
