@@ -1,3 +1,5 @@
+// Copyright 2016 duncan law (mrdunk@gmail.com)
+
 importScripts('3rdparty/three.js');
 self.postMessage('Spawned worker:', self._id);
 
@@ -21,7 +23,7 @@ var WebSocketWrapper = function(){
     }
 
     if(!this_.web_socket || this_.web_socket.readyState === this_.web_socket.CLOSED){
-      this_.web_socket = new WebSocket(data.url);//, ['soap', 'xmpp']); //[data.protocol]);
+      this_.web_socket = new WebSocket(data.url, [data.protocol]);
       this_.web_socket.onopen = this_.onopen;
       this_.web_socket.onclose = this_.onclose;
       this_.web_socket.onmessage = this_.onmessage;

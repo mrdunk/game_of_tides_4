@@ -1,4 +1,4 @@
-// Copyright 2016 duncan lat (mrdunk@gmail.com)
+// Copyright 2016 duncan law (mrdunk@gmail.com)
 
 #include "backend/terrain.h"
 

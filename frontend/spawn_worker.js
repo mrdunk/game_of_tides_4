@@ -1,3 +1,5 @@
+// Copyright 2016 duncan law (mrdunk@gmail.com)
+
 /*global default_view*/
 /*global second_view*/
 /*global Scene*/
@@ -37,6 +39,6 @@ worker.postMessage({
 worker.postMessage({
   cmd: 'ws_con',
   url: game_loop.options.data.websockets.settings.url.value,
-  protocol: 'test'
+  protocol: game_loop.options.data.websockets.settings.protocol.value
 });
   // })();

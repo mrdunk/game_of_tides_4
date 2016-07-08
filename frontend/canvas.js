@@ -1,3 +1,5 @@
+// Copyright 2016 duncan law (mrdunk@gmail.com)
+
 /*global THREE*/
 
 var Viewport = function(width, height, camera) {

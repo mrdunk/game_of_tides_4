@@ -1,4 +1,4 @@
-// Copyright 2016 duncan lat (mrdunk@gmail.com)
+// Copyright 2016 duncan law (mrdunk@gmail.com)
 
 #ifndef BACKEND_TERRAIN_H_
 #define BACKEND_TERRAIN_H_

@@ -1,4 +1,4 @@
-// Copyright 2016 duncan lat (mrdunk@gmail.com)
+// Copyright 2016 duncan law (mrdunk@gmail.com)
 
 #ifndef BACKEND_DATA_TRANSPORT_H_
 #define BACKEND_DATA_TRANSPORT_H_
@@ -24,6 +24,7 @@ class EncoderBase {
   virtual int Decode(Encoded in, Plain out) = 0;
 };
 
+/* Dummy encoder just passes strings straight through with no modification. */
 class EncoderPassString : EncoderBase<std::string, std::string> {
  public:
   int Encode(std::string in, std::string out) {
@@ -36,7 +37,8 @@ class EncoderPassString : EncoderBase<std::string, std::string> {
   }
 };
 
-/* A method of sending data between logical components or networked machines.
+/* A base class for sending data between logical components.
+ * These may be on the same machine or networked.
  *
  * Input: The type of data expected to be sent.
  */

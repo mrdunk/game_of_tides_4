@@ -1,3 +1,5 @@
+// Copyright 2016 duncan law (mrdunk@gmail.com)
+
 /*global store*/
 /*global worker*/
 /*global location*/
@@ -128,6 +130,11 @@ var Options = function() {
           description: 'Server URL',
           type: SelectString,
           value: 'wss://192.168.192.251:8081'
+        },
+        protocol: {
+          description: 'WS protocol',
+          type: SelectString,
+          value: 'tides'
         },
         connect: {
           description: 'Connect WebSocket',

@@ -1,3 +1,5 @@
+// Copyright 2016 duncan law (mrdunk@gmail.com)
+
 /*global options*/
 
 var game_loop = {};
