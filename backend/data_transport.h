@@ -8,6 +8,10 @@
 #include <string>
 #include <iostream>  // cout
 
+#include "rapidjson/document.h"
+#include "rapidjson/writer.h"
+#include "rapidjson/stringbuffer.h"
+
 #include "backend/logging.h"
 
 template <class Data> class DataExchange;
@@ -39,6 +43,26 @@ class EncoderPassString : public EncoderBase<std::string, std::string> {
   }
 };
 
+class EncoderJSON : public EncoderBase<rapidjson::Document, std::string> {
+ public:
+  int Encode(rapidjson::Document const& in, std::string* out) {
+    rapidjson::StringBuffer buffer;
+    rapidjson::Writer<rapidjson::StringBuffer> writer(buffer);
+    in.Accept(writer);
+    *out = buffer.GetString();
+    return !out->empty();
+  }
+  int Decode(std::string const& in, rapidjson::Document* out) {
+    LOG("decoding: " << in);
+    rapidjson::ParseResult ok = out->Parse(in.c_str());
+    if (!ok) {
+      out->Parse("{\"error\": \"invalid JSON\", \"fail_string\": \"\"}");
+      (*out)["fail_string"].SetString(in.c_str(), out->GetAllocator());
+    }
+    return (ok?1:0);
+  }
+};
+
 /* A base class for sending data between logical components.
  * These may be on the same machine or networked.
  *
@@ -48,19 +72,19 @@ template <class Input>
 class TransportBase {
  public:
   int Send(uint32_t address, int type, std::string data);
-  void RegisterCallback(std::function<void(Input)> exchange) {
+  void RegisterCallback(std::function<void(std::string)> exchange) {
     consumer_ = exchange;
   }
 
  protected:
-  void OnReceive(Input data);
+  void OnReceive(std::string data);
 
  private:
-  std::function<void(Input)> consumer_;
+  std::function<void(std::string)> consumer_;
 };
 
 template <class Input>
-void TransportBase<Input>::OnReceive(Input data) {
+void TransportBase<Input>::OnReceive(std::string data) {
   if (consumer_) {
     consumer_(data);
   } else {
@@ -68,9 +92,10 @@ void TransportBase<Input>::OnReceive(Input data) {
   }
 }
 
+template <class Data>
 class WorkHandlerBase {
  public:
-  virtual void Consume(const std::string& data) = 0;
+  virtual void Consume(const Data& data) = 0;
 };
 
 /* Plums a Transport layer to an encoder/decoder and an end consumer/provider of
@@ -88,11 +113,12 @@ class DataExchange {
     p_transporter->RegisterCallback(
         std::bind(&DataExchange::OnReceive, this, std::placeholders::_1));
   }
+
   void RegisterEncoder(EncoderBase<Data, std::string>* p_encoder) {
     p_encoder_ = p_encoder;
   }
 
-  void RegisterWorkHandler(WorkHandlerBase* p_work_handler) {
+  void RegisterWorkHandler(WorkHandlerBase<Data>* p_work_handler) {
     p_work_handler_ = p_work_handler;
   }
 
@@ -102,15 +128,15 @@ class DataExchange {
     return p_transporter_->Send(address, type, encoded);
   }
 
-  void OnReceive(Data data) {
-    LOG("Received: " << data);
-    std::string out;
+  void OnReceive(std::string data) {
+    // LOG("Received: " << data);
+    Data out;
     if (p_encoder_->Decode(data, &out)) {
-      LOG("decoded: " << out);
+      // LOG("decoded: " << out);
       if (p_work_handler_) {
         p_work_handler_->Consume(out);
       } else {
-        LOG("unconsumed data: " << out);
+        LOG("unconsumed data");
       }
     }
   }
@@ -118,7 +144,7 @@ class DataExchange {
  private:
   TransportBase<Data>* p_transporter_;
   EncoderBase<Data, std::string>* p_encoder_;
-  WorkHandlerBase* p_work_handler_;
+  WorkHandlerBase<Data>* p_work_handler_;
 };
 
 #endif  // BACKEND_DATA_TRANSPORT_H_

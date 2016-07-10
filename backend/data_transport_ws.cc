@@ -127,3 +127,4 @@ std::string GetPassword() { return ""; }
 // for otherwise we confuse the linker later.
 // http://stackoverflow.com/questions/8752837/undefined-reference-to-template-class-constructor
 template class TransportWS<std::string>;
+template class TransportWS<rapidjson::Document>;

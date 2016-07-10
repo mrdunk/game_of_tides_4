@@ -23,10 +23,10 @@ void handler(asio::error_code ec) {
 }
 
 template<class Data>
-class TestCustomer : public WorkHandlerBase {
+class TestCustomer : public WorkHandlerBase<Data> {
  public:
   void Consume(Data const& data) {
-    LOG("TestCustomer::Consume(" << data << ")");
+    //LOG("TestCustomer::Consume(" << data << ")");
   }
   void Provide(Data* data) {
     // TODO(mrdunk)
@@ -84,14 +84,15 @@ int main(int argc, char * argv[]) {
   }
 
 
-  TransportWS<std::string> ws_server(&ios, debug);
-  EncoderPassString encoder;
-  DataExchange<std::string> exchange;
+  TransportWS<rapidjson::Document> ws_server(&ios, debug);
+  EncoderJSON encoder;
+  DataExchange<rapidjson::Document> exchange;
   exchange.RegisterTransport(&ws_server);
   exchange.RegisterEncoder(&encoder);
 
-  TestCustomer<std::string> customer;
-  exchange.RegisterWorkHandler(&customer);
+  //TestCustomer<rapidjson::Document> customer;
+
+  //exchange.RegisterWorkHandler(&customer);
 
 
   asio::steady_timer t1(ios);
