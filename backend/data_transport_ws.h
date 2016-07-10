@@ -25,6 +25,7 @@ typedef websocketpp::server<websocketpp::config::asio_tls> server_tls;
 #include <string>
 
 #include "backend/data_transport.h"
+#include "backend/logging.h"
 
 
 typedef websocketpp::lib::shared_ptr<asio::ssl::context> context_ptr;

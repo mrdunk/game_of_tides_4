@@ -1,6 +1,7 @@
 // Copyright 2016 duncan law (mrdunk@gmail.com)
 
 #include "backend/data_transport_ws.h"
+#include "backend/logging.h"
 
 
 template <class Input>
@@ -25,6 +26,7 @@ TransportWS<Input>::TransportWS(asio::io_service* p_ios, const int debug) :
            this, ::_1, ::_2, &endpoint_plain_));
 
   endpoint_plain_.listen(8081);
+  endpoint_plain_.set_reuse_addr(true);
   endpoint_plain_.start_accept();
 
   // Encrypted websocket.
@@ -40,6 +42,7 @@ TransportWS<Input>::TransportWS(asio::io_service* p_ios, const int debug) :
       bind(&TransportWS::OnTlsInit_, this, ::_1));
   // tls endpoint listens on a different port
   endpoint_tls_.listen(8082);
+  endpoint_tls_.set_reuse_addr(true);
   endpoint_tls_.start_accept();
 }
 
@@ -48,34 +51,46 @@ template <typename EndpointType>
 void TransportWS<Input>::OnWsMessage_(websocketpp::connection_hdl hdl,
                     typename EndpointType::message_ptr msg,
                     EndpointType* s) {
-  std::cout << "OnWsMessage_" << std::endl;
+  LOG("OnWsMessage_");
   if (debug_) {
     // Upgrade our connection_hdl to a full connection_ptr
     typename EndpointType::connection_ptr con = s->get_con_from_hdl(hdl);
 
-    std::cout << " secure: \t" << con->get_secure() << std::endl;
-    std::cout << " host: \t" << con->get_host() << std::endl;
-    std::cout << " resource: \t" << con->get_resource() << std::endl;
-    std::cout << " port: \t" << con->get_port() << std::endl;
-    std::cout << " origin: \t" << con->get_origin() << std::endl;
+    LOG(" secure: \t" << con->get_secure());
+    LOG(" host: \t" << con->get_host());
+    LOG(" resource: \t" << con->get_resource());
+    LOG(" port: \t" << con->get_port());
+    LOG(" origin: \t" << con->get_origin());
   }
 
-  TransportBase<Input>::OnReceive(msg->get_payload());
+  // TransportBase<Input>::OnReceive(msg->get_payload());
+  this->OnReceive(msg->get_payload());
+
+  if (msg->get_payload() == "hangup") {
+    if (endpoint_plain_.is_listening()) {
+      endpoint_plain_.stop_perpetual();
+      endpoint_plain_.stop_listening();
+    }
+    if (endpoint_tls_.is_listening()) {
+      endpoint_tls_.stop_perpetual();
+      endpoint_tls_.stop_listening();
+    }
+  }
 }
 
 template <class Input>
 template <typename EndpointType>
 bool TransportWS<Input>::Validate_(websocketpp::connection_hdl hdl,
                                    EndpointType* s) {
-  std::cout << "Validate_" << std::endl;
+  LOG("Validate_");
   typename EndpointType::connection_ptr con = s->get_con_from_hdl(hdl);
 
   const std::vector<std::string> & subp_requests =
-  con->get_requested_subprotocols();
+      con->get_requested_subprotocols();
   std::vector<std::string>::const_iterator it;
 
   for (it = subp_requests.begin(); it != subp_requests.end(); ++it) {
-    std::cout << " Requested protocol: " << *it << std::endl;
+    LOG(" Requested protocol: " << *it);
   }
 
   if (subp_requests.size() > 0) {
@@ -88,8 +103,7 @@ bool TransportWS<Input>::Validate_(websocketpp::connection_hdl hdl,
 
 template <class Input>
 context_ptr TransportWS<Input>::OnTlsInit_(websocketpp::connection_hdl hdl) {
-  std::cout << "OnTlsInit_ called with hdl: " << hdl.lock().get() <<
-  std::endl;
+  LOG("OnTlsInit_ called with hdl: " << hdl.lock().get());
   context_ptr ctx = websocketpp::lib::make_shared<asio::ssl::context>(
       asio::ssl::context::tlsv1);
 
@@ -102,12 +116,14 @@ context_ptr TransportWS<Input>::OnTlsInit_(websocketpp::connection_hdl hdl) {
     ctx->use_certificate_chain_file("keys/chain.pem");
     ctx->use_private_key_file("keys/key.pem", asio::ssl::context::pem);
   } catch (std::exception &e) {
-    std::cout << e.what() << std::endl;
+    LOG(e.what());
   }
   return ctx;
 }
 
 std::string GetPassword() { return ""; }
 
-
+// We need to explicitly tell the compiler which data types to build TransportWS
+// for otherwise we confuse the linker later.
+// http://stackoverflow.com/questions/8752837/undefined-reference-to-template-class-constructor
 template class TransportWS<std::string>;

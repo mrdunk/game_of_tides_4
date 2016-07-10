@@ -8,6 +8,8 @@
 #include <string>
 #include <iostream>  // cout
 
+#include "backend/logging.h"
+
 template <class Data> class DataExchange;
 
 /* Transfer one data type to another for transmision or after receiving it.
@@ -20,20 +22,20 @@ template <class Data> class DataExchange;
 template <class Plain, class Encoded>
 class EncoderBase {
  public:
-  virtual int Encode(Plain in, Encoded out) = 0;
-  virtual int Decode(Encoded in, Plain out) = 0;
+  virtual int Encode(Plain const& in, Encoded* out) = 0;
+  virtual int Decode(Encoded const& in, Plain* out) = 0;
 };
 
 /* Dummy encoder just passes strings straight through with no modification. */
-class EncoderPassString : EncoderBase<std::string, std::string> {
+class EncoderPassString : public EncoderBase<std::string, std::string> {
  public:
-  int Encode(std::string in, std::string out) {
-    out = in;
-    return !out.empty();
+  int Encode(std::string const& in, std::string* out) {
+    *out = in;
+    return !out->empty();
   }
-  int Decode(std::string in, std::string out) {
-    out = in;
-    return !out.empty();
+  int Decode(std::string const& in, std::string* out) {
+    *out = in;
+    return !out->empty();
   }
 };
 
@@ -46,44 +48,77 @@ template <class Input>
 class TransportBase {
  public:
   int Send(uint32_t address, int type, std::string data);
-  void RegisterCallback(DataExchange<Input> *exchange) { consumer_ = exchange; }
+  void RegisterCallback(std::function<void(Input)> exchange) {
+    consumer_ = exchange;
+  }
 
  protected:
   void OnReceive(Input data);
 
  private:
-  DataExchange<Input> *consumer_;
+  std::function<void(Input)> consumer_;
 };
 
 template <class Input>
 void TransportBase<Input>::OnReceive(Input data) {
-  consumer_->OnReceive(data);
+  if (consumer_) {
+    consumer_(data);
+  } else {
+    LOG("Unconsumed data: " << data);
+  }
 }
 
+class WorkHandlerBase {
+ public:
+  virtual void Consume(const std::string& data) = 0;
+};
+
+/* Plums a Transport layer to an encoder/decoder and an end consumer/provider of
+ * the data to be sent/received.
+ * eg: [user_method] -> [encode_the_data] -> [transport_layer]
+ * eg: [transport_layer] -> [decode_the_data] -> [user_method]
+ */
 template <class Data>
 class DataExchange {
  public:
-  void RegisterTransport(TransportBase<Data> transporter) {
-    transporter_ = transporter;
-    transporter.RegisterCallback(this);
+  DataExchange() : p_work_handler_(NULL) {}
+
+  void RegisterTransport(TransportBase<Data>* p_transporter) {
+    p_transporter_ = p_transporter;
+    p_transporter->RegisterCallback(
+        std::bind(&DataExchange::OnReceive, this, std::placeholders::_1));
   }
-  void RegisterEncoder(EncoderBase<Data, std::string> *p_encoder) {
+  void RegisterEncoder(EncoderBase<Data, std::string>* p_encoder) {
     p_encoder_ = p_encoder;
+  }
+
+  void RegisterWorkHandler(WorkHandlerBase* p_work_handler) {
+    p_work_handler_ = p_work_handler;
   }
 
   int Send(uint32_t address, int type, Data data) {
     std::string encoded;
     p_encoder_->Encode(data, encoded);
-    return transporter_.Send(address, type, encoded);
+    return p_transporter_->Send(address, type, encoded);
   }
 
   void OnReceive(Data data) {
-    std::cout << "Received: " << data << std::endl;
+    LOG("Received: " << data);
+    std::string out;
+    if (p_encoder_->Decode(data, &out)) {
+      LOG("decoded: " << out);
+      if (p_work_handler_) {
+        p_work_handler_->Consume(out);
+      } else {
+        LOG("unconsumed data: " << out);
+      }
+    }
   }
 
  private:
-  TransportBase<Data> transporter_;
-  EncoderBase<Data, std::string> *p_encoder_;
+  TransportBase<Data>* p_transporter_;
+  EncoderBase<Data, std::string>* p_encoder_;
+  WorkHandlerBase* p_work_handler_;
 };
 
 #endif  // BACKEND_DATA_TRANSPORT_H_
