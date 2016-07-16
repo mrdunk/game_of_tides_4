@@ -26,7 +26,7 @@ template<class Data>
 class TestCustomer : public WorkHandlerBase<Data> {
  public:
   void Consume(Data const& data) {
-    //LOG("TestCustomer::Consume(" << data << ")");
+    LOG("TestCustomer::Consume(" << EncoderJSON::DisplayJSON(data) << ")");
   }
   void Provide(Data* data) {
     // TODO(mrdunk)
@@ -90,9 +90,9 @@ int main(int argc, char * argv[]) {
   exchange.RegisterTransport(&ws_server);
   exchange.RegisterEncoder(&encoder);
 
-  //TestCustomer<rapidjson::Document> customer;
+  TestCustomer<rapidjson::Document> customer;
 
-  //exchange.RegisterWorkHandler(&customer);
+  exchange.RegisterWorkHandler(&customer);
 
 
   asio::steady_timer t1(ios);

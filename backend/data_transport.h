@@ -11,6 +11,8 @@
 #include "rapidjson/document.h"
 #include "rapidjson/writer.h"
 #include "rapidjson/stringbuffer.h"
+#include "rapidjson/prettywriter.h"  // for stringify JSON
+
 
 #include "backend/logging.h"
 
@@ -33,35 +35,17 @@ class EncoderBase {
 /* Dummy encoder just passes strings straight through with no modification. */
 class EncoderPassString : public EncoderBase<std::string, std::string> {
  public:
-  int Encode(std::string const& in, std::string* out) {
-    *out = in;
-    return !out->empty();
-  }
-  int Decode(std::string const& in, std::string* out) {
-    *out = in;
-    return !out->empty();
-  }
+  int Encode(std::string const& in, std::string* out);
+  int Decode(std::string const& in, std::string* out);
 };
 
 class EncoderJSON : public EncoderBase<rapidjson::Document, std::string> {
  public:
-  int Encode(rapidjson::Document const& in, std::string* out) {
-    rapidjson::StringBuffer buffer;
-    rapidjson::Writer<rapidjson::StringBuffer> writer(buffer);
-    in.Accept(writer);
-    *out = buffer.GetString();
-    return !out->empty();
-  }
-  int Decode(std::string const& in, rapidjson::Document* out) {
-    LOG("decoding: " << in);
-    rapidjson::ParseResult ok = out->Parse(in.c_str());
-    if (!ok) {
-      out->Parse("{\"error\": \"invalid JSON\", \"fail_string\": \"\"}");
-      (*out)["fail_string"].SetString(in.c_str(), out->GetAllocator());
-    }
-    return (ok?1:0);
-  }
+  int Encode(rapidjson::Document const& in, std::string* out);
+  int Decode(std::string const& in, rapidjson::Document* out);
+  static std::string DisplayJSON(rapidjson::Document const& in);
 };
+
 
 /* A base class for sending data between logical components.
  * These may be on the same machine or networked.
@@ -83,20 +67,14 @@ class TransportBase {
   std::function<void(std::string)> consumer_;
 };
 
-template <class Input>
-void TransportBase<Input>::OnReceive(std::string data) {
-  if (consumer_) {
-    consumer_(data);
-  } else {
-    LOG("Unconsumed data: " << data);
-  }
-}
 
+/* TODO */
 template <class Data>
 class WorkHandlerBase {
  public:
   virtual void Consume(const Data& data) = 0;
 };
+
 
 /* Plums a Transport layer to an encoder/decoder and an end consumer/provider of
  * the data to be sent/received.

@@ -61,6 +61,8 @@ void TransportWS<Input>::OnWsMessage_(websocketpp::connection_hdl hdl,
     LOG(" resource: \t" << con->get_resource());
     LOG(" port: \t" << con->get_port());
     LOG(" origin: \t" << con->get_origin());
+    LOG(" hdl: \t" << hdl.lock().get());
+    LOG(" hdl: \t" << hdl.lock().get());
   }
 
   // TransportBase<Input>::OnReceive(msg->get_payload());
