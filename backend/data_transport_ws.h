@@ -21,6 +21,7 @@ typedef websocketpp::server<websocketpp::config::asio_tls> server_tls;
 #endif  // DEBUG
 
 #include <vector>
+#include <set>
 #include <iostream>  // cout
 #include <string>
 
@@ -43,6 +44,9 @@ template <class Input>
 class TransportWS : public TransportBase<Input> {
  public:
   TransportWS(asio::io_service* p_ios, const int debug);
+  int ConnectPlain();
+  int ConnectTls();
+  int Stop();
 
  private:
   template <typename EndpointType>
@@ -51,7 +55,13 @@ class TransportWS : public TransportBase<Input> {
                     EndpointType* s);
 
   template <typename EndpointType>
-  bool Validate_(websocketpp::connection_hdl hdl, EndpointType* s);
+  bool OnWsValidate_(websocketpp::connection_hdl hdl, EndpointType* s);
+
+  template <typename EndpointType>
+  void OnWsOpen_(websocketpp::connection_hdl hdl, EndpointType* s);
+
+  template <typename EndpointType>
+  void OnWsClose_(websocketpp::connection_hdl hdl, EndpointType* s);
 
   context_ptr OnTlsInit_(websocketpp::connection_hdl hdl);
 
@@ -59,6 +69,10 @@ class TransportWS : public TransportBase<Input> {
   server_plain endpoint_plain_;
   server_tls endpoint_tls_;
   int debug_;
+
+  typedef std::set<connection_hdl, std::owner_less<connection_hdl>> con_list;
+  con_list connections_plain_;
+  con_list connections_tls_;
 };
 
 #endif  // BACKEND_DATA_TRANSPORT_WS_H_

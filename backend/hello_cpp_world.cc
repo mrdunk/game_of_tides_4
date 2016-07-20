@@ -83,15 +83,20 @@ int main(int argc, char * argv[]) {
     threads.push_back(std::thread(bound_method));
   }
 
-
   TransportWS<rapidjson::Document> ws_server(&ios, debug);
+  while (ws_server.ConnectPlain() == 0) {
+    // Wait for port to become available.
+    sleep(10);
+  }
+  while (ws_server.ConnectTls() == 0) {
+    // Wait for port to become available.
+    sleep(10);
+  }
   EncoderJSON encoder;
   DataExchange<rapidjson::Document> exchange;
   exchange.RegisterTransport(&ws_server);
   exchange.RegisterEncoder(&encoder);
-
   TestCustomer<rapidjson::Document> customer;
-
   exchange.RegisterWorkHandler(&customer);
 
 

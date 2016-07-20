@@ -7,6 +7,7 @@
 template <class Input>
 TransportWS<Input>::TransportWS(asio::io_service* p_ios, const int debug) :
     p_ios_(p_ios), debug_(debug) {
+  LOG("TransportWS +"); std::cout << std::flush;
 #ifdef DEBUG
   if (debug_) {
     endpoint_plain_.set_access_channels(websocketpp::log::alevel::all);
@@ -18,20 +19,20 @@ TransportWS<Input>::TransportWS(asio::io_service* p_ios, const int debug) :
 
   // Unencrypted websocket.
   endpoint_plain_.set_validate_handler(
-      bind(&TransportWS::Validate_<server_plain>,
+      bind(&TransportWS::OnWsValidate_<server_plain>,
            this, ::_1, &endpoint_plain_));
   endpoint_plain_.init_asio(p_ios_);
   endpoint_plain_.set_message_handler(
       bind(&TransportWS::OnWsMessage_<server_plain>,
            this, ::_1, ::_2, &endpoint_plain_));
-
-  endpoint_plain_.listen(8081);
-  endpoint_plain_.set_reuse_addr(true);
-  endpoint_plain_.start_accept();
+  endpoint_plain_.set_open_handler(bind(&TransportWS::OnWsOpen_<server_plain>,
+           this, ::_1, &endpoint_plain_));
+  endpoint_plain_.set_close_handler(bind(&TransportWS::OnWsClose_<server_plain>,
+           this, ::_1, &endpoint_plain_));
 
   // Encrypted websocket.
   endpoint_tls_.set_validate_handler(
-      bind(&TransportWS::Validate_<server_tls>,
+      bind(&TransportWS::OnWsValidate_<server_tls>,
            this, ::_1, &endpoint_tls_));
   endpoint_tls_.init_asio(p_ios_);
   endpoint_tls_.set_message_handler(
@@ -40,10 +41,104 @@ TransportWS<Input>::TransportWS(asio::io_service* p_ios, const int debug) :
   // TLS endpoint has an extra handler for the tls init
   endpoint_tls_.set_tls_init_handler(
       bind(&TransportWS::OnTlsInit_, this, ::_1));
-  // tls endpoint listens on a different port
-  endpoint_tls_.listen(8082);
-  endpoint_tls_.set_reuse_addr(true);
-  endpoint_tls_.start_accept();
+
+  ConnectPlain();
+  ConnectTls();
+
+  LOG("TransportWS -");
+}
+
+template <class Input>
+int TransportWS<Input>::ConnectPlain() {
+  if (endpoint_plain_.is_listening()) {
+    return 2;
+  }
+  try {
+    endpoint_plain_.listen(8081);
+    endpoint_plain_.set_reuse_addr(true);
+  } catch(websocketpp::exception const &e) {
+    std::cout << "websocketpp::exception: " << e.what() << std::endl;
+    return 0;
+  }
+  websocketpp::lib::error_code ec;
+  endpoint_plain_.start_accept(ec);
+  if (ec) {
+    LOG("ERROR starting plain websocket: " << ec.message());
+    return -1;
+  }
+
+  LOG("Plain WS connected.");
+  return 1;
+}
+
+template <class Input>
+int TransportWS<Input>::ConnectTls() {
+  if (endpoint_tls_.is_listening()) {
+    return 2;
+  }
+  try {
+    endpoint_tls_.listen(8082);
+    endpoint_tls_.set_reuse_addr(true);
+  } catch(websocketpp::exception const &e) {
+    std::cout << "websocketpp::exception: " << e.what() << std::endl;
+    return 0;
+  }
+  websocketpp::lib::error_code ec;
+  endpoint_tls_.start_accept(ec);
+  if (ec) {
+    LOG("ERROR starting plain websocket: " << ec.message());
+    return -1;
+  }
+
+  LOG("Encrypted WS connected.");
+  return 1;
+}
+
+template <class Input>
+int TransportWS<Input>::Stop() {
+  websocketpp::lib::error_code ec;
+  if (endpoint_plain_.is_listening()) {
+    endpoint_plain_.stop_listening(ec);
+    if (ec) {
+        LOG("ERROR unable to stop_listening to endpoint_plain: " <<
+            ec.message());
+        return 0;
+    }
+  }
+
+  if (endpoint_plain_.is_listening()) {
+    endpoint_tls_.stop_listening(ec);
+    if (ec) {
+        LOG("ERROR unable to stop_listening to endpoint_tls: " << ec.message());
+        return 0;
+    }
+  }
+
+  std::string data = "Terminating connection...";
+  for (auto it : connections_plain_) {
+    websocketpp::lib::error_code ec;
+    endpoint_plain_.close(it, websocketpp::close::status::normal, data, ec);
+    if (ec) {
+      LOG("ERROR unable to close connection: " << ec.message());
+    } else {
+      LOG("closed");
+    }
+  }
+
+  for (auto it : connections_tls_) {
+    websocketpp::lib::error_code ec;
+    endpoint_tls_.close(it, websocketpp::close::status::normal, data, ec);
+    if (ec) {
+      LOG("ERROR unable to close connection: " << ec.message());
+    } else {
+      LOG("closed");
+    }
+  }
+
+  endpoint_plain_.stop();
+  endpoint_tls_.stop();
+
+  return 1;
 }
 
 template <class Input>
@@ -69,22 +164,39 @@ void TransportWS<Input>::OnWsMessage_(websocketpp::connection_hdl hdl,
   this->OnReceive(msg->get_payload());
 
   if (msg->get_payload() == "hangup") {
-    if (endpoint_plain_.is_listening()) {
-      endpoint_plain_.stop_perpetual();
-      endpoint_plain_.stop_listening();
-    }
-    if (endpoint_tls_.is_listening()) {
-      endpoint_tls_.stop_perpetual();
-      endpoint_tls_.stop_listening();
-    }
+    Stop();
   }
 }
 
 template <class Input>
 template <typename EndpointType>
-bool TransportWS<Input>::Validate_(websocketpp::connection_hdl hdl,
+void TransportWS<Input>::OnWsOpen_(websocketpp::connection_hdl hdl,
                                    EndpointType* s) {
-  LOG("Validate_");
+  typename EndpointType::connection_ptr con = s->get_con_from_hdl(hdl);
+  if (con->get_secure()) {
+    connections_tls_.insert(hdl);
+  } else {
+    connections_plain_.insert(hdl);
+  }
+}
+
+template <class Input>
+template <typename EndpointType>
+void TransportWS<Input>::OnWsClose_(websocketpp::connection_hdl hdl,
+                                   EndpointType* s) {
+  typename EndpointType::connection_ptr con = s->get_con_from_hdl(hdl);
+  if (con->get_secure()) {
+    connections_tls_.erase(hdl);
+  } else {
+    connections_plain_.erase(hdl);
+  }
+}
+
+template <class Input>
+template <typename EndpointType>
+bool TransportWS<Input>::OnWsValidate_(websocketpp::connection_hdl hdl,
+                                   EndpointType* s) {
+  LOG("OnWsValidate_");
   typename EndpointType::connection_ptr con = s->get_con_from_hdl(hdl);
 
   const std::vector<std::string> & subp_requests =
