@@ -4,8 +4,7 @@
 #include "backend/logging.h"
 
 
-template <class Input>
-TransportWS<Input>::TransportWS(asio::io_service* p_ios, const int debug) :
+TransportWS::TransportWS(asio::io_service* p_ios, const int debug) :
     p_ios_(p_ios), debug_(debug) {
   LOG("TransportWS +"); std::cout << std::flush;
 #ifdef DEBUG
@@ -48,8 +47,7 @@ TransportWS<Input>::TransportWS(asio::io_service* p_ios, const int debug) :
   LOG("TransportWS -");
 }
 
-template <class Input>
-int TransportWS<Input>::ConnectPlain() {
+int TransportWS::ConnectPlain() {
   if (endpoint_plain_.is_listening()) {
     return 2;
   }
@@ -71,8 +69,7 @@ int TransportWS<Input>::ConnectPlain() {
   return 1;
 }
 
-template <class Input>
-int TransportWS<Input>::ConnectTls() {
+int TransportWS::ConnectTls() {
   if (endpoint_tls_.is_listening()) {
     return 2;
   }
@@ -94,8 +91,7 @@ int TransportWS<Input>::ConnectTls() {
   return 1;
 }
 
-template <class Input>
-int TransportWS<Input>::Stop() {
+int TransportWS::Stop() {
   websocketpp::lib::error_code ec;
   if (endpoint_plain_.is_listening()) {
     endpoint_plain_.stop_listening(ec);
@@ -141,9 +137,8 @@ int TransportWS<Input>::Stop() {
   return 1;
 }
 
-template <class Input>
 template <typename EndpointType>
-void TransportWS<Input>::OnWsMessage_(websocketpp::connection_hdl hdl,
+void TransportWS::OnWsMessage_(websocketpp::connection_hdl hdl,
                     typename EndpointType::message_ptr msg,
                     EndpointType* s) {
   LOG("OnWsMessage_");
@@ -157,20 +152,17 @@ void TransportWS<Input>::OnWsMessage_(websocketpp::connection_hdl hdl,
     LOG(" port: \t" << con->get_port());
     LOG(" origin: \t" << con->get_origin());
     LOG(" hdl: \t" << hdl.lock().get());
-    LOG(" hdl: \t" << hdl.lock().get());
   }
 
-  // TransportBase<Input>::OnReceive(msg->get_payload());
-  this->OnReceive(msg->get_payload());
+  this->OnReceiveFromEnd(static_cast<const void*>(&msg->get_payload()));
 
   if (msg->get_payload() == "hangup") {
     Stop();
   }
 }
 
-template <class Input>
 template <typename EndpointType>
-void TransportWS<Input>::OnWsOpen_(websocketpp::connection_hdl hdl,
+void TransportWS::OnWsOpen_(websocketpp::connection_hdl hdl,
                                    EndpointType* s) {
   typename EndpointType::connection_ptr con = s->get_con_from_hdl(hdl);
   if (con->get_secure()) {
@@ -180,9 +172,8 @@ void TransportWS<Input>::OnWsOpen_(websocketpp::connection_hdl hdl,
   }
 }
 
-template <class Input>
 template <typename EndpointType>
-void TransportWS<Input>::OnWsClose_(websocketpp::connection_hdl hdl,
+void TransportWS::OnWsClose_(websocketpp::connection_hdl hdl,
                                    EndpointType* s) {
   typename EndpointType::connection_ptr con = s->get_con_from_hdl(hdl);
   if (con->get_secure()) {
@@ -192,9 +183,8 @@ void TransportWS<Input>::OnWsClose_(websocketpp::connection_hdl hdl,
   }
 }
 
-template <class Input>
 template <typename EndpointType>
-bool TransportWS<Input>::OnWsValidate_(websocketpp::connection_hdl hdl,
+bool TransportWS::OnWsValidate_(websocketpp::connection_hdl hdl,
                                    EndpointType* s) {
   LOG("OnWsValidate_");
   typename EndpointType::connection_ptr con = s->get_con_from_hdl(hdl);
@@ -215,8 +205,8 @@ bool TransportWS<Input>::OnWsValidate_(websocketpp::connection_hdl hdl,
   return false;
 }
 
-template <class Input>
-context_ptr TransportWS<Input>::OnTlsInit_(websocketpp::connection_hdl hdl) {
+
+context_ptr TransportWS::OnTlsInit_(websocketpp::connection_hdl hdl) {
   LOG("OnTlsInit_ called with hdl: " << hdl.lock().get());
   context_ptr ctx = websocketpp::lib::make_shared<asio::ssl::context>(
       asio::ssl::context::tlsv1);
@@ -240,5 +230,5 @@ std::string GetPassword() { return ""; }
 // We need to explicitly tell the compiler which data types to build TransportWS
 // for otherwise we confuse the linker later.
 // http://stackoverflow.com/questions/8752837/undefined-reference-to-template-class-constructor
-template class TransportWS<std::string>;
-template class TransportWS<rapidjson::Document>;
+//template class TransportWS<std::string>;
+//template class TransportWS<rapidjson::Document>;

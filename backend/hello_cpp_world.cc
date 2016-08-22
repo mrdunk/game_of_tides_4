@@ -7,10 +7,9 @@
 #include <thread>         // std::thread
 #include <vector>
 #include <functional>   // std::bind
+
 #include "backend/logging.h"
-
-
-
+#include "backend/work.h"
 #include "backend/data_transport_ws.h"
 #include "backend/terrain.h"
 
@@ -21,20 +20,6 @@ void handler(asio::error_code ec) {
   sleep(5);
   LOG("timer -");
 }
-
-template<class Data>
-class TestCustomer : public WorkHandlerBase<Data> {
- public:
-  void Consume(Data const& data) {
-    LOG("TestCustomer::Consume(" << EncoderJSON::DisplayJSON(data) << ")");
-  }
-  void Provide(Data* data) {
-    // TODO(mrdunk)
-  }
-  void RegisterCallback(){
-    // TODO(mrdunk)
-  }
-};
 
 int main(int argc, char * argv[]) {
   if (argc > 1 && std::string(argv[1]) == "-d") {
@@ -83,7 +68,7 @@ int main(int argc, char * argv[]) {
     threads.push_back(std::thread(bound_method));
   }
 
-  TransportWS<rapidjson::Document> ws_server(&ios, debug);
+  TransportWS ws_server(&ios, debug);
   while (ws_server.ConnectPlain() == 0) {
     // Wait for port to become available.
     sleep(10);
@@ -92,12 +77,8 @@ int main(int argc, char * argv[]) {
     // Wait for port to become available.
     sleep(10);
   }
-  EncoderJSON encoder;
-  DataExchange<rapidjson::Document> exchange;
-  exchange.RegisterTransport(&ws_server);
-  exchange.RegisterEncoder(&encoder);
-  TestCustomer<rapidjson::Document> customer;
-  exchange.RegisterWorkHandler(&customer);
+  Work customer;
+  ws_server.RegisterDestination(&customer);
 
 
   asio::steady_timer t1(ios);

@@ -4,22 +4,9 @@
 #include "backend/logging.h"
 
 
-/**** EncoderPassString ****/
+/**** Encoders ****/
 
-int EncoderPassString::Encode(std::string const& in, std::string* out) {
-  *out = in;
-  return !out->empty();
-}
-
-int  EncoderPassString::Decode(std::string const& in, std::string* out) {
-  *out = in;
-  return !out->empty();
-}
-
-
-/**** EncoderJSON ****/
-
-int EncoderJSON::Encode(rapidjson::Document const& in, std::string* out) {
+int EncodeData(rapidjson::Document const& in, std::string* out) {
   rapidjson::StringBuffer buffer;
   rapidjson::Writer<rapidjson::StringBuffer> writer(buffer);
   in.Accept(writer);
@@ -27,18 +14,20 @@ int EncoderJSON::Encode(rapidjson::Document const& in, std::string* out) {
   return !out->empty();
 }
 
-int EncoderJSON::Decode(std::string const& in, rapidjson::Document* out) {
-  LOG("decoding: " << in);
+int EncodeData(std::string const& in, rapidjson::Document* out) {
   rapidjson::ParseResult ok = out->Parse(in.c_str());
   if (!ok) {
     out->Parse("{\"error\": \"invalid JSON\", \"raw_string\": \"\"}");
     (*out)["raw_string"].SetString(in.c_str(), out->GetAllocator());
   }
-  LOG("decoded: " << EncoderJSON::DisplayJSON(*out));
+  LOG("decoded: " << DisplayJSON(*out));
   return (ok?1:0);
 }
 
-std::string EncoderJSON::DisplayJSON(rapidjson::Document const& in) {
+
+/**** Debugging routines. ****/
+
+std::string DisplayJSON(rapidjson::Document const& in) {
   rapidjson::StringBuffer buffer;
   rapidjson::PrettyWriter<rapidjson::StringBuffer> writer(buffer);
   in.Accept(writer);
@@ -48,18 +37,26 @@ std::string EncoderJSON::DisplayJSON(rapidjson::Document const& in) {
 
 
 /**** TransportBase ****/
-
-template <class Input>
-void TransportBase<Input>::OnReceive(std::string data) {
-  if (consumer_) {
-    consumer_(data);
+void TransportBase::OnReceiveFromEnd(const void* data) {
+  if(p_destination_){
+    if(p_destination_->GetExpectedDataType() == STRING) {
+      std::string converted_to_string;
+      if(GetExpectedDataType() == STRING){
+        // Not used.
+      } else if(GetExpectedDataType() == JSON){
+        EncodeData(*(static_cast<const rapidjson::Document*>(data)), &converted_to_string);
+      }
+      p_destination_->Consume(&converted_to_string);
+    } else if(p_destination_->GetExpectedDataType() == JSON) {
+      rapidjson::Document converted_to_JSON;
+      if(GetExpectedDataType() == STRING){
+        EncodeData(*(static_cast<const std::string*>(data)), &converted_to_JSON);
+      } else if(GetExpectedDataType() == JSON){
+        // Not used
+      }
+      p_destination_->Consume(&converted_to_JSON);
+    }
   } else {
-    LOG("Unconsumed data: " << data);
+    //LOG("Unconsumed data: " << data);
   }
 }
-
-// We need to explicitly tell the compiler which data types to build TransportWS
-// for otherwise we confuse the linker later.
-// http://stackoverflow.com/questions/8752837/undefined-reference-to-template-class-constructor
-template class TransportBase<std::string>;
-template class TransportBase<rapidjson::Document>;

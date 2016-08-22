@@ -8,26 +8,82 @@
 
 // #define DEBUG
 
-#ifdef DEBUG
-#include <websocketpp/config/debug_asio.hpp>
-#include <websocketpp/server.hpp>
-typedef websocketpp::server<websocketpp::config::debug_asio> server_plain;
-typedef websocketpp::server<websocketpp::config::debug_asio_tls> server_tls;
-#else
-#include <websocketpp/config/asio.hpp>
-#include <websocketpp/server.hpp>
-typedef websocketpp::server<websocketpp::config::asio> server_plain;
-typedef websocketpp::server<websocketpp::config::asio_tls> server_tls;
-#endif  // DEBUG
-
-#include <vector>
 #include <set>
+#include <vector>
 #include <iostream>  // cout
 #include <string>
 
 #include "backend/data_transport.h"
 #include "backend/logging.h"
 
+#ifdef DEBUG
+#include <websocketpp/config/debug_asio.hpp>
+#include <websocketpp/server.hpp>
+#else
+#include <websocketpp/config/asio.hpp>
+#include <websocketpp/server.hpp>
+#endif  // DEBUG
+
+
+struct connection_data {
+    int sessionid;
+    std::string name;
+};
+
+// Make our own aiso types that contains connection_data.
+#ifdef DEBUG
+struct custom_config : public websocketpp::config::debug_core {
+    typedef websocketpp::config::debug_aiso core;
+#else
+struct custom_config : public websocketpp::config::core {
+    typedef websocketpp::config::asio core;
+#endif  // DEBUG
+
+    typedef core::concurrency_type concurrency_type;
+    typedef core::request_type request_type;
+    typedef core::response_type response_type;
+    typedef core::message_type message_type;
+    typedef core::con_msg_manager_type con_msg_manager_type;
+    typedef core::endpoint_msg_manager_type endpoint_msg_manager_type;
+    typedef core::alog_type alog_type;
+    typedef core::elog_type elog_type;
+    typedef core::rng_type rng_type;
+    typedef core::transport_type transport_type;
+    typedef core::endpoint_base endpoint_base;
+
+    // Set a custom connection_base class
+    typedef connection_data connection_base;
+};
+
+
+#ifdef DEBUG
+struct custom_config_tls : public websocketpp::config::debug_core {
+    typedef websocketpp::config::debug_aiso_tls core;
+#else
+struct custom_config_tls : public websocketpp::config::core {
+    typedef websocketpp::config::asio_tls core;
+#endif  // DEBUG
+
+    typedef core::concurrency_type concurrency_type;
+    typedef core::request_type request_type;
+    typedef core::response_type response_type;
+    typedef core::message_type message_type;
+    typedef core::con_msg_manager_type con_msg_manager_type;
+    typedef core::endpoint_msg_manager_type endpoint_msg_manager_type;
+    typedef core::alog_type alog_type;
+    typedef core::elog_type elog_type;
+    typedef core::rng_type rng_type;
+    typedef core::transport_type transport_type;
+    typedef core::endpoint_base endpoint_base;
+
+    // Set a custom connection_base class
+    typedef connection_data connection_base;
+};
+
+typedef websocketpp::server<custom_config> server_plain;
+typedef websocketpp::server<custom_config_tls> server_tls;
+//typedef websocketpp::server<websocketpp::config::asio> server_plain;
+//typedef websocketpp::server<websocketpp::config::asio_tls> server_tls;
 
 typedef websocketpp::lib::shared_ptr<asio::ssl::context> context_ptr;
 
@@ -40,14 +96,18 @@ using websocketpp::lib::ref;
 
 std::string GetPassword();
 
-template <class Input>
-class TransportWS : public TransportBase<Input> {
+class TransportWS : public TransportBase { //<Input, std::string> {
  public:
   TransportWS(asio::io_service* p_ios, const int debug);
   int ConnectPlain();
   int ConnectTls();
   int Stop();
 
+  std::string converted_data;
+
+  DATA_TYPES GetExpectedDataType(){
+    return STRING;
+  }
  private:
   template <typename EndpointType>
   void OnWsMessage_(websocketpp::connection_hdl hdl,
