@@ -98,7 +98,8 @@ std::string GetPassword();
 
 class TransportWS : public TransportBase { //<Input, std::string> {
  public:
-  TransportWS(asio::io_service* p_ios, const int debug);
+  TransportWS(asio::io_service* p_ios, uint64_t* p_transport_index,
+              uint64_t* p_connection_index, const int debug);
   int ConnectPlain();
   int ConnectTls();
   int Stop();

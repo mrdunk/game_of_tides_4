@@ -4,8 +4,10 @@
 #include "backend/logging.h"
 
 
-TransportWS::TransportWS(asio::io_service* p_ios, const int debug) :
-    p_ios_(p_ios), debug_(debug) {
+TransportWS::TransportWS(asio::io_service* p_ios, 
+                         uint64_t* p_transport_index,
+                         uint64_t* p_connection_index, const int debug) :
+    TransportBase(p_transport_index, p_connection_index), p_ios_(p_ios), debug_(debug) {
   LOG("TransportWS +"); std::cout << std::flush;
 #ifdef DEBUG
   if (debug_) {
@@ -142,10 +144,12 @@ void TransportWS::OnWsMessage_(websocketpp::connection_hdl hdl,
                     typename EndpointType::message_ptr msg,
                     EndpointType* s) {
   LOG("OnWsMessage_");
-  if (debug_) {
-    // Upgrade our connection_hdl to a full connection_ptr
-    typename EndpointType::connection_ptr con = s->get_con_from_hdl(hdl);
+  // Upgrade our connection_hdl to a full connection_ptr
+  typename EndpointType::connection_ptr con = s->get_con_from_hdl(hdl);
 
+  LOG(" sessionid: \t" << con->sessionid);
+
+  if (debug_) {
     LOG(" secure: \t" << con->get_secure());
     LOG(" host: \t" << con->get_host());
     LOG(" resource: \t" << con->get_resource());
@@ -154,7 +158,8 @@ void TransportWS::OnWsMessage_(websocketpp::connection_hdl hdl,
     LOG(" hdl: \t" << hdl.lock().get());
   }
 
-  this->OnReceiveFromEnd(static_cast<const void*>(&msg->get_payload()));
+  this->OnReceiveFromEnd(static_cast<const void*>(&msg->get_payload()),
+                         con->sessionid);
 
   if (msg->get_payload() == "hangup") {
     Stop();
@@ -199,6 +204,7 @@ bool TransportWS::OnWsValidate_(websocketpp::connection_hdl hdl,
 
   if (subp_requests.size() > 0) {
     con->select_subprotocol(subp_requests[0]);
+    con->sessionid = (*p_connection_index_)++;
     return true;
   }
 
