@@ -96,7 +96,7 @@ using websocketpp::lib::ref;
 
 std::string GetPassword();
 
-class TransportWS : public TransportBase { //<Input, std::string> {
+class TransportWS : public TransportBase {
  public:
   TransportWS(asio::io_service* p_ios, uint64_t* p_transport_index,
               uint64_t* p_connection_index, const int debug);

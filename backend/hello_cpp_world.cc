@@ -1,6 +1,6 @@
 // Copyright 2016 duncan law (mrdunk@gmail.com)
 
-#include <asio.hpp>
+#include <asio.hpp>      // http://think-async.com/Asio/asio-1.10.6/doc/index.html
 #include <boost/date_time/posix_time/posix_time.hpp>
 #include <iostream>
 #include <string>
@@ -10,6 +10,7 @@
 
 #include "backend/logging.h"
 #include "backend/work_queue.h"
+#include "backend/tasks.h"
 #include "backend/data_transport_ws.h"
 #include "backend/terrain.h"
 
@@ -81,7 +82,11 @@ int main(int argc, char * argv[]) {
     sleep(10);
   }
   WorkQueue<rapidjson::Document> customer(&transport_index, &connection_index);
+  TaskFinder task_finder(&transport_index, &connection_index);
+  Task test_task(&transport_index, &connection_index);
   ws_server.RegisterDestination(&customer);
+  ws_server.RegisterDestination(&task_finder);
+  task_finder.RegisterTask("test", &test_task);
 
 
   asio::steady_timer t1(ios);

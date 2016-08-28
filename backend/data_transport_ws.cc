@@ -158,8 +158,9 @@ void TransportWS::OnWsMessage_(websocketpp::connection_hdl hdl,
     LOG(" hdl: \t" << hdl.lock().get());
   }
 
-  this->OnReceiveFromEnd(static_cast<const void*>(&msg->get_payload()),
-                         con->sessionid);
+  std::string payload = msg->get_payload();
+  this->Send(static_cast<void*>(&payload),
+                         NewPath(), con->sessionid);
 
   if (msg->get_payload() == "hangup") {
     Stop();

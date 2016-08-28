@@ -37,27 +37,34 @@ std::string DisplayJSON(rapidjson::Document const& in) {
 
 
 /**** TransportBase ****/
-void TransportBase::OnReceiveFromEnd(const void* data, uint64_t connection_index) {
-  if(p_destination_){
-    if(p_destination_->GetExpectedDataType() == STRING) {
+void TransportBase::Send(void* data, std::shared_ptr<Path> path,
+                                     uint64_t connection_index)
+{
+  LOG("TransportBase::Send");
+
+  if(path->hops[path->hop_count]){
+    if(path->hops[path->hop_count]->GetExpectedDataType() == STRING) {
       std::string converted_to_string;
       if(GetExpectedDataType() == STRING){
-        // Not used.
+        LOG("TODO Translation between types not defined yet.");
       } else if(GetExpectedDataType() == JSON){
         EncodeData(*(static_cast<const rapidjson::Document*>(data)), &converted_to_string);
       }
-      p_destination_->Consume(&converted_to_string, connection_index);
-    } else if(p_destination_->GetExpectedDataType() == JSON) {
-      //rapidjson::Document converted_to_JSON;
+      path->hops[path->hop_count]->OnReceive(&converted_to_string, path, connection_index);
+    } else if(path->hops[path->hop_count]->GetExpectedDataType() == JSON) {
       std::shared_ptr<rapidjson::Document> converted_to_JSON (new rapidjson::Document);
       if(GetExpectedDataType() == STRING){
         EncodeData(*(static_cast<const std::string*>(data)), converted_to_JSON);
       } else if(GetExpectedDataType() == JSON){
-        // Not used
+        converted_to_JSON = *static_cast<std::shared_ptr<rapidjson::Document>* >(data);
       }
-      p_destination_->Consume(converted_to_JSON, connection_index);
+      path->hops[path->hop_count]->OnReceive(converted_to_JSON, path, connection_index);
     }
+    path->hop_count++;
   } else {
-    //LOG("Unconsumed data: " << data);
+    LOG("ERROR: No valid next hop set.");
+    for(uint8_t i = 0; i < MAX_DESTINATIONS; i++){
+      LOG(path->hops[i]);
+    }
   }
 }
