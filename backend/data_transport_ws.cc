@@ -143,11 +143,10 @@ template <typename EndpointType>
 void TransportWS::OnWsMessage_(websocketpp::connection_hdl hdl,
                     typename EndpointType::message_ptr msg,
                     EndpointType* s) {
-  LOG("OnWsMessage_");
   // Upgrade our connection_hdl to a full connection_ptr
   typename EndpointType::connection_ptr con = s->get_con_from_hdl(hdl);
 
-  LOG(" sessionid: \t" << con->sessionid);
+  LOG("TransportWS::OnWsMessage_ sessionid: \t" << con->sessionid);
 
   if (debug_) {
     LOG(" secure: \t" << con->get_secure());

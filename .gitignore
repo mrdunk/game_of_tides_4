@@ -1,0 +1,4 @@
+*.swp
+*.pyc
+build/
+3rdparty/

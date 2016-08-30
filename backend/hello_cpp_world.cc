@@ -16,10 +16,18 @@
 
 int debug;
 
-void handler(asio::error_code ec) {
-  LOG("timer +");
-  sleep(5);
-  LOG("timer -");
+void handler(asio::error_code e, asio::steady_timer* p_timer,
+    WorkQueue<rapidjson::Document>* p_work_queue)
+{
+  LOG("tick\twork_queue: " << p_work_queue->QueueLength()
+#ifdef JOB_TIMER
+      << "\taverage wait: " << p_work_queue->AverageWait()
+#endif
+      );
+
+  p_timer->expires_from_now(std::chrono::seconds(5));
+  auto timer_handler = std::bind(&handler, _1, p_timer, p_work_queue);
+  p_timer->async_wait(timer_handler);
 }
 
 int main(int argc, char * argv[]) {
@@ -63,14 +71,12 @@ int main(int argc, char * argv[]) {
   asio::io_service::work work(ios);
 
   std::vector<std::thread> threads;
-  for (std::size_t i = 0; i < 2; ++i) {
-    // More info on binding this method:
-    // http://stackoverflow.com/questions/38222141/using-stdbind-on-overloaded-class-method
-    auto bound_method = std::bind(
-        static_cast<std::size_t(asio::io_service::*)(void)>
-        (&asio::io_service::run), std::ref(ios));
-    threads.push_back(std::thread(bound_method));
-  }
+  // More info on binding this method:
+  // http://stackoverflow.com/questions/38222141/using-stdbind-on-overloaded-class-method
+  auto bound_method = std::bind(
+      static_cast<std::size_t(asio::io_service::*)(void)>
+      (&asio::io_service::run), std::ref(ios));
+  threads.push_back(std::thread(bound_method));
 
   TransportWS ws_server(&ios, &transport_index, &connection_index, debug);
   while (ws_server.ConnectPlain() == 0) {
@@ -81,7 +87,9 @@ int main(int argc, char * argv[]) {
     // Wait for port to become available.
     sleep(10);
   }
-  WorkQueue<rapidjson::Document> customer(&transport_index, &connection_index);
+
+  WorkQueue<rapidjson::Document> customer(&transport_index, &connection_index,
+                                          &threads);
   TaskFinder task_finder(&transport_index, &connection_index);
   Task test_task(&transport_index, &connection_index);
   ws_server.RegisterDestination(&customer);
@@ -89,18 +97,14 @@ int main(int argc, char * argv[]) {
   task_finder.RegisterTask("test", &test_task);
 
 
-  asio::steady_timer t1(ios);
-  asio::steady_timer t2(ios);
-  asio::steady_timer t3(ios);
+  for (std::size_t i = threads.size(); i < 2; ++i) {
+    //
+  }
 
-//  t1.expires_from_now(std::chrono::seconds(1));
-//  t2.expires_from_now(std::chrono::seconds(1));
-//  t3.expires_from_now(std::chrono::seconds(1));
+  asio::steady_timer recurring_timer(ios);
+  recurring_timer.async_wait(std::bind(&handler, _1, &recurring_timer, &customer));
 
-  t1.async_wait(&handler);
-  t2.async_wait(&handler);
-  t3.async_wait(&handler);
-
+  
   for (std::vector<std::thread>::iterator it = threads.begin();
       it != threads.end(); ++it) {
     it->join();

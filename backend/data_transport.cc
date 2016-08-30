@@ -20,7 +20,7 @@ int EncodeData(std::string const& in, std::shared_ptr<rapidjson::Document> out) 
     out->Parse("{\"error\": \"invalid JSON\", \"raw_string\": \"\"}");
     (*out)["raw_string"].SetString(in.c_str(), out->GetAllocator());
   }
-  LOG("decoded: " << DisplayJSON(*out));
+  // LOG("decoded: " << DisplayJSON(*out));
   return (ok?1:0);
 }
 
@@ -40,7 +40,7 @@ std::string DisplayJSON(rapidjson::Document const& in) {
 void TransportBase::Send(void* data, std::shared_ptr<Path> path,
                                      uint64_t connection_index)
 {
-  LOG("TransportBase::Send");
+  // LOG("TransportBase::Send");
 
   if(path->hops[path->hop_count]){
     if(path->hops[path->hop_count]->GetExpectedDataType() == STRING) {

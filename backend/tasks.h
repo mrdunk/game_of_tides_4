@@ -3,6 +3,8 @@
 #ifndef BACKEND_DATA_TASKS_H_
 #define BACKEND_DATA_TASKS_H_
 
+
+#include <unistd.h>                 // sleep
 #include <map>
 #include "backend/data_transport.h"
 
@@ -21,7 +23,7 @@ class TaskFinder : public TransportBase {
   void OnReceive(std::shared_ptr<rapidjson::Document> data,
       std::shared_ptr<Path> path, uint64_t connection_index)
   {
-    LOG("TaskFinder::OnReceive(" << DisplayJSON(*data) << ")");
+    // LOG("TaskFinder::OnReceive(" << DisplayJSON(*data) << ")");
     if(path->hops[path->hop_count +1]){
       LOG("ERROR: Found unexpected next hop: " <<  static_cast<unsigned int>(path->hop_count));
       for(uint8_t i = 0; i < MAX_DESTINATIONS; i++){
@@ -38,7 +40,7 @@ class TaskFinder : public TransportBase {
       return;
     }
 
-    LOG("request_type: " << (*data)["request_type"].GetString());
+    LOG("TaskFinder::OnReceive request_type: " << (*data)["request_type"].GetString());
     auto task = tasks_.find((*data)["request_type"].GetString());
     if(task != tasks_.end()){
       task->second->OnReceive(data, path, connection_index);
@@ -71,6 +73,7 @@ class Task : public TransportBase {
                uint64_t connection_index)
   {
     LOG("Task::OnReceive(" << DisplayJSON(*data) << ")");
+    sleep(1);
   }
 };
 
