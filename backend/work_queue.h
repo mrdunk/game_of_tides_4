@@ -40,8 +40,9 @@ class WorkQueue : public TransportBase {
       TransportBase(p_transport_index, p_connection_index),
       quit_(false), total_wait_time_(0), total_count_(0)
   {
-    p_threads->push_back(std::thread(std::bind(&WorkQueue::run, this, 0)));
-    p_threads->push_back(std::thread(std::bind(&WorkQueue::run, this, 1)));
+    for(unsigned int i = 0; i < std::thread::hardware_concurrency(); i++){
+      p_threads->push_back(std::thread(std::bind(&WorkQueue::run, this, i)));
+    }
   }
  
   DATA_TYPES GetExpectedDataType(){
