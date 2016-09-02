@@ -63,14 +63,14 @@ class TransportBase {
     }
   }
 
-  virtual void OnReceive(std::string* data, std::shared_ptr<Path> path,
+  virtual void OnReceive(std::string* data, std::shared_ptr<Path> /*path*/,
       uint64_t connection_index)
   {
     LOG("Unconsumed data: " << *data);
     LOG("Index:           " << connection_index);
   }
   virtual void OnReceive(std::shared_ptr<rapidjson::Document> data,
-      std::shared_ptr<Path> path, uint64_t connection_index)
+      std::shared_ptr<Path> /*path*/, uint64_t connection_index)
   {
     LOG("Unconsumed data: " << DisplayJSON(*data));
     LOG("Index:           " << connection_index);  

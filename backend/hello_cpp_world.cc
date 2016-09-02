@@ -19,11 +19,12 @@ int debug;
 void handler(asio::error_code e, asio::steady_timer* p_timer,
     WorkQueue<rapidjson::Document>* p_work_queue)
 {
-  LOG("tick\twork_queue: " << p_work_queue->QueueLength()
 #ifdef JOB_TIMER
-      << "\taverage wait: " << p_work_queue->AverageWait()
+  LOG("tick\twork_queue: " << p_work_queue->QueueLength()
+      << "\taverage wait: " << p_work_queue->AverageWait());
+#elif  // JOB_TIMER
+  LOG("tick\twork_queue: " << p_work_queue->QueueLength());
 #endif
-      );
 
   p_timer->expires_from_now(std::chrono::seconds(5));
   auto timer_handler = std::bind(&handler, _1, p_timer, p_work_queue);
@@ -54,10 +55,12 @@ int main(int argc, char * argv[]) {
   std::cout << generator.getRecursionFromIndex((uint64_t)6 << 61)  << std::endl;
   std::cout << generator.getRecursionFromIndex((uint64_t)7 << 61)  << std::endl;
 
-  std::cout << generator.getRecursionFromIndex((uint64_t)1 << 60)  << std::endl;
   std::cout << generator.getRecursionFromIndex((uint64_t)1 << 59)  << std::endl;
-  std::cout << generator.getRecursionFromIndex((uint64_t)1 << 58)  << std::endl;
+  std::cout << generator.getRecursionFromIndex((uint64_t)2 << 59)  << std::endl;
+  std::cout << generator.getRecursionFromIndex((uint64_t)3 << 59)  << std::endl;
   std::cout << generator.getRecursionFromIndex((uint64_t)1 << 57)  << std::endl;
+  std::cout << generator.getRecursionFromIndex((uint64_t)2 << 57)  << std::endl;
+  std::cout << generator.getRecursionFromIndex((uint64_t)3 << 57)  << std::endl;
 
 
   LOG("max threads:" << std::thread::hardware_concurrency());
@@ -77,6 +80,8 @@ int main(int argc, char * argv[]) {
       static_cast<std::size_t(asio::io_service::*)(void)>
       (&asio::io_service::run), std::ref(ios));
   threads.push_back(std::thread(bound_method));
+  threads.push_back(std::thread(bound_method));
+
 
   TransportWS ws_server(&ios, &transport_index, &connection_index, debug);
   while (ws_server.ConnectPlain() == 0) {
