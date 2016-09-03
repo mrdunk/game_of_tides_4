@@ -27,7 +27,7 @@
 
 
 struct connection_data {
-    int sessionid;
+    uint64_t sessionid;
     std::string name;
 };
 
@@ -79,6 +79,8 @@ struct custom_config_tls : public websocketpp::config::core {
     typedef core::transport_type transport_type;
     typedef core::endpoint_base endpoint_base;
 
+    static bool const enable_multithreading = true;
+
     // Set a custom connection_base class
     typedef connection_data connection_base;
 };
@@ -111,6 +113,36 @@ class TransportWS : public TransportBase {
   DATA_TYPES GetExpectedDataType(){
     return STRING;
   }
+
+ protected:
+  virtual void OnReceive(std::string* data,
+      std::shared_ptr<Path> /*path*/, uint64_t connection_index)
+  {
+    LOG("TransportWS::OnReceive");
+    server_plain::connection_ptr con_plain;
+    server_tls::connection_ptr con_tls;
+    websocketpp::lib::error_code ec;
+    
+    for (auto it : connections_plain_){
+      con_plain = endpoint_plain_.get_con_from_hdl(it);
+      if(con_plain->sessionid == connection_index){
+        endpoint_plain_.send(it, *data, websocketpp::frame::opcode::text, ec);
+        if(ec){
+          LOG("Send failed because: " << ec.message());
+        }
+      }
+    }
+    for (auto it : connections_tls_){
+      con_tls = endpoint_tls_.get_con_from_hdl(it);
+      if(con_tls->sessionid == connection_index){
+        endpoint_tls_.send(it, *data, websocketpp::frame::opcode::text, ec);
+        if(ec){
+          LOG("Send failed because: " << ec.message());
+        }
+      }
+    }
+  }
+
  private:
   template <typename EndpointType>
   void OnWsMessage_(websocketpp::connection_hdl hdl,

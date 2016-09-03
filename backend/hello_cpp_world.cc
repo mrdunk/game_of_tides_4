@@ -98,17 +98,23 @@ int main(int argc, char * argv[]) {
     sleep(10);
   }
 
-  WorkQueue<rapidjson::Document> customer(&transport_index, &connection_index,
+  WorkQueue<rapidjson::Document> work_queue(&transport_index, &connection_index,
                                           &threads);
   TaskFinder task_finder(&transport_index, &connection_index);
-  Task test_task(&transport_index, &connection_index);
-  ws_server.RegisterDestination(&customer);
+  TaskEcho test_task(&transport_index, &connection_index);
+  
+  ws_server.RegisterDestination(&work_queue);
   ws_server.RegisterDestination(&task_finder);
-  task_finder.RegisterTask("test", &test_task);
+  
+  test_task.RegisterDestination(&work_queue);
+  test_task.RegisterDestination(&task_finder);
+
+  task_finder.RegisterTask("echo", &test_task);
+  task_finder.RegisterTask("echo_return", &ws_server);
 
 
   asio::steady_timer recurring_timer(ios);
-  recurring_timer.async_wait(std::bind(&handler, _1, &recurring_timer, &customer));
+  recurring_timer.async_wait(std::bind(&handler, _1, &recurring_timer, &work_queue));
 
   
   for (std::vector<std::thread>::iterator it = threads.begin();

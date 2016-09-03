@@ -4,7 +4,6 @@
 #define BACKEND_DATA_TASKS_H_
 
 
-#include <unistd.h>                 // sleep
 #include <map>
 #include "backend/data_transport.h"
 
@@ -43,7 +42,15 @@ class TaskFinder : public TransportBase {
     LOG("TaskFinder::OnReceive request_type: " << (*data)["request_type"].GetString());
     auto task = tasks_.find((*data)["request_type"].GetString());
     if(task != tasks_.end()){
-      task->second->OnReceive(data, path, connection_index);
+      if(task->second->GetExpectedDataType() == JSON){
+        task->second->OnReceive(data, path, connection_index);
+      } else if(task->second->GetExpectedDataType() == STRING){
+        std::string data_string;
+        EncodeData(*data, &data_string);
+        task->second->OnReceive(&data_string, path, connection_index);
+      } else {
+        LOG("ERROR: Unknown data type.");
+      }
     } else {
       LOG("ERROR: Task not registered: " << (*data)["request_type"].GetString());
     }
@@ -58,9 +65,9 @@ class TaskFinder : public TransportBase {
 };
 
 
-class Task : public TransportBase {
+class TaskEcho : public TransportBase {
  public:
-  Task(uint64_t* p_transport_index, uint64_t* p_connection_index) :
+  TaskEcho(uint64_t* p_transport_index, uint64_t* p_connection_index) :
       TransportBase(p_transport_index, p_connection_index)
   {
   }
@@ -70,10 +77,25 @@ class Task : public TransportBase {
   }
 
   void OnReceive(std::shared_ptr<rapidjson::Document> data, std::shared_ptr<Path> /*path*/, 
-               uint64_t /*connection_index*/)
+               uint64_t connection_index)
   {
-    LOG("Task::OnReceive(" << DisplayJSON(*data) << ")");
-    sleep(1);
+    LOG("TaskEcho::OnReceive(" << DisplayJSON(*data) << ")");
+    
+    if(!data->HasMember("request_type")){
+      LOG("ERROR: request_type not specified.");
+      return;
+    }
+    if(!(*data)["request_type"].IsString()){
+      LOG("ERROR: request_type not string.");
+      return;
+    }
+
+    LOG("TaskFinder::OnReceive request_type: " << (*data)["request_type"].GetString());
+    (*data)["request_type"].SetString("echo_return");
+    
+    
+    this->Send(static_cast<void*>(&data), NewPath(), connection_index);
+
   }
 };
 

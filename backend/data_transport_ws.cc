@@ -4,10 +4,11 @@
 #include "backend/logging.h"
 
 
-TransportWS::TransportWS(asio::io_service* p_ios, 
-                         uint64_t* p_transport_index,
+TransportWS::TransportWS(asio::io_service* p_ios, uint64_t* p_transport_index,
                          uint64_t* p_connection_index, const int debug) :
-    TransportBase(p_transport_index, p_connection_index), p_ios_(p_ios), debug_(debug) {
+    TransportBase(p_transport_index, p_connection_index),
+    p_ios_(p_ios), debug_(debug)
+{
   LOG("TransportWS +"); std::cout << std::flush;
 #ifdef DEBUG
   if (debug_) {

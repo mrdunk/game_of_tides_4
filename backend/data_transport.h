@@ -69,6 +69,7 @@ class TransportBase {
     LOG("Unconsumed data: " << *data);
     LOG("Index:           " << connection_index);
   }
+
   virtual void OnReceive(std::shared_ptr<rapidjson::Document> data,
       std::shared_ptr<Path> /*path*/, uint64_t connection_index)
   {
@@ -83,11 +84,10 @@ class TransportBase {
     return ret_value;
   }
 
- protected:
   virtual DATA_TYPES GetExpectedDataType() = 0;
 
-  void  Send(void* data, std::shared_ptr<Path> path,
-                         uint64_t connection_index);
+ protected:
+  void Send(void* data, std::shared_ptr<Path> path, uint64_t connection_index);
 
   std::array<TransportBase*, MAX_DESTINATIONS> path_;
   uint8_t path_assign_pointer_;
