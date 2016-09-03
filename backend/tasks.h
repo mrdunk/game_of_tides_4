@@ -69,8 +69,8 @@ class Task : public TransportBase {
     return JSON;
   }
 
-  void OnReceive(std::shared_ptr<rapidjson::Document> data, std::shared_ptr<Path> path, 
-               uint64_t connection_index)
+  void OnReceive(std::shared_ptr<rapidjson::Document> data, std::shared_ptr<Path> /*path*/, 
+               uint64_t /*connection_index*/)
   {
     LOG("Task::OnReceive(" << DisplayJSON(*data) << ")");
     sleep(1);

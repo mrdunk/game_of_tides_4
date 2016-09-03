@@ -49,24 +49,10 @@ struct custom_config : public websocketpp::config::core {
     typedef core::alog_type alog_type;
     typedef core::elog_type elog_type;
     typedef core::rng_type rng_type;
-    //typedef core::transport_type transport_type;
+    typedef core::transport_type transport_type;
     typedef core::endpoint_base endpoint_base;
 
     static bool const enable_multithreading = true;
-
-    struct transport_config : public core::transport_config {
-      typedef core::concurrency_type concurrency_type;
-      typedef core::elog_type elog_type;
-      typedef core::alog_type alog_type;
-      typedef core::request_type request_type;
-      typedef core::response_type response_type;
-
-      static bool const enable_multithreading = true;
-    };
-
-    typedef websocketpp::transport::asio::endpoint<transport_config>
-      transport_type;
-
 
     // Set a custom connection_base class
     typedef connection_data connection_base;

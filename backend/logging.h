@@ -4,6 +4,7 @@
 #define BACKEND_LOGGING_H_
 
 #include <mutex>          // std::mutex
+#include <iostream>
 
 extern std::mutex log_lock;
 #define LOG(msg) log_lock.lock(); \

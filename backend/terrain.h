@@ -3,8 +3,12 @@
 #ifndef BACKEND_TERRAIN_H_
 #define BACKEND_TERRAIN_H_
 
+#include "backend/logging.h"
+
 #include <map>
 #include <vector>
+#include <memory>             // std::shared_ptr
+
 
 const uint64_t k_top_level_mask = ((uint64_t)7 << 61);
 const uint64_t k_top_level_shape_0 = ((uint64_t)0 << 61);
@@ -15,7 +19,7 @@ const uint64_t k_top_level_shape_4 = ((uint64_t)4 << 61);
 const uint64_t k_top_level_shape_5 = ((uint64_t)5 << 61);
 const uint64_t k_top_level_shape_6 = ((uint64_t)6 << 61);
 const uint64_t k_top_level_shape_7 = ((uint64_t)7 << 61);
-const uint64_t k_64bit_max = ((uint64_t)2 ^ 64);
+const uint64_t k_64bit_max = ((uint64_t)2 ^ 63);
 
 typedef struct Point {
   uint64_t x;
@@ -25,13 +29,54 @@ typedef struct Point {
 
 class Face {
  public:
-  Face() : populated_{false} {}
-  bool isPopulated() { return populated_; }
+  Face() : populated{false} {}
   Point points[3];
-
- private:
-  bool populated_;
+  bool populated;
 };
+
+const uint64_t parent_faces[8][3][3] = 
+{{{k_64bit_max/2, k_64bit_max/2, k_64bit_max},
+  {k_64bit_max,   k_64bit_max/2, k_64bit_max/2}, 
+  {k_64bit_max/2, 0,             k_64bit_max/2}},
+
+{{k_64bit_max/2, k_64bit_max/2, 0},
+ {k_64bit_max,   k_64bit_max/2, k_64bit_max/2},
+ {k_64bit_max/2, 0,             k_64bit_max/2}},
+
+{{k_64bit_max/2, k_64bit_max/2, k_64bit_max},
+ {k_64bit_max/2, 0            , k_64bit_max/2},
+ {0            , k_64bit_max/2, k_64bit_max/2}},
+
+{{k_64bit_max/2, k_64bit_max/2, 0},
+ {k_64bit_max/2, 0            , k_64bit_max/2},
+ {0            , k_64bit_max/2, k_64bit_max/2}},
+
+{{k_64bit_max/2, k_64bit_max/2, k_64bit_max},
+ {0            , k_64bit_max/2, k_64bit_max/2},
+ {k_64bit_max/2, k_64bit_max, k_64bit_max/2}},
+
+{{k_64bit_max/2, k_64bit_max/2, 0},
+ {0            , k_64bit_max/2, k_64bit_max/2},
+ {k_64bit_max/2, k_64bit_max, k_64bit_max/2}},
+
+{{k_64bit_max/2, k_64bit_max/2, k_64bit_max},
+ {k_64bit_max/2, k_64bit_max, k_64bit_max/2},
+ {k_64bit_max, k_64bit_max/2, k_64bit_max/2}},
+
+{{k_64bit_max/2, k_64bit_max/2, 0},
+ {k_64bit_max/2, k_64bit_max  , k_64bit_max/2},
+ {k_64bit_max  , k_64bit_max/2, k_64bit_max/2}}
+};
+
+
+/* TODO */
+void IndexToBiggestFace(uint64_t index, Face& face);
+
+
+/* TODO */
+int8_t IndexToFace(uint64_t index, Face& face, int8_t required_depth);
+int8_t IndexToFace(uint64_t index, Face& face);
+
 
 class DataSourceBase {
  public:
@@ -45,122 +90,43 @@ class DataSourceBase {
     return 0;
   }
 
-  virtual Face getFace(uint64_t index) = 0;
-  virtual void cacheFace(uint64_t index, Face Face) {}
+  virtual std::shared_ptr<Face> getFace(uint64_t index) = 0;
+  virtual void cacheFace(uint64_t /*index*/, std::shared_ptr<Face> /*Face*/) {}
 };
+
 
 class DataSourceCache : DataSourceBase {
  public:
-  Face getFace(uint64_t index) {
-    Face Face;
+  std::shared_ptr<Face> getFace(uint64_t index) {
     if (cache_.count(index)) {
       return cache_[index];
     }
+    return nullptr;
   }
-  void cacheFace(uint64_t index, Face Face) { cache_[index] = Face; }
+
+  void cacheFace(uint64_t index, std::shared_ptr<Face> face) { cache_[index] = face; }
 
  private:
-  std::map<uint64_t, Face> cache_;
+  std::map<uint64_t, std::shared_ptr<Face> > cache_;
 };
+
 
 class DataSourceGenerate : public DataSourceBase {
  public:
-  Face getFace(uint64_t index) {
-    // TODO(duncan): put this data in an array.
-    Face parent_face;
-    if ((index & k_top_level_mask) == index) {
-      if (index & k_top_level_shape_0) {
-        parent_face.points[0].x = k_64bit_max / 2;
-        parent_face.points[0].y = k_64bit_max / 2;
-        parent_face.points[0].z = k_64bit_max;
-        parent_face.points[1].x = k_64bit_max;
-        parent_face.points[1].y = k_64bit_max / 2;
-        parent_face.points[1].z = k_64bit_max / 2;
-        parent_face.points[2].x = k_64bit_max / 2;
-        parent_face.points[2].y = 0;
-        parent_face.points[2].z = k_64bit_max / 2;
-      } else if (index & k_top_level_shape_1) {
-        parent_face.points[0].x = k_64bit_max / 2;
-        parent_face.points[0].y = k_64bit_max / 2;
-        parent_face.points[0].z = 0;
-        parent_face.points[1].x = k_64bit_max;
-        parent_face.points[1].y = k_64bit_max / 2;
-        parent_face.points[1].z = k_64bit_max / 2;
-        parent_face.points[2].x = k_64bit_max / 2;
-        parent_face.points[2].y = 0;
-        parent_face.points[2].z = k_64bit_max / 2;
-      } else if (index & k_top_level_shape_2) {
-        parent_face.points[0].x = k_64bit_max / 2;
-        parent_face.points[0].y = k_64bit_max / 2;
-        parent_face.points[0].z = k_64bit_max;
-        parent_face.points[1].x = k_64bit_max / 2;
-        parent_face.points[1].y = 0;
-        parent_face.points[1].z = k_64bit_max / 2;
-        parent_face.points[2].x = 0;
-        parent_face.points[2].y = k_64bit_max / 2;
-        parent_face.points[2].z = k_64bit_max / 2;
-      } else if (index & k_top_level_shape_3) {
-        parent_face.points[0].x = k_64bit_max / 2;
-        parent_face.points[0].y = k_64bit_max / 2;
-        parent_face.points[0].z = 0;
-        parent_face.points[1].x = k_64bit_max / 2;
-        parent_face.points[1].y = 0;
-        parent_face.points[1].z = k_64bit_max / 2;
-        parent_face.points[2].x = 0;
-        parent_face.points[2].y = k_64bit_max / 2;
-        parent_face.points[2].z = k_64bit_max / 2;
-      } else if (index & k_top_level_shape_4) {
-        parent_face.points[0].x = k_64bit_max / 2;
-        parent_face.points[0].y = k_64bit_max / 2;
-        parent_face.points[0].z = k_64bit_max;
-        parent_face.points[1].x = 0;
-        parent_face.points[1].y = k_64bit_max / 2;
-        parent_face.points[1].z = k_64bit_max / 2;
-        parent_face.points[2].x = k_64bit_max / 2;
-        parent_face.points[2].y = k_64bit_max;
-        parent_face.points[2].z = k_64bit_max / 2;
-      } else if (index & k_top_level_shape_5) {
-        parent_face.points[0].x = k_64bit_max / 2;
-        parent_face.points[0].y = k_64bit_max / 2;
-        parent_face.points[0].z = 0;
-        parent_face.points[1].x = 0;
-        parent_face.points[1].y = k_64bit_max / 2;
-        parent_face.points[1].z = k_64bit_max / 2;
-        parent_face.points[2].x = k_64bit_max / 2;
-        parent_face.points[2].y = k_64bit_max;
-        parent_face.points[2].z = k_64bit_max / 2;
-      } else if (index & k_top_level_shape_6) {
-        parent_face.points[0].x = k_64bit_max / 2;
-        parent_face.points[0].y = k_64bit_max / 2;
-        parent_face.points[0].z = k_64bit_max;
-        parent_face.points[1].x = k_64bit_max / 2;
-        parent_face.points[1].y = k_64bit_max;
-        parent_face.points[1].z = k_64bit_max / 2;
-        parent_face.points[2].x = k_64bit_max;
-        parent_face.points[2].y = k_64bit_max / 2;
-        parent_face.points[2].z = k_64bit_max / 2;
-      } else if (index & k_top_level_shape_7) {
-        parent_face.points[0].x = k_64bit_max / 2;
-        parent_face.points[0].y = k_64bit_max / 2;
-        parent_face.points[0].z = 0;
-        parent_face.points[1].x = k_64bit_max / 2;
-        parent_face.points[1].y = k_64bit_max;
-        parent_face.points[1].z = k_64bit_max / 2;
-        parent_face.points[2].x = k_64bit_max;
-        parent_face.points[2].y = k_64bit_max / 2;
-        parent_face.points[2].z = k_64bit_max / 2;
-      }
-    }
-    return parent_face;
+  std::shared_ptr<Face> getFace(uint64_t index) {
+    std::shared_ptr<Face> p_face(new Face);
+    IndexToFace(index, *p_face);
+    return p_face;
   }
 
  private:
 };
+
 
 class Terrain {
  public:
   void addDataSource(DataSourceBase *p_data_source);
-  Face getFace(uint64_t index);
+  std::shared_ptr<Face> getFace(uint64_t index);
 
  private:
   std::vector<DataSourceBase *> data_sources_;

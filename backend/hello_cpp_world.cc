@@ -14,6 +14,10 @@
 #include "backend/data_transport_ws.h"
 #include "backend/terrain.h"
 
+// Number of concurrent connections to process.
+// Note that requests from the same connection still get processed in serial.
+#define WS_THREADS 2  
+
 int debug;
 
 void handler(asio::error_code e, asio::steady_timer* p_timer,
@@ -79,8 +83,9 @@ int main(int argc, char * argv[]) {
   auto bound_method = std::bind(
       static_cast<std::size_t(asio::io_service::*)(void)>
       (&asio::io_service::run), std::ref(ios));
-  threads.push_back(std::thread(bound_method));
-  threads.push_back(std::thread(bound_method));
+  for(int i = 0; i < WS_THREADS; i++){
+    threads.push_back(std::thread(bound_method));
+  }
 
 
   TransportWS ws_server(&ios, &transport_index, &connection_index, debug);
@@ -101,10 +106,6 @@ int main(int argc, char * argv[]) {
   ws_server.RegisterDestination(&task_finder);
   task_finder.RegisterTask("test", &test_task);
 
-
-  for (std::size_t i = threads.size(); i < 2; ++i) {
-    //
-  }
 
   asio::steady_timer recurring_timer(ios);
   recurring_timer.async_wait(std::bind(&handler, _1, &recurring_timer, &customer));

@@ -164,6 +164,7 @@ void TransportWS::OnWsMessage_(websocketpp::connection_hdl hdl,
   if (msg->get_payload() == "hangup") {
     Stop();
   }
+  // sleep(15);
 }
 
 template <typename EndpointType>
