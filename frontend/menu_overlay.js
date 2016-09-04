@@ -11,7 +11,7 @@ var Options = function() {
     store.set('options', data);
   };
 
-  var SelectString = function(context, data) {
+  this.SelectString = function(context, data) {
     var return_val = document.createElement('input');
 
     return_val.setAttribute('value', context.value);
@@ -24,7 +24,7 @@ var Options = function() {
     return return_val;
   };
 
-  var SelectNumber = function(context, data) {
+  this.SelectNumber = function(context, data) {
     var return_val = document.createElement('input');
 
     return_val.setAttribute('type', 'number');
@@ -40,7 +40,7 @@ var Options = function() {
     return return_val;
   };
 
-  var SelectBoolean = function(context, data) {
+  this.SelectBoolean = function(context, data) {
     var return_val = document.createElement('input');
 
     return_val.setAttribute('type', 'checkbox');
@@ -54,34 +54,11 @@ var Options = function() {
     return return_val;
   };
 
-  var Execute = function(context, data) {
+  this.Execute = function(context, data) {
     var return_val = document.createElement('button');
     return_val.innerHTML = 'Send';
     return_val.addEventListener('click', function(){context.value(data);});
     return return_val;
-  };
-
-  var ConnectWs = function(data) {
-    console.log('ConnectWs', data, this);
-    worker.postMessage({
-      cmd: 'ws_con',
-      url: data.websockets.settings.url.value
-    });
-  };
-
-  var DisconnectWs = function(data) {
-    console.log('DisconnectWs');
-    worker.postMessage({
-      cmd: 'ws_discon'
-    });
-  };
-
-  var SendViaWs = function(data) {
-    console.log('SendViaWs');
-    worker.postMessage({
-      cmd: 'ws_send',
-      data: data.websockets.settings.test_message.value
-    });
   };
 
   var DefaultSettings = function(data) {
@@ -99,7 +76,7 @@ var Options = function() {
       settings: {
         default_settings: {
           description: 'Reset everything to default values',
-          type: Execute,
+          type: this.Execute,
           value: DefaultSettings
         }
       }
@@ -109,12 +86,12 @@ var Options = function() {
       settings: {
         fps: {
           description: 'FPS',
-          type: SelectNumber,
+          type: this.SelectNumber,
           value: 10
         },
         log_fps: {
           description: 'Log FPS',
-          type: SelectBoolean,
+          type: this.SelectBoolean,
           value: false
         }
       }
@@ -123,41 +100,12 @@ var Options = function() {
       description: 'camera',
       settings: {}
     },
-    websockets: {
-      description: 'websockets',
-      settings: {
-        url: {
-          description: 'Server URL',
-          type: SelectString,
-          value: 'wss://192.168.192.251:8081'
-        },
-        protocol: {
-          description: 'WS protocol',
-          type: SelectString,
-          value: 'tides'
-        },
-        connect: {
-          description: 'Connect WebSocket',
-          type: Execute,
-          value: ConnectWs
-        },
-        disconnect: {
-          description: 'Disconnect WebSocket',
-          type: Execute,
-          value: DisconnectWs
-        },
-        test_message: {
-          description: 'test message:',
-          type: SelectString,
-          value: 'test'
-        },
-        test_send: {
-          description: 'send test:',
-          type: Execute,
-          value: SendViaWs
-        }
-      }
-    }
+  };
+
+  this.RegisterClient = function(client){
+    console.log("Options.RegisterClient(", client.menu_data.name, ")");
+    this.data[client.menu_data.name] = client.menu_data.content;
+    this.PopulateMenu();
   };
 
   this.openNav = function() {
@@ -169,9 +117,10 @@ var Options = function() {
   };
 
   this.PopulateMenu = function() {
+    this.InitialiseData();
     var content = document.createElement('ul');
-    document.getElementsByClassName('overlay-content')[0].appendChild(
-      content);
+    document.getElementsByClassName('overlay-content')[0].innerHTML = "";
+    document.getElementsByClassName('overlay-content')[0].appendChild(content);
 
     for (var section in this.data) {
       var section_content = document.createElement('li');
@@ -203,30 +152,34 @@ var Options = function() {
     if (typeof source === 'object') {
       for (var property in source) {
         console.log(property, source[property]);
-        if (property === 'value' && typeof source[property] !==
-          'object') {
+        if (property === 'value' && typeof source[property] !== 'object') {
           destination[property] = source[property];
           return;
         }
-        if (property !== 'description' && property !== 'type' && property !==
-          'value') {
+        if (property !== 'description' && property !== 'type' &&
+            property !== 'value' && source && destination)
+        {
           MergeValues(source[property], destination[property]);
         }
       }
     }
   };
 
-  var data_saved;
-  if (store.enabled) {
-    data_saved = store.get('options');
-  }
-  if (typeof data_saved === 'undefined') {
-    console.log('No saved_data found. using default.');
-  } else {
-    console.log('Restoring saved_data.');
-    MergeValues(data_saved, this.data);
-  }
+  this.InitialiseData = function(){
+    var data_saved;
+    if (store.enabled) {
+      data_saved = store.get('options');
+    }
+    if (typeof data_saved === 'undefined') {
+      console.log('No saved_data found. using default.');
+    } else {
+      console.log('Restoring saved_data.');
+      MergeValues(data_saved, this.data);
+    }
+    console.log(data_saved);
+    console.log(this.data);
+  };
 
-  console.log(this.data);
-  console.log(data_saved);
+  //store.clear();
+  this.PopulateMenu();
 };

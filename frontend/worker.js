@@ -65,8 +65,9 @@ var WebSocketWrapper = function(){
     self.postMessage('WS close');
   };
 
-  this_.onmessage = function(){
+  this_.onmessage = function(event){
     self.postMessage('WS receive');
+    self.postMessage(JSON.stringify(event.data));
   };
 
   this_.onerror = function(){

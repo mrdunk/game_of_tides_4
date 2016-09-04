@@ -19,7 +19,7 @@ const uint64_t k_top_level_shape_4 = ((uint64_t)4 << 61);
 const uint64_t k_top_level_shape_5 = ((uint64_t)5 << 61);
 const uint64_t k_top_level_shape_6 = ((uint64_t)6 << 61);
 const uint64_t k_top_level_shape_7 = ((uint64_t)7 << 61);
-const uint64_t k_64bit_max = ((uint64_t)2 ^ 63);
+const uint64_t k_64bit_max = ((uint64_t)1 << 63);
 
 typedef struct Point {
   uint64_t x;

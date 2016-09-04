@@ -92,7 +92,13 @@ class TaskEcho : public TransportBase {
 
     LOG("TaskFinder::OnReceive request_type: " << (*data)["request_type"].GetString());
     (*data)["request_type"].SetString("echo_return");
-    
+
+
+    uint64_t test_val = ((uint64_t)1 << 63);
+    LOG((long long unsigned int)test_val);
+    rapidjson::Value v;
+    v.SetUint64(test_val);
+    data->AddMember("test", v, data->GetAllocator());
     
     this->Send(static_cast<void*>(&data), NewPath(), connection_index);
 
