@@ -22,7 +22,17 @@ std::shared_ptr<Face> Terrain::getFace(uint64_t index) {
   return p_face;
 }
 
-void IndexToBiggestFace(uint64_t index, Face& face){
+int8_t MinRecursionFromIndex(uint64_t index){
+    for (int i = 0; i < 61; ++i) {
+      if (((uint64_t)1 << i) & index) {
+        return (62 - i) / 2;
+      }
+    }
+    // Top level face.
+    return 0;
+}
+
+void IndexToRootFace(uint64_t index, Face& face){
   index &= k_top_level_mask;
   index = index >> 61;
   face.points[0].x = parent_faces[index][0][0];
@@ -77,17 +87,18 @@ void FaceToSubface(uint8_t index, Face& face){
 
 int8_t IndexToFace(uint64_t index, Face& face, int8_t required_depth){
   int8_t depth = 0;
-  if(required_depth < 0 || required_depth > 30){
+  if(required_depth > 30){
+    LOG("WARNING: Invalid required_depth: " << required_depth );
     required_depth = 30;
   }
 
   if(!face.populated){
-    IndexToBiggestFace(index, face);
+    IndexToRootFace(index, face);
     face.populated = true;
   }
 
   while(required_depth <= depth){
-    if(index << (3+ (depth*2)) == 0){
+    if(required_depth < 0 && index << (3+ (depth*2)) == 0){
       // All remaining bits are zero.
       break;
     }
@@ -101,7 +112,7 @@ int8_t IndexToFace(uint64_t index, Face& face, int8_t required_depth){
   return depth;
 }
 
-int8_t IndexToFace(uint64_t index, Face& face){
+int8_t IndexToBiggestFace(uint64_t index, Face& face){
   return IndexToFace(index, face, -1);
 }
 

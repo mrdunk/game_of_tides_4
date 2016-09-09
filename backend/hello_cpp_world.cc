@@ -49,24 +49,6 @@ int main(int argc, char * argv[]) {
   DataSourceGenerate generator;
   terrain.addDataSource(&generator);
 
-  std::cout << generator.getRecursionFromIndex(k_top_level_mask)  << std::endl;
-  std::cout << generator.getRecursionFromIndex(0)  << std::endl;
-  std::cout << generator.getRecursionFromIndex((uint64_t)1 << 61)  << std::endl;
-  std::cout << generator.getRecursionFromIndex((uint64_t)2 << 61)  << std::endl;
-  std::cout << generator.getRecursionFromIndex((uint64_t)3 << 61)  << std::endl;
-  std::cout << generator.getRecursionFromIndex((uint64_t)4 << 61)  << std::endl;
-  std::cout << generator.getRecursionFromIndex((uint64_t)5 << 61)  << std::endl;
-  std::cout << generator.getRecursionFromIndex((uint64_t)6 << 61)  << std::endl;
-  std::cout << generator.getRecursionFromIndex((uint64_t)7 << 61)  << std::endl;
-
-  std::cout << generator.getRecursionFromIndex((uint64_t)1 << 59)  << std::endl;
-  std::cout << generator.getRecursionFromIndex((uint64_t)2 << 59)  << std::endl;
-  std::cout << generator.getRecursionFromIndex((uint64_t)3 << 59)  << std::endl;
-  std::cout << generator.getRecursionFromIndex((uint64_t)1 << 57)  << std::endl;
-  std::cout << generator.getRecursionFromIndex((uint64_t)2 << 57)  << std::endl;
-  std::cout << generator.getRecursionFromIndex((uint64_t)3 << 57)  << std::endl;
-
-
   LOG("max threads:" << std::thread::hardware_concurrency());
 
   uint64_t transport_index = 0;

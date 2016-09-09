@@ -25,7 +25,17 @@ typedef struct Point {
   uint64_t x;
   uint64_t y;
   uint64_t z;
-} Point;
+} Point; 
+
+inline bool operator==(const Point& lh_point, const Point& rh_point){
+  return lh_point.x == rh_point.x && 
+         lh_point.y == rh_point.y &&
+         lh_point.z == rh_point.z;
+}
+
+inline bool operator!=(const Point& lh_point, const Point& rh_point){
+  return !(lh_point == rh_point);
+}
 
 class Face {
  public:
@@ -69,27 +79,22 @@ const uint64_t parent_faces[8][3][3] =
 };
 
 
-/* TODO */
-void IndexToBiggestFace(uint64_t index, Face& face);
+/* Populate the supplied face variable with the top level parent face. */
+void IndexToRootFace(uint64_t index, Face& face);
 
 
-/* TODO */
+/* Get a Face for the requested index at the size appropriate for
+* required_depth. */
 int8_t IndexToFace(uint64_t index, Face& face, int8_t required_depth);
-int8_t IndexToFace(uint64_t index, Face& face);
 
+/* Get the Face matching index at the least recursion (largest size). */
+int8_t IndexToBiggestFace(uint64_t index, Face& face);
+
+/* Return the minimum recursion level this index is valid for. */
+int8_t MinRecursionFromIndex(uint64_t index);
 
 class DataSourceBase {
  public:
-  int getRecursionFromIndex(uint64_t index) {
-    for (int i = 0; i < 61; ++i) {
-      if (((uint64_t)1 << i) & index) {
-        return (62 - i) / 2;
-      }
-    }
-    // Top level face.
-    return 0;
-  }
-
   virtual std::shared_ptr<Face> getFace(uint64_t index) = 0;
   virtual void cacheFace(uint64_t /*index*/, std::shared_ptr<Face> /*Face*/) {}
 };
@@ -115,7 +120,7 @@ class DataSourceGenerate : public DataSourceBase {
  public:
   std::shared_ptr<Face> getFace(uint64_t index) {
     std::shared_ptr<Face> p_face(new Face);
-    IndexToFace(index, *p_face);
+    IndexToBiggestFace(index, *p_face);
     return p_face;
   }
 

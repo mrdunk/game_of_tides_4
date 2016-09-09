@@ -2,3 +2,6 @@
 *.pyc
 build/
 3rdparty/
+rapidjson/
+websocketpp/
+emscripten/
