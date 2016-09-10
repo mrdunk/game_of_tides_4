@@ -43,11 +43,6 @@ int main(int argc, char * argv[]) {
   }
 
   std::cout << "Hello World!" << std::endl;
-  std::cout << k_top_level_mask << std::endl;
-
-  Terrain terrain;
-  DataSourceGenerate generator;
-  terrain.addDataSource(&generator);
 
   LOG("max threads:" << std::thread::hardware_concurrency());
 

@@ -12,26 +12,27 @@ badd +1 data_transport.cc
 badd +1 data_transport_ws.cc
 badd +1 hello_cpp_world.cc
 badd +1 logging.cc
-badd +1 terrain.cc
+badd +8 terrain.cc
 badd +11 data_transport.h
 badd +55 data_transport_ws.h
 badd +1 logging.h
 badd +1 terrain.h
 badd +1 work.h
-badd +0 work_queue.h
+badd +1 work_queue.h
 badd +1 tasks.h
+badd +40 terrain_test.cc
 argglobal
 silent! argdel *
 argadd data_transport.cc
-argadd data_transport_ws.cc
-argadd hello_cpp_world.cc
-argadd logging.cc
-argadd terrain.cc
-argadd data_transport.h
-argadd data_transport_ws.h
-argadd logging.h
-argadd terrain.h
 argadd work.h
+argadd terrain.h
+argadd logging.h
+argadd data_transport_ws.h
+argadd data_transport.h
+argadd terrain.cc
+argadd logging.cc
+argadd hello_cpp_world.cc
+argadd data_transport_ws.cc
 set stal=2
 edit data_transport.cc
 set splitbelow splitright
@@ -123,7 +124,7 @@ if s:l < 1 | let s:l = 1 | endif
 exe s:l
 normal! zt
 22
-normal! 016|
+normal! 0
 tabedit tasks.h
 set splitbelow splitright
 set nosplitbelow
@@ -131,6 +132,7 @@ set nosplitright
 wincmd t
 set winheight=1 winwidth=1
 argglobal
+edit tasks.h
 let s:l = 1 - ((0 * winheight(0) + 28) / 57)
 if s:l < 1 | let s:l = 1 | endif
 exe s:l
@@ -169,7 +171,40 @@ normal! 0
 wincmd w
 exe 'vert 1resize ' . ((&columns * 103 + 103) / 206)
 exe 'vert 2resize ' . ((&columns * 102 + 103) / 206)
-tabnext 6
+tabedit terrain.cc
+set splitbelow splitright
+wincmd _ | wincmd |
+vsplit
+1wincmd h
+wincmd w
+set nosplitbelow
+set nosplitright
+wincmd t
+set winheight=1 winwidth=1
+exe 'vert 1resize ' . ((&columns * 103 + 103) / 206)
+exe 'vert 2resize ' . ((&columns * 102 + 103) / 206)
+argglobal
+edit terrain.cc
+let s:l = 10 - ((9 * winheight(0) + 28) / 57)
+if s:l < 1 | let s:l = 1 | endif
+exe s:l
+normal! zt
+10
+normal! 0
+wincmd w
+argglobal
+edit terrain_test.cc
+let s:l = 8 - ((7 * winheight(0) + 28) / 57)
+if s:l < 1 | let s:l = 1 | endif
+exe s:l
+normal! zt
+8
+normal! 0
+wincmd w
+2wincmd w
+exe 'vert 1resize ' . ((&columns * 103 + 103) / 206)
+exe 'vert 2resize ' . ((&columns * 102 + 103) / 206)
+tabnext 7
 set stal=1
 if exists('s:wipebuf')
   silent exe 'bwipe ' . s:wipebuf

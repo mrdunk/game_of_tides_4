@@ -43,7 +43,7 @@ $(EXECUTABLE): $(OBJECTS)
 	$(CXX) $(CXXFLAGS) $(LDFLAGS) $(MODIFIED_OBJECTS) $(LDLIBS) -o $(BUILD_DIR)$@
 
 $(OBJECTS_TEST): %.o: %.cc
-	$(CXX) -isystem $(CXXFLAGS) $(INCLUDES) -I./$(GTEST_DIR)/include -pthread $< \
+	$(CXX) -isystem $(CXXFLAGS) $(INCLUDES) -I$(GTEST_DIR)/include -pthread $< \
     $(BUILD_DIR)test_lib/libgtest.a -o $(BUILD_DIR)tests/$*
 
 .PHONY : clean

@@ -8,6 +8,8 @@
 #include <map>
 #include <vector>
 #include <memory>             // std::shared_ptr
+#include <algorithm>          // std::swap
+#include <glm/glm.hpp>        // OpenGL Mathematics library.
 
 
 const uint64_t k_top_level_mask = ((uint64_t)7 << 61);
@@ -21,28 +23,29 @@ const uint64_t k_top_level_shape_6 = ((uint64_t)6 << 61);
 const uint64_t k_top_level_shape_7 = ((uint64_t)7 << 61);
 const uint64_t k_64bit_max = ((uint64_t)1 << 63);
 
-typedef struct Point {
-  uint64_t x;
-  uint64_t y;
-  uint64_t z;
-} Point; 
+// NOTE: It's possible to change the precision of math operations done on this
+// type by changing glm::defaultp for another type.
+typedef glm::tvec3< glm::u64, glm::defaultp > Point;
 
-inline bool operator==(const Point& lh_point, const Point& rh_point){
-  return lh_point.x == rh_point.x && 
-         lh_point.y == rh_point.y &&
-         lh_point.z == rh_point.z;
-}
-
-inline bool operator!=(const Point& lh_point, const Point& rh_point){
-  return !(lh_point == rh_point);
-}
 
 class Face {
  public:
   Face() : populated{false} {}
   Point points[3];
+  int8_t recursion;
   bool populated;
 };
+
+inline bool operator==(const Face& lhs, const Face& rhs){
+  return lhs.points[0] == rhs.points[0] &&
+    lhs.points[1] == rhs.points[1] && 
+    lhs.points[2] == rhs.points[2];
+}
+
+inline bool operator!=(const Face& lhs, const Face& rhs){
+  return !(lhs == rhs);
+}
+
 
 const uint64_t parent_faces[8][3][3] = 
 {{{k_64bit_max/2, k_64bit_max/2, k_64bit_max},
@@ -82,16 +85,18 @@ const uint64_t parent_faces[8][3][3] =
 /* Populate the supplied face variable with the top level parent face. */
 void IndexToRootFace(uint64_t index, Face& face);
 
-
 /* Get a Face for the requested index at the size appropriate for
 * required_depth. */
 int8_t IndexToFace(uint64_t index, Face& face, int8_t required_depth);
 
 /* Get the Face matching index at the least recursion (largest size). */
-int8_t IndexToBiggestFace(uint64_t index, Face& face);
+int8_t IndexToBiggestFace(const uint64_t index, Face& face);
 
 /* Return the minimum recursion level this index is valid for. */
-int8_t MinRecursionFromIndex(uint64_t index);
+int8_t MinRecursionFromIndex(const uint64_t index);
+
+void FaceToSubface(const uint8_t index, Face parent, Face& child);
+
 
 class DataSourceBase {
  public:
@@ -116,25 +121,46 @@ class DataSourceCache : DataSourceBase {
 };
 
 
-class DataSourceGenerate : public DataSourceBase {
+class DataSourceGenerate {
  public:
-  std::shared_ptr<Face> getFace(uint64_t index) {
+  std::shared_ptr<Face> getFace(const uint64_t index) {
     std::shared_ptr<Face> p_face(new Face);
     IndexToBiggestFace(index, *p_face);
     return p_face;
   }
 
+  std::shared_ptr<Face> getFace(const uint64_t index,
+                                const int8_t required_depth)
+  {
+    std::shared_ptr<Face> p_face(new Face);
+    IndexToFace(index, *p_face, required_depth);
+    return p_face;
+  }
+  
+  std::vector<std::shared_ptr<Face>> getFaces(std::shared_ptr<Face> start_face,
+      const uint64_t index, const int8_t required_depth)
+  {
+    std::vector<std::shared_ptr<Face>> faces_in;
+    std::vector<std::shared_ptr<Face>> faces_out;
+    faces_in.push_back(start_face);
+
+    for(int i = start_face->recursion; i < required_depth; i++){
+      faces_out.clear();
+      for(std::vector<std::shared_ptr<Face>>::iterator parent = faces_in.begin();
+          parent != faces_in.end(); parent++)
+      {
+        std::shared_ptr<Face> child(new Face);
+        FaceToSubface(0, **parent, *child);
+        faces_out.push_back(child);
+      }
+      std::swap(faces_in, faces_out);
+    }
+
+    return faces_in;
+  }
+
  private:
 };
 
-
-class Terrain {
- public:
-  void addDataSource(DataSourceBase *p_data_source);
-  std::shared_ptr<Face> getFace(uint64_t index);
-
- private:
-  std::vector<DataSourceBase *> data_sources_;
-};
 
 #endif  // BACKEND_TERRAIN_H_

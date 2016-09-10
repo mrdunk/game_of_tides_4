@@ -5,3 +5,4 @@ build/
 rapidjson/
 websocketpp/
 emscripten/
+googletest/

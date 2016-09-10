@@ -40,6 +40,7 @@ flags = [
   '-x', 'c++',
   '-I./',
   '-I../',
+  '-Igoogletest/googletest/include',
   '-isystem', '/usr/local/include',
   '-isystem', '/usr/lib/llvm-3.8/bin/../lib/clang/3.8.0/include',
   '-isystem', '/usr/include/x86_64-linux-gnu',
