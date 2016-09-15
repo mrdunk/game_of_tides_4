@@ -1,5 +1,5 @@
 CXX=g++
-CXXFLAGS=-Wall -std=c++11 -D_WEBSOCKETPP_CPP11_STL_
+CXXFLAGS=-Wall -std=c++11 -D_WEBSOCKETPP_CPP11_STL_ # -g
 LDFLAGS=
 LDLIBS=-lssl -lcrypto -lpthread
 INCLUDES=-I./ -I../

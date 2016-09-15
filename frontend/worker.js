@@ -1,13 +1,47 @@
 // Copyright 2016 duncan law (mrdunk@gmail.com)
 
 importScripts('3rdparty/three.js');
+importScripts('build/wrap_terrain.js');
+
 self.postMessage('Spawned worker:', self._id);
 
 var getGeometry = function(){
-  var geometry = new THREE.BoxGeometry( 1, 1, 1 );
-  var bufferGeometry = new THREE.BufferGeometry().fromGeometry( geometry );
-  var vertices = bufferGeometry.getAttribute('position').array;
-  return vertices.buffer;
+  var recursion = 5;
+  var total = 0;
+  var face;
+  var terrain_generator = new Module.DataSourceGenerate();
+  var terrain_data, i;
+  var return_data = {};
+
+  var vertices = new Float32Array(Math.pow(4,recursion) * 8 * 9);
+  var color = new Float32Array(Math.pow(4,recursion) * 8 * 9);
+  for(var root_face = 0; root_face < 8; root_face++){
+    terrain_data = terrain_generator.getFaces(root_face * Math.pow(2, 29),0,0,recursion);
+    for(i = 0; i < terrain_data.size(); i++){
+      face = terrain_data.get(i);
+      vertices[total +0] = face.points[0][0];
+      vertices[total +1] = face.points[0][1];
+      vertices[total +2] = face.points[0][2];
+      vertices[total +3] = face.points[1][0];
+      vertices[total +4] = face.points[1][1];
+      vertices[total +5] = face.points[1][2];
+      vertices[total +6] = face.points[2][0];
+      vertices[total +7] = face.points[2][1];
+      vertices[total +8] = face.points[2][2];
+
+      color[total +0] = 0.05 * face.height;
+      color[total +3] = 0.05 * face.height;
+      color[total +6] = 0.05 * face.height;
+
+      total  = total +9;
+    }
+    terrain_data.delete();
+  }
+  terrain_generator.delete();
+
+  return_data.position = vertices.buffer;
+  return_data.color = color.buffer;
+  return return_data;
 };
 
 var WebSocketWrapper = function(){
@@ -88,10 +122,9 @@ self.addEventListener('message', function(e) {
       self.postMessage(return_value);
       break;
     case 'landscape':
-      return_value.type = 'landscape';
-      return_value.data = getGeometry();
-      self.postMessage(return_value, [return_value.data]);
-      //self.postMessage(return_value);
+      return_value = getGeometry();
+      return_value.type = 'geometry';
+      self.postMessage(return_value, [return_value.position, return_value.color]);
       break;
     case 'stop':
       return_value.type = 'stop';

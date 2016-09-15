@@ -54,6 +54,25 @@ var Options = function() {
     return return_val;
   };
 
+  this.Slider = function(context, data) {
+    var return_val = document.createElement('input');
+
+    return_val.setAttribute('type', 'range');
+    return_val.value = context.value;
+
+    return_val.addEventListener('input', function() {
+      console.log(context.value, context, data);
+      if (context.callback){
+        context.callback(this.value);
+      } else {
+        context.value = this.value;
+        SaveData(this.value);
+      }
+    });
+
+    return return_val;
+  };
+
   this.Execute = function(context, data) {
     var return_val = document.createElement('button');
     return_val.innerHTML = 'Send';
@@ -96,10 +115,16 @@ var Options = function() {
         }
       }
     },
-    camera: {
-      description: 'camera',
-      settings: {}
-    },
+    /*scene: {
+      description: 'scene',
+      settings: {
+        camera: {
+          description : 'camera range',
+          type: this.Slider,
+          value: 3
+        }
+      }
+    }*/
   };
 
   this.RegisterClient = function(client){

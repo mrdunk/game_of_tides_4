@@ -18,12 +18,7 @@ var game_loop = {};
       }
       game_loop.last_drawn = tFrame;
 
-      if (typeof default_view !== 'undefined') {
-        default_view.render();
-      }
-      if (typeof second_view !== 'undefined') {
-        second_view.render();
-      }
+      game_loop.renderer.Update();
     }
   };
 
@@ -31,7 +26,10 @@ var game_loop = {};
     console.log('...starting game_loop.');
     game_loop.options = new Options();
     game_loop.worker_interface = new WorkerInterface(game_loop.options);
-    //game_loop.options.RegisterClient(game_loop.worker_interface);
+    game_loop.renderer = new Renderer(game_loop.options);
+  
+    game_loop.renderer.RegisterView(window.innerWidth, window.innerHeight /2); 
+    game_loop.renderer.RegisterView(window.innerWidth /4, window.innerHeight /4); 
 
     main(window.performance.now()); // Start the cycle
   };

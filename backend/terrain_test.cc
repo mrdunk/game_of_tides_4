@@ -216,22 +216,29 @@ TEST_F(DataSourceGenerateTest, MidPoint) {
 }
 
 TEST_F(DataSourceGenerateTest, IndexToFace) {
-  std::shared_ptr<Face> face(new Face);
-  IndexToFace(0, face.get(), 0);
-  float size_of_parent = glm::distance(face->points[0],
-                                   face->points[1]);
-  float size_of_child;
-  std::vector<std::shared_ptr<Face>> faces;
-
-  for(int8_t recursion=1; recursion <= 30; recursion++){
-    IndexToFace(0, face.get(), recursion);
-    size_of_child = glm::distance(face->points[0],
-                                  face->points[1]);
+  for(uint8_t root_index = 0; root_index < 8; root_index++){
+    uint64_t index = (uint64_t)root_index << 61;
     
-    ASSERT_NEAR(size_of_parent/2, size_of_child, 0.001);
-    ASSERT_EQ(face->recursion, recursion);
-    ASSERT_GT(size_of_parent, 0);
-    size_of_parent = size_of_child;
+    std::shared_ptr<Face> face(new Face);
+    IndexToFace(index, face.get(), 0);
+    ASSERT_EQ(face->index, index);
+
+    float size_of_parent = glm::distance(face->points[0],
+        face->points[1]);
+    float size_of_child;
+    std::vector<std::shared_ptr<Face>> faces;
+
+    for(int8_t recursion=1; recursion <= 30; recursion++){
+      IndexToFace(index, face.get(), recursion);
+      size_of_child = glm::distance(face->points[0],
+          face->points[1]);
+
+      ASSERT_NEAR(size_of_parent/2, size_of_child, 0.001);
+      ASSERT_EQ(face->index, index);
+      ASSERT_EQ(face->recursion, recursion);
+      ASSERT_GT(size_of_parent, 0);
+      size_of_parent = size_of_child;
+    }
   }
 }
 
@@ -325,7 +332,26 @@ TEST_F(DataSourceGenerateTest, GetFacesDeeper) {
     ASSERT_NEAR(size_of_parent/2, size_of_child, 0.001);
     size_of_parent = size_of_child;
   }
+}
 
+TEST_F(DataSourceGenerateTest, PrintFaces) {
+  for(uint8_t base_root_index = 0; base_root_index < 8; base_root_index++){
+    uint64_t root_index = (uint64_t)base_root_index << 61;
+    std::shared_ptr<Face> root_face = data_generator.getFace(root_index);
+    LOG(root_face->points[0].x << ",\t" << root_face->points[0].y << ",\t" << root_face->points[0].z << "\t\t" <<
+        root_face->points[1].x << ",\t" << root_face->points[1].y << ",\t" << root_face->points[1].z << "\t\t" <<
+        root_face->points[2].x << ",\t" << root_face->points[2].y << ",\t" << root_face->points[2].z);
+  }
+
+  LOG(" ");
+
+  for(uint8_t base_root_index = 0; base_root_index < 8; base_root_index++){
+    uint32_t root_index = (uint32_t)base_root_index << 29;
+    std::vector<std::shared_ptr<Face>> faces = data_generator.getFaces(root_index, 0, 0, 0);
+    LOG(faces[0]->points[0].x << ",\t" << faces[0]->points[0].y << ",\t" << faces[0]->points[0].z << "\t\t" <<
+        faces[0]->points[1].x << ",\t" << faces[0]->points[1].y << ",\t" << faces[0]->points[1].z << "\t\t" <<
+        faces[0]->points[2].x << ",\t" << faces[0]->points[2].y << ",\t" << faces[0]->points[2].z);
+  }
 }
 
 

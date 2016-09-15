@@ -2,69 +2,123 @@
 
 /*global THREE*/
 
-var Viewport = function(width, height, camera) {
-  this.renderer = new THREE.WebGLRenderer({antialias: true});
-  this.renderer.setClearColor(0xcccccc);
-  this.renderer.setPixelRatio(window.devicePixelRatio);
-  document.body.appendChild(this.renderer.domElement);
+var Renderer = function(options) {
+  this.views = [];  // All registered Viewports.
 
-  var _this = this;
+  var Viewport = function(width, height, camera) {
+    this.renderer = new THREE.WebGLRenderer({antialias: true});
+    this.renderer.setClearColor(0xcccccc);
+    this.renderer.setPixelRatio(window.devicePixelRatio);
+    document.body.appendChild(this.renderer.domElement);
 
-  this.setSize = function(width, height) {
-    _this.renderer.setSize(width, height);
-    _this.camera.aspect = width / height;
-    _this.camera.updateProjectionMatrix();
-  };
+    var _this = this;
 
-  this.setScene = function(scene) {
-    _this.scene = scene;
-  };
+    this.setSize = function(width, height) {
+      _this.renderer.setSize(width, height);
+      _this.camera.aspect = width / height;
+      _this.camera.updateProjectionMatrix();
+    };
 
-  this.render = function() {
-    if (typeof _this.scene === 'undefined' ||
-        typeof _this.camera === 'undefined') {
-      console.log('Error: Secene or camera missing!');
-      return;
+    this.setScene = function(scene) {
+      _this.scene = scene;
+    };
+
+    this.render = function() {
+      if (typeof _this.scene === 'undefined' ||
+          typeof _this.camera === 'undefined') {
+        //console.log('Error: Secene or camera missing!');
+        return;
+      }
+      _this.renderer.render(_this.scene.scene, _this.camera);
+    };
+
+    if (typeof camera !== 'undefined') {
+      this.camera = camera;
+    } else {
+      this.camera = new THREE.PerspectiveCamera(
+          75, window.innerWidth / window.innerHeight, 0.1, 1000);
+      this.camera.position.z = 5;
     }
-    _this.renderer.render(_this.scene.scene, _this.camera);
+
+    if (width && height) {
+      this.setSize(width, height);
+    } else {
+      this.setSize(window.innerWidth, window.innerHeight);
+    }
   };
 
-  if (typeof camera !== 'undefined') {
-    this.camera = camera;
-  } else {
-    this.camera = new THREE.PerspectiveCamera(
-        75, window.innerWidth / window.innerHeight, 0.1, 1000);
-    this.camera.position.z = 5;
+
+  this.CreateScene = function(vertices, color) {
+    var geometry = new THREE.BufferGeometry();
+    geometry.addAttribute('position', new THREE.BufferAttribute(vertices, 3));
+    geometry.addAttribute('color', new THREE.BufferAttribute(color, 3));
+    geometry.computeVertexNormals();
+    //var material = new THREE.MeshBasicMaterial({//color: 0xff0000,
+    //                                            side : THREE.BackSide});
+    var material = new THREE.MeshPhongMaterial({//color: 0xff0000,
+                                                vertexColors: THREE.VertexColors,
+                                                  side : THREE.BackSide,
+                                                  shading: THREE.FlatShading });
+    //var material = new THREE.MeshBasicMaterial({ vertexColors: THREE.VertexColors });
+
+    //material.wireframe = true;
+    var mesh = new THREE.Mesh(geometry, material);
+
+    this.scene = new THREE.Scene();
+
+    var pointLight = new THREE.PointLight( 0xffffff, 1, 0 );
+    pointLight.position.set( 0,3000,100000 );
+    this.scene.add(pointLight);
+    
+    this.scene.add(mesh);
+  };
+
+  this.Update = function(){
+    for (var view_index = 0; view_index < this.views.length; view_index++){
+      this.views[view_index].render();
+    }
+  };
+
+  this.SetScene = function(scene){
+    for (var view_index = 0; view_index < this.views.length; view_index++){
+      this.views[view_index].setScene(scene);
+    }
+  };
+
+  this.RegisterView = function(port_width, port_height) {
+    var camera = new THREE.PerspectiveCamera(45, 1, 1, -200, 200);
+    camera.position.x = 0;
+    camera.position.y = 0;
+    camera.position.z = 3;
+    this.views.push( new Viewport(port_width, port_height, camera));
+  }.bind(this);
+
+  var MoveCamera = function(data){
+    console.log(data);
+    if(this.views[0]){
+      this.views[0].camera.position.z = data;
+    }
+  }.bind(this);
+
+  /* Configuration data for this module. To be inserted into the Menu. */
+  this.menu_data = {
+    name: "scene",
+    content: {
+      description: 'scene',
+      settings: {
+        camera: {
+          description : 'camera range',
+          type: options.Slider,
+          callback: MoveCamera,
+          value: 5
+        }
+      }
+    }
   }
 
-  if (width && height) {
-    this.setSize(width, height);
-  } else {
-    this.setSize(window.innerWidth, window.innerHeight);
+  
+
+  if(options){
+    options.RegisterClient(this);
   }
-
-  if (typeof landscape !== 'undefined') {
-    _this.setScene(landscape);
-  }
-};
-
-var landscape;
-
-var Scene = function(vertices) {
-  var geometry = new THREE.BufferGeometry();
-  geometry.addAttribute('position', new THREE.BufferAttribute(vertices, 3));
-  var material = new THREE.MeshBasicMaterial({color: 0xff0000});
-  material.wireframe = true;
-  var mesh = new THREE.Mesh(geometry, material);
-
-  this.scene = new THREE.Scene();
-  this.scene.add(mesh);
-};
-
-var camera1 = new THREE.PerspectiveCamera(75, 100, 100, 0.1, 1000);
-camera1.position.z = 5;
-var camera2 = new THREE.PerspectiveCamera(75, 100, 100, 0.1, 1000);
-camera2.position.z = 2;
-
-var default_view = new Viewport(window.innerWidth, window.innerHeight / 2, camera1);
-var second_view = new Viewport(window.innerWidth / 4, window.innerHeight / 4, camera2);
+}

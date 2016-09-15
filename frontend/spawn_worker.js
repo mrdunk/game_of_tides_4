@@ -18,14 +18,18 @@ var WorkerInterface = function(options){
 
   /* Gets called in response to a self.postMessage() in the worker thread. */ 
   function onMsg (e) {
+    console.log(e);
+
     var data = e.data;
     switch (data.type) {
-      case 'landscape':
+      case 'geometry':
         console.log('landscape:', data);
-        var vertices = new Float32Array(data.data);
-        var landscape = new Scene(vertices);
-        default_view.setScene(landscape);
-        second_view.setScene(landscape);
+        var position = new Float32Array(data.position);
+        var color = new Float32Array(data.color);
+
+        // TODO: Don't just poke variables in another object.
+        var landscape = new game_loop.renderer.CreateScene(position, color);
+        game_loop.renderer.SetScene(landscape);
         break;
       default:
         console.log(data);

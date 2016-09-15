@@ -11,7 +11,6 @@
 #include <algorithm>          // std::swap
 #include <glm/glm.hpp>        // OpenGL Mathematics library.
 
-
 const uint64_t k_top_level_mask = ((uint64_t)7 << 61);
 const uint64_t k_top_level_shape_0 = ((uint64_t)0 << 61);
 const uint64_t k_top_level_shape_1 = ((uint64_t)1 << 61);
@@ -21,7 +20,6 @@ const uint64_t k_top_level_shape_4 = ((uint64_t)4 << 61);
 const uint64_t k_top_level_shape_5 = ((uint64_t)5 << 61);
 const uint64_t k_top_level_shape_6 = ((uint64_t)6 << 61);
 const uint64_t k_top_level_shape_7 = ((uint64_t)7 << 61);
-const uint64_t planet_diam = 12742000;  // Diameter of Earth in meters.
 
 // NOTE: It's possible to change the precision of math operations done on this
 // type by changing glm::defaultp for another type.
@@ -29,6 +27,9 @@ const uint64_t planet_diam = 12742000;  // Diameter of Earth in meters.
 //typedef glm::tvec3< uint32_t, glm::defaultp > Point;
 typedef glm::tvec3< glm::f64, glm::defaultp > Point;
 //typedef glm::tvec3< glm::f32, glm::defaultp > Point;
+
+//const uint32_t planet_diam = 12742000;  // Diameter of Earth in meters.
+const int64_t planet_radius = 12742 /2;
 
 
 class Face {
@@ -44,12 +45,16 @@ class Face {
   void setPoints(std::array<Point, 3> value) {};
 
   int8_t recursion;
-  unsigned long getRecursion() const {return recursion;}
-  void setRecursion(unsigned long recursion_) {recursion = recursion_;}
+  short getRecursion() const {return recursion;}
+  void setRecursion(short recursion_) {recursion = recursion_;}
   
   bool populated;
   unsigned long getPopulated() const {return populated;}
   void setPopulated(unsigned long populated_) {populated = populated_;}
+
+  glm::f32 height;
+  float getHeight() const {return height;}
+  void setHeight(float height_) {height = height_;}
 };
 
 inline bool operator==(const Face& lhs, const Face& rhs){
@@ -62,39 +67,38 @@ inline bool operator!=(const Face& lhs, const Face& rhs){
   return !(lhs == rhs);
 }
 
+const int32_t parent_faces[8][3][3] = {
+  {{0,             0,              planet_radius},
+  {planet_radius,  0,              0},
+  {0,              -planet_radius, 0}},
 
-const uint64_t parent_faces[8][3][3] = 
-{{{planet_diam/2, planet_diam/2, planet_diam},
-  {planet_diam,   planet_diam/2, planet_diam/2}, 
-  {planet_diam/2, 0,             planet_diam/2}},
+ {{0,              0,              -planet_radius},
+  {planet_radius,  0,              0},
+  {0,              -planet_radius, 0}},
 
-{{planet_diam/2, planet_diam/2, 0},
- {planet_diam,   planet_diam/2, planet_diam/2},
- {planet_diam/2, 0,             planet_diam/2}},
+ {{0,              0,              planet_radius},
+  {0,              -planet_radius, 0},
+  {-planet_radius, 0,              0}},
 
-{{planet_diam/2, planet_diam/2, planet_diam},
- {planet_diam/2, 0            , planet_diam/2},
- {0            , planet_diam/2, planet_diam/2}},
+ {{0,              0,              -planet_radius},
+  {0,              -planet_radius, 0},
+  {-planet_radius, 0,              0}},
 
-{{planet_diam/2, planet_diam/2, 0},
- {planet_diam/2, 0            , planet_diam/2},
- {0            , planet_diam/2, planet_diam/2}},
+ {{0,              0,              planet_radius},
+  {-planet_radius, 0,              0},
+  {0,              planet_radius,  0}},
 
-{{planet_diam/2, planet_diam/2, planet_diam},
- {0            , planet_diam/2, planet_diam/2},
- {planet_diam/2, planet_diam, planet_diam/2}},
+ {{0,               0,              -planet_radius},
+  {-planet_radius,  0,              0},
+  {0,               planet_radius,  0}},
 
-{{planet_diam/2, planet_diam/2, 0},
- {0            , planet_diam/2, planet_diam/2},
- {planet_diam/2, planet_diam, planet_diam/2}},
+ {{0,               0,              planet_radius},
+  {0,               planet_radius,  0},
+  {planet_radius,   0,              0}},
 
-{{planet_diam/2, planet_diam/2, planet_diam},
- {planet_diam/2, planet_diam, planet_diam/2},
- {planet_diam, planet_diam/2, planet_diam/2}},
-
-{{planet_diam/2, planet_diam/2, 0},
- {planet_diam/2, planet_diam  , planet_diam/2},
- {planet_diam  , planet_diam/2, planet_diam/2}}
+ {{0,               0,              -planet_radius},
+  {0,               planet_radius,  0},
+  {planet_radius,   0,              0}},
 };
 
 
@@ -185,73 +189,39 @@ class DataSourceGenerate {
           parent != faces_in.end(); parent++)
       {
         // TODO: Try lookup from cache before generate.
-        std::shared_ptr<Face> child(new Face);
-        FaceToSubface(0, **parent, *child);
-        faces_out.push_back(child);
-        FaceToSubface(1, **parent, *child);
-        faces_out.push_back(child);
-        FaceToSubface(2, **parent, *child);
-        faces_out.push_back(child);
-        FaceToSubface(3, **parent, *child);
-        faces_out.push_back(child);
+        std::shared_ptr<Face> child_0(new Face);
+        FaceToSubface(0, **parent, *child_0);
+        faces_out.push_back(child_0);
+
+        std::shared_ptr<Face> child_1(new Face);
+        FaceToSubface(1, **parent, *child_1);
+        faces_out.push_back(child_1);
+
+        std::shared_ptr<Face> child_2(new Face);
+        FaceToSubface(2, **parent, *child_2);
+        faces_out.push_back(child_2);
+
+        std::shared_ptr<Face> child_3(new Face);
+        FaceToSubface(3, **parent, *child_3);
+        faces_out.push_back(child_3);
       }
       std::swap(faces_in, faces_out);
     }
     return faces_in;
   }
 
-  /*std::shared_ptr<Face> test(){
-    std::shared_ptr<Face> face(new Face);
-    face->index = 10;
-    return face;
-  }*/
-  Face test(int i){
-    Face face;
-    face.index = i;
-    face.points[0].x = 10;
-    face.points[0].y = 20;
-    face.points[0].z = 30;
-    face.points[1].x = 11;
-    face.points[1].y = 21;
-    face.points[1].z = 31;
-    face.points[2].x = 12;
-    face.points[2].y = 22;
-    face.points[2].z = 32;
-
-    return face;
+  Point test(unsigned char index, unsigned char point){
+    Face face = {};
+    //IndexToFace(((uint64_t)index << 61), face, 0);
+    IndexToRootFace(((uint64_t)index << 61), face);
+    return face.points[point];
   }
 
-  void test2(){
-    std::shared_ptr<Face> face(new Face);
-    face->index = 10;
-    face->points[0].x = 10;
-    face->points[0].y = 20;
-    face->points[0].z = 30;
-    face->points[1].x = 11;
-    face->points[1].y = 21;
-    face->points[1].z = 31;
-    face->points[2].x = 12;
-    face->points[2].y = 22;
-    face->points[2].z = 32;
-
-    _vec.push_back(face);
+  double test2(unsigned char index, unsigned char point, unsigned char axis){
+    return parent_faces[index][point][axis];
   }
 
-  std::vector<std::shared_ptr<Face>> test3() const {
-    return _vec;
-  }
-
-  std::shared_ptr<Face> test4(){
-    std::shared_ptr<Face> face(new Face);
-    return face;
-  }
-
-  /*Point test(){
-    Point point;
-    return point;
-  }*/
  private:
-  std::vector<std::shared_ptr<Face>> _vec;
 };
 
 
