@@ -10,6 +10,7 @@
 #include <memory>             // std::shared_ptr
 #include <algorithm>          // std::swap
 #include <glm/glm.hpp>        // OpenGL Mathematics library.
+#include <cassert>
 
 const uint64_t k_top_level_mask = ((uint64_t)7 << 61);
 const uint64_t k_top_level_shape_0 = ((uint64_t)0 << 61);
@@ -68,33 +69,33 @@ inline bool operator!=(const Face& lhs, const Face& rhs){
 }
 
 const int32_t parent_faces[8][3][3] = {
-  {{0,             0,              planet_radius},
-  {planet_radius,  0,              0},
-  {0,              -planet_radius, 0}},
+ {{0,             0,              planet_radius},
+  {0,              -planet_radius, 0},
+  {planet_radius,  0,              0}},
 
  {{0,              0,              -planet_radius},
   {planet_radius,  0,              0},
   {0,              -planet_radius, 0}},
-
- {{0,              0,              planet_radius},
-  {0,              -planet_radius, 0},
-  {-planet_radius, 0,              0}},
-
- {{0,              0,              -planet_radius},
-  {0,              -planet_radius, 0},
-  {-planet_radius, 0,              0}},
 
  {{0,              0,              planet_radius},
   {-planet_radius, 0,              0},
-  {0,              planet_radius,  0}},
+  {0,              -planet_radius, 0}},
+
+ {{0,              0,              -planet_radius},
+  {0,              -planet_radius, 0},
+  {-planet_radius, 0,              0}},
+
+ {{0,              0,              planet_radius},
+  {0,              planet_radius,  0},
+  {-planet_radius, 0,              0}},
 
  {{0,               0,              -planet_radius},
   {-planet_radius,  0,              0},
   {0,               planet_radius,  0}},
 
  {{0,               0,              planet_radius},
-  {0,               planet_radius,  0},
-  {planet_radius,   0,              0}},
+  {planet_radius,   0,              0},
+  {0,               planet_radius,  0}},
 
  {{0,               0,              -planet_radius},
   {0,               planet_radius,  0},
@@ -118,6 +119,14 @@ int8_t IndexToBiggestFace(const uint64_t index, Face& face);
 int8_t MinRecursionFromIndex(const uint64_t index);
 
 void FaceToSubface(const uint8_t index, Face parent, Face& child);
+
+/* Return number of common points on 2 faces.
+ * Returns:
+ *   0: Faces do not touch.
+ *   1: Faces share a single corner.
+ *   2: Faces share an edge (2 corners).
+ *   3: Faces are the same.              */
+uint8_t DoFacesTouch(const Face& face_1, const Face& face_2);
 
 
 class DataSourceBase {

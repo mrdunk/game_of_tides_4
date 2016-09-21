@@ -52,6 +52,14 @@ inline uint64_t IndexOfSubFace(const uint64_t index, const int8_t recursion,
   return index + (sub_index << (61 - (2 * (recursion +1))));
 }
 
+inline Point WrapNormalize(const Point input){
+#ifdef UNIT_TESTING
+  return input;
+#else
+  return glm::normalize(input);
+#endif  // UNIT_TESTING
+}
+
 void FaceToSubface(const uint8_t sub_index, Face parent, Face& child){
   child.index = IndexOfSubFace(parent.index, parent.recursion, sub_index);
   child.recursion = parent.recursion +1;
@@ -59,37 +67,37 @@ void FaceToSubface(const uint8_t sub_index, Face parent, Face& child){
   switch(sub_index){
     case 0:
       MidPoint(parent.points[1], parent.points[2], child.points[0]);
-      child.points[0] = glm::normalize(child.points[0]);
+      child.points[0] = WrapNormalize(child.points[0]);
       MidPoint(parent.points[0], parent.points[2], child.points[1]);
-      child.points[1] = glm::normalize(child.points[1]);
+      child.points[1] = WrapNormalize(child.points[1]);
       MidPoint(parent.points[0], parent.points[1], child.points[2]);
-      child.points[2] = glm::normalize(child.points[2]);
+      child.points[2] = WrapNormalize(child.points[2]);
       return;
     case 1:
       child.points[0] = parent.points[0];
-      child.points[0] = glm::normalize(child.points[0]);
+      child.points[0] = WrapNormalize(child.points[0]);
       MidPoint(parent.points[0], parent.points[1], child.points[1]);
-      child.points[1] = glm::normalize(child.points[1]);
+      child.points[1] = WrapNormalize(child.points[1]);
       MidPoint(parent.points[0], parent.points[2], child.points[2]);
-      child.points[2] = glm::normalize(child.points[2]);
+      child.points[2] = WrapNormalize(child.points[2]);
       child.height = parent.height +1;
       return;
     case 2:
       MidPoint(parent.points[0], parent.points[1], child.points[0]);
-      child.points[0] = glm::normalize(child.points[0]);
+      child.points[0] = WrapNormalize(child.points[0]);
       child.points[1] = parent.points[1];
-      child.points[1] = glm::normalize(child.points[1]);
+      child.points[1] = WrapNormalize(child.points[1]);
       MidPoint(parent.points[1], parent.points[2], child.points[2]);
-      child.points[2] = glm::normalize(child.points[2]);
+      child.points[2] = WrapNormalize(child.points[2]);
       child.height = parent.height +1;
       return;
     case 3:
       MidPoint(parent.points[0], parent.points[2], child.points[0]);
-      child.points[0] = glm::normalize(child.points[0]);
+      child.points[0] = WrapNormalize(child.points[0]);
       MidPoint(parent.points[1], parent.points[2], child.points[1]);
-      child.points[1] = glm::normalize(child.points[1]);
+      child.points[1] = WrapNormalize(child.points[1]);
       child.points[2] = parent.points[2];
-      child.points[2] = glm::normalize(child.points[2]);
+      child.points[2] = WrapNormalize(child.points[2]);
       child.height = parent.height +1;
       return;
     default:
@@ -97,11 +105,11 @@ void FaceToSubface(const uint8_t sub_index, Face parent, Face& child){
   }
 }
 
-int8_t IndexToFace(uint64_t index, Face& face, int8_t required_depth){
+int8_t IndexToFace(const uint64_t index, Face& face, int8_t required_depth){
   return IndexToFace(index, &face, required_depth);
 }
 
-int8_t IndexToFace(uint64_t index, Face* face, int8_t required_depth){
+int8_t IndexToFace(const uint64_t index, Face* face, int8_t required_depth){
   //LOG("IndexToFace(" << index << "," << (int)required_depth << ")");
   if(required_depth > 30){
     LOG("WARNING: Invalid required_depth: " << required_depth );
@@ -142,5 +150,82 @@ int8_t IndexToFace(uint64_t index, Face* face, int8_t required_depth){
 int8_t IndexToBiggestFace(const uint64_t index, Face& face){
   return IndexToFace(index, face, -1);
 }
+
+int8_t GetNeighbours(const uint64_t target_index, int8_t target_recursion,
+                   uint64_t* neighbours){
+  Face target_face;
+  int8_t neighbour_count;
+
+  for(int8_t recursion = 0; recursion <= target_recursion; recursion++){
+    neighbour_count = 0;
+    if (recursion == 0){
+      IndexToFace(target_index, &target_face, recursion);
+      for(uint8_t root_index = 0; root_index < 8; root_index++){
+        uint64_t index = (uint64_t)root_index << 61;
+        Face neighbour_face;
+        IndexToFace(index, neighbour_face, 0);
+        
+        if(DoFacesTouch(target_face, neighbour_face) == 2){
+          neighbours[neighbour_count++] = index;
+        }
+      }
+    } else {
+      uint64_t sub_index = target_index >> (61 - (2 * recursion));
+      sub_index &= 3;
+      if (sub_index == 0) {
+        // Center child is easy; It's neighbours are the other children of the
+        // same parent.
+        Face parent_face;
+        IndexToFace(target_index, &parent_face, recursion -1);
+        for(int8_t child = 1; child < 4; child++){
+          Face child_face;
+          FaceToSubface(child, parent_face, child_face);
+          neighbours[neighbour_count++] = child_face.index;
+        }
+      } else {
+        uint64_t new_neighbours[3];
+        IndexToFace(target_index, &target_face, recursion);
+        for(int8_t neighbour = 0; neighbour < 3; neighbour++){
+          // The target will only ever be next to a child at the edge of a
+          // neighbour. (ie, not the center one indexed "0".)
+          for(int8_t neighbour_child = 1; neighbour_child < 4; neighbour_child++){
+            Face neighbour_parent_face, neighbour_child_face;
+
+            IndexToFace(neighbours[neighbour], neighbour_parent_face, recursion -1);
+            FaceToSubface(neighbour_child, neighbour_parent_face, neighbour_child_face);
+
+            if(DoFacesTouch(target_face, neighbour_child_face) == 2){
+              new_neighbours[neighbour_count++] = neighbour_child_face.index;
+              break;
+            }
+          }
+        }
+        Face parent_face;
+        IndexToFace(target_index, &parent_face, recursion -1);
+        new_neighbours[neighbour_count++] = parent_face.index;
+
+        assert(neighbour_count == 3);
+        neighbours[0] = new_neighbours[0];
+        neighbours[1] = new_neighbours[1];
+        neighbours[2] = new_neighbours[2];
+      }
+    }
+  }
+  return neighbour_count;
+}
+
+/* Only works for faces of same recursion. */
+uint8_t DoFacesTouch(const Face& face_1, const Face& face_2){
+  uint8_t count_shared = 0;
+  for(int i=0; i < 3; i++){
+    for(int j=0; j < 3; j++){
+      if(face_1.points[i] == face_2.points[j]){
+        count_shared++;
+      }
+    }
+  }
+  return count_shared;
+}
+
 
 

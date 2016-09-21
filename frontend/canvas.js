@@ -57,7 +57,7 @@ var Renderer = function(options) {
     //                                            side : THREE.BackSide});
     var material = new THREE.MeshPhongMaterial({//color: 0xff0000,
                                                 vertexColors: THREE.VertexColors,
-                                                  side : THREE.BackSide,
+                                                  side : THREE.FrontSide,
                                                   shading: THREE.FlatShading });
     //var material = new THREE.MeshBasicMaterial({ vertexColors: THREE.VertexColors });
 
@@ -65,6 +65,9 @@ var Renderer = function(options) {
     var mesh = new THREE.Mesh(geometry, material);
 
     this.scene = new THREE.Scene();
+
+    var ambientLight = new THREE.AmbientLight( 0x606060 );
+    this.scene.add(ambientLight);
 
     var pointLight = new THREE.PointLight( 0xffffff, 1, 0 );
     pointLight.position.set( 0,3000,100000 );
@@ -90,13 +93,22 @@ var Renderer = function(options) {
     camera.position.x = 0;
     camera.position.y = 0;
     camera.position.z = 3;
-    this.views.push( new Viewport(port_width, port_height, camera));
+    var viewport = new Viewport(port_width, port_height, camera);
+    camera.controls = new THREE.OrbitControls( camera, viewport.renderer.domElement )
+    this.views.push(viewport);
   }.bind(this);
 
-  var MoveCamera = function(data){
+  var CameraDistance = function(data){
     console.log(data);
     if(this.views[0]){
       this.views[0].camera.position.z = data;
+    }
+  }.bind(this);
+
+  var CameraDirection = function(data) {
+    if(this.views[0]){
+      this.views[0].camera.position.y = data / 10;
+      this.views[0].camera.lookAt(new THREE.Vector3(0,0,0));
     }
   }.bind(this);
 
@@ -106,10 +118,16 @@ var Renderer = function(options) {
     content: {
       description: 'scene',
       settings: {
-        camera: {
-          description : 'camera range',
+        camera1_range: {
+          description : 'camera1 range',
           type: options.Slider,
-          callback: MoveCamera,
+          callback: CameraDistance,
+          value: 5
+        },
+        camera1_direction: {
+          description : 'camera1 direction',
+          type: options.Slider,
+          callback: CameraDirection,
           value: 5
         }
       }

@@ -1,6 +1,9 @@
+#define UNIT_TESTING
+
 #include "terrain.cc"
 #include "logging.cc"
 #include "gtest/gtest.h"
+
 
 namespace {
 
@@ -59,6 +62,45 @@ TEST_F(GeneralFunctionsTest, PointEqualPoint) {
   ASSERT_NE(point1, point2);
 }
 
+TEST_F(GeneralFunctionsTest, IndexToFaceFacesAreDifferent){
+  Face last_face;
+  for(uint8_t root_index = 0; root_index < 8; root_index++){
+    uint64_t index = (uint64_t)root_index << 61;
+    
+    Face face;
+    IndexToFace(index, face, 0);
+    ASSERT_EQ(face.index, index);
+    ASSERT_NE(face, last_face);
+    last_face = face;
+  }
+}
+
+TEST_F(GeneralFunctionsTest, IndexToFaceSize) {
+  for(uint8_t root_index = 0; root_index < 8; root_index++){
+    uint64_t index = (uint64_t)root_index << 61;
+    
+    Face face;
+    IndexToFace(index, face, 0);
+    ASSERT_EQ(face.index, index);
+
+    float size_of_parent = glm::distance(face.points[0],
+        face.points[1]);
+    float size_of_child;
+    std::vector<std::shared_ptr<Face>> faces;
+
+    for(int8_t recursion=1; recursion <= 30; recursion++){
+      IndexToFace(index, face, recursion);
+      size_of_child = glm::distance(face.points[0], face.points[1]);
+
+      ASSERT_NEAR(size_of_parent/2, size_of_child, 0.001);
+      ASSERT_EQ(face.index, index);
+      ASSERT_EQ(face.recursion, recursion);
+      ASSERT_GT(size_of_parent, 0);
+      size_of_parent = size_of_child;
+    }
+  }
+}
+
 TEST_F(GeneralFunctionsTest, FaceToSubface) {
   Face parent;
   Face child;
@@ -111,6 +153,23 @@ TEST_F(GeneralFunctionsTest, FaceToSubface) {
   ASSERT_EQ(child.index, ((uint64_t)7 << 61) + ((uint64_t)3 << 59));
   ASSERT_EQ(child.recursion, 1);
 }
+
+TEST_F(GeneralFunctionsTest, GetNeighboursRootLevel) {
+  uint64_t neighbours[3];
+  for(int64_t index = 0; index < 8; index++){
+    ASSERT_EQ(GetNeighbours((index << 61), 0, neighbours), 3);
+  }
+}
+
+TEST_F(GeneralFunctionsTest, GetNeighbours) {
+  for(uint64_t face_number=0; face_number < 0x1FF; face_number++){
+    uint64_t neighbours[3];
+    uint64_t index = (face_number << 55);
+    ASSERT_EQ(GetNeighbours(index, 3, neighbours), 3);
+  }
+}
+
+
 
 
 class DataSourceGenerateTest : public ::testing::Test {
@@ -211,33 +270,6 @@ TEST_F(DataSourceGenerateTest, MidPoint) {
       ASSERT_NEAR(glm::distance(face.points[1], mid),
                 glm::distance(face.points[2], mid),
                 0.1);
-    }
-  }
-}
-
-TEST_F(DataSourceGenerateTest, IndexToFace) {
-  for(uint8_t root_index = 0; root_index < 8; root_index++){
-    uint64_t index = (uint64_t)root_index << 61;
-    
-    std::shared_ptr<Face> face(new Face);
-    IndexToFace(index, face.get(), 0);
-    ASSERT_EQ(face->index, index);
-
-    float size_of_parent = glm::distance(face->points[0],
-        face->points[1]);
-    float size_of_child;
-    std::vector<std::shared_ptr<Face>> faces;
-
-    for(int8_t recursion=1; recursion <= 30; recursion++){
-      IndexToFace(index, face.get(), recursion);
-      size_of_child = glm::distance(face->points[0],
-          face->points[1]);
-
-      ASSERT_NEAR(size_of_parent/2, size_of_child, 0.001);
-      ASSERT_EQ(face->index, index);
-      ASSERT_EQ(face->recursion, recursion);
-      ASSERT_GT(size_of_parent, 0);
-      size_of_parent = size_of_child;
     }
   }
 }

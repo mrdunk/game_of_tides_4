@@ -6,7 +6,7 @@ importScripts('build/wrap_terrain.js');
 self.postMessage('Spawned worker:', self._id);
 
 var getGeometry = function(){
-  var recursion = 5;
+  var recursion = 3;
   var total = 0;
   var face;
   var terrain_generator = new Module.DataSourceGenerate();
@@ -29,9 +29,9 @@ var getGeometry = function(){
       vertices[total +7] = face.points[2][1];
       vertices[total +8] = face.points[2][2];
 
-      color[total +0] = 0.05 * face.height;
-      color[total +3] = 0.05 * face.height;
-      color[total +6] = 0.05 * face.height;
+      color[total +0] = 0.1 * face.height;
+      color[total +3] = 0.1 * face.height;
+      color[total +6] = 0.1 * face.height;
 
       total  = total +9;
     }
