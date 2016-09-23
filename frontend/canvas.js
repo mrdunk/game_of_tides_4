@@ -66,12 +66,13 @@ var Renderer = function(options) {
 
     this.scene = new THREE.Scene();
 
-    var ambientLight = new THREE.AmbientLight( 0x606060 );
+    //var ambientLight = new THREE.AmbientLight( 0xb0b0b0 );
+    var ambientLight = new THREE.AmbientLight( 0xffffff );
     this.scene.add(ambientLight);
 
-    var pointLight = new THREE.PointLight( 0xffffff, 1, 0 );
+    /*var pointLight = new THREE.PointLight( 0xffffff, 1, 0 );
     pointLight.position.set( 0,3000,100000 );
-    this.scene.add(pointLight);
+    this.scene.add(pointLight);*/
     
     this.scene.add(mesh);
   };
@@ -89,7 +90,7 @@ var Renderer = function(options) {
   };
 
   this.RegisterView = function(port_width, port_height) {
-    var camera = new THREE.PerspectiveCamera(45, 1, 1, -200, 200);
+    var camera = new THREE.PerspectiveCamera(45, 1, 1, 0, 200);
     camera.position.x = 0;
     camera.position.y = 0;
     camera.position.z = 3;

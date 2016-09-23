@@ -4,13 +4,20 @@
 
 
 int8_t MinRecursionFromIndex(const uint64_t index){
-    for (int i = 0; i < 61; ++i) {
+  /*  for (int i = 0; i < 61; ++i) {
       if (((uint64_t)1 << i) & index) {
         return (62 - i) / 2;
       }
     }
     // Top level face.
-    return 0;
+    return 0;*/
+  int8_t return_value = 0;
+  uint64_t index_ = index & ~((uint64_t)7 << 61);
+  while (index_ > 0){
+    return_value++;
+    index_ &= ~((uint64_t)3 << (61 - (2 * return_value)));
+  }
+  return return_value;
 }
 
 void IndexToRootFace(uint64_t index, Face& face){
@@ -72,6 +79,7 @@ void FaceToSubface(const uint8_t sub_index, Face parent, Face& child){
       child.points[1] = WrapNormalize(child.points[1]);
       MidPoint(parent.points[0], parent.points[1], child.points[2]);
       child.points[2] = WrapNormalize(child.points[2]);
+      child.height = parent.height;
       return;
     case 1:
       child.points[0] = parent.points[0];
@@ -80,7 +88,6 @@ void FaceToSubface(const uint8_t sub_index, Face parent, Face& child){
       child.points[1] = WrapNormalize(child.points[1]);
       MidPoint(parent.points[0], parent.points[2], child.points[2]);
       child.points[2] = WrapNormalize(child.points[2]);
-      child.height = parent.height +1;
       return;
     case 2:
       MidPoint(parent.points[0], parent.points[1], child.points[0]);
@@ -89,7 +96,6 @@ void FaceToSubface(const uint8_t sub_index, Face parent, Face& child){
       child.points[1] = WrapNormalize(child.points[1]);
       MidPoint(parent.points[1], parent.points[2], child.points[2]);
       child.points[2] = WrapNormalize(child.points[2]);
-      child.height = parent.height +1;
       return;
     case 3:
       MidPoint(parent.points[0], parent.points[2], child.points[0]);
@@ -98,7 +104,6 @@ void FaceToSubface(const uint8_t sub_index, Face parent, Face& child){
       child.points[1] = WrapNormalize(child.points[1]);
       child.points[2] = parent.points[2];
       child.points[2] = WrapNormalize(child.points[2]);
-      child.height = parent.height +1;
       return;
     default:
       LOG("ERROR: Invalid sub_index.");
@@ -147,10 +152,6 @@ int8_t IndexToFace(const uint64_t index, Face* face, int8_t required_depth){
   return depth;
 }
 
-int8_t IndexToBiggestFace(const uint64_t index, Face& face){
-  return IndexToFace(index, face, -1);
-}
-
 int8_t GetNeighbours(const uint64_t target_index, int8_t target_recursion,
                    uint64_t* neighbours){
   Face target_face;
@@ -175,12 +176,8 @@ int8_t GetNeighbours(const uint64_t target_index, int8_t target_recursion,
       if (sub_index == 0) {
         // Center child is easy; It's neighbours are the other children of the
         // same parent.
-        Face parent_face;
-        IndexToFace(target_index, &parent_face, recursion -1);
-        for(int8_t child = 1; child < 4; child++){
-          Face child_face;
-          FaceToSubface(child, parent_face, child_face);
-          neighbours[neighbour_count++] = child_face.index;
+        for(int64_t child = 1; child < 4; child++){
+          neighbours[neighbour_count++] = target_index + (child << (61 - (2 * recursion)));
         }
       } else {
         uint64_t new_neighbours[3];
@@ -199,10 +196,14 @@ int8_t GetNeighbours(const uint64_t target_index, int8_t target_recursion,
               break;
             }
           }
+          if(neighbour_count >= 2){
+            break;
+          }
         }
-        Face parent_face;
-        IndexToFace(target_index, &parent_face, recursion -1);
-        new_neighbours[neighbour_count++] = parent_face.index;
+
+        // Index of the center face of the parent face.
+        new_neighbours[neighbour_count++] = 
+          target_index & ~((int64_t)3 << (61 - (2 * recursion)));
 
         assert(neighbour_count == 3);
         neighbours[0] = new_neighbours[0];

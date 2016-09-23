@@ -1,15 +1,16 @@
 // Copyright 2016 duncan law (mrdunk@gmail.com)
 
 importScripts('3rdparty/three.js');
-importScripts('build/wrap_terrain.js');
+importScripts('wrap_terrain.js');
 
 self.postMessage('Spawned worker:', self._id);
 
 var getGeometry = function(){
-  var recursion = 3;
+  var recursion = 5;
   var total = 0;
   var face;
   var terrain_generator = new Module.DataSourceGenerate();
+  terrain_generator.MakeCache();
   var terrain_data, i;
   var return_data = {};
 
@@ -29,9 +30,15 @@ var getGeometry = function(){
       vertices[total +7] = face.points[2][1];
       vertices[total +8] = face.points[2][2];
 
-      color[total +0] = 0.1 * face.height;
-      color[total +3] = 0.1 * face.height;
-      color[total +6] = 0.1 * face.height;
+      color[total +0] = face.height /4;
+      color[total +3] = face.height /2;
+      color[total +6] = face.height /4;
+      color[total +1] = face.height /2;
+      color[total +4] = face.height /2;
+      color[total +7] = face.height /2;
+      color[total +2] = face.height /4;
+      color[total +5] = face.height /4;
+      color[total +8] = face.height /4;
 
       total  = total +9;
     }

@@ -162,14 +162,23 @@ TEST_F(GeneralFunctionsTest, GetNeighboursRootLevel) {
 }
 
 TEST_F(GeneralFunctionsTest, GetNeighbours) {
+  uint8_t recursion = 3;
   for(uint64_t face_number=0; face_number < 0x1FF; face_number++){
     uint64_t neighbours[3];
     uint64_t index = (face_number << 55);
-    ASSERT_EQ(GetNeighbours(index, 3, neighbours), 3);
+    ASSERT_EQ(GetNeighbours(index, recursion, neighbours), 3);
+
+    Face centre_face, neighbour_0_face, neighbour_1_face, neighbour_2_face;
+    IndexToFace(index, centre_face, recursion);
+    IndexToFace(neighbours[0], neighbour_0_face, recursion);
+    IndexToFace(neighbours[1], neighbour_1_face, recursion);
+    IndexToFace(neighbours[2], neighbour_2_face, recursion);
+
+    ASSERT_EQ(DoFacesTouch(centre_face, neighbour_0_face), 2);
+    ASSERT_EQ(DoFacesTouch(centre_face, neighbour_1_face), 2);
+    ASSERT_EQ(DoFacesTouch(centre_face, neighbour_2_face), 2);
   }
 }
-
-
 
 
 class DataSourceGenerateTest : public ::testing::Test {
@@ -183,7 +192,7 @@ class DataSourceGenerateTest : public ::testing::Test {
 
 TEST_F(DataSourceGenerateTest, GetFaceRootFaces) {
   // The "0"th root face.
-  std::shared_ptr<Face> face = data_generator.getFace(0);
+  std::shared_ptr<Face> face = data_generator.getFace(0, 0);
   ASSERT_NE(face->points[0], face->points[1]);
   ASSERT_NE(face->points[0], face->points[2]);
   ASSERT_NE(face->points[1], face->points[2]);
@@ -199,7 +208,7 @@ TEST_F(DataSourceGenerateTest, GetFaceRootFaces) {
       glm::distance(glm::vec3(face->points[2]), glm::vec3(face->points[1])));
 
   // The 4th root face. (There are 8 total. 0-7.)
-  face = data_generator.getFace((uint64_t)4 << 61);
+  face = data_generator.getFace((uint64_t)4 << 61, 0);
   ASSERT_NE(face->points[0], face->points[1]);
   ASSERT_NE(face->points[0], face->points[2]);
   ASSERT_NE(face->points[1], face->points[2]);
@@ -276,18 +285,18 @@ TEST_F(DataSourceGenerateTest, MidPoint) {
 
 TEST_F(DataSourceGenerateTest, GetFaceChildFaces) {
   // The "0"th root face.
-  std::shared_ptr<Face> face = data_generator.getFace(0);
+  std::shared_ptr<Face> face = data_generator.getFace(0, 0);
   float size_of_root = glm::distance(glm::vec3(face->points[0]),
                                      glm::vec3(face->points[1]));
   
   // The 1th child of the 0th root. (0-3 children. 0-7 roots.)
-  face = data_generator.getFace((uint64_t)1 << 59);
+  face = data_generator.getFace((uint64_t)1 << 59, 1);
   ASSERT_EQ(
       glm::distance(glm::vec3(face->points[0]), glm::vec3(face->points[1])),
       size_of_root / 2);
 
   // 3rd grandchild.
-  face = data_generator.getFace((uint64_t)3 << 57);  
+  face = data_generator.getFace((uint64_t)3 << 57, 2);  
   ASSERT_EQ(
       glm::distance(glm::vec3(face->points[0]), glm::vec3(face->points[1])),
       size_of_root / 4);
@@ -295,7 +304,7 @@ TEST_F(DataSourceGenerateTest, GetFaceChildFaces) {
 
 TEST_F(DataSourceGenerateTest, GetFaceDepth) {
   // The "0"th root face.
-  std::shared_ptr<Face> root_face = data_generator.getFace(0);
+  std::shared_ptr<Face> root_face = data_generator.getFace(0, 0);
   float size_of_root = glm::distance(glm::vec3(root_face->points[0]),
                                      glm::vec3(root_face->points[1]));
   
@@ -369,7 +378,7 @@ TEST_F(DataSourceGenerateTest, GetFacesDeeper) {
 TEST_F(DataSourceGenerateTest, PrintFaces) {
   for(uint8_t base_root_index = 0; base_root_index < 8; base_root_index++){
     uint64_t root_index = (uint64_t)base_root_index << 61;
-    std::shared_ptr<Face> root_face = data_generator.getFace(root_index);
+    std::shared_ptr<Face> root_face = data_generator.getFace(root_index, 0);
     LOG(root_face->points[0].x << ",\t" << root_face->points[0].y << ",\t" << root_face->points[0].z << "\t\t" <<
         root_face->points[1].x << ",\t" << root_face->points[1].y << ",\t" << root_face->points[1].z << "\t\t" <<
         root_face->points[2].x << ",\t" << root_face->points[2].y << ",\t" << root_face->points[2].z);
@@ -393,3 +402,51 @@ int main(int argc, char **argv) {
   ::testing::InitGoogleTest(&argc, argv);
   return RUN_ALL_TESTS();
 }
+
+
+class FaceCacheTest : public ::testing::Test {
+ protected:
+  FaceCacheTest() {
+    // You can do set-up work for each test here.
+  }
+
+};
+
+TEST_F(FaceCacheTest, SaveAndRetreive) {
+  FaceCache cache;
+  std::shared_ptr<Face> face_1(new Face);
+  std::shared_ptr<Face> face_2(new Face);
+  std::shared_ptr<Face> face_fetched;
+
+
+  face_1->populated = true;
+  face_1->index = 123;
+  face_1->recursion = 0;
+
+  face_2->populated = true;
+  face_2->index = 567;
+  face_2->recursion = 2;
+
+
+  cache.Cache(face_1);
+  cache.Cache(face_2);
+
+  face_fetched = cache.Get(123, 0);
+  ASSERT_EQ(face_1->index, face_fetched->index);
+  ASSERT_EQ(face_1->populated, face_fetched->populated);
+  
+  face_fetched = cache.Get(567, 2);
+  ASSERT_EQ(face_2->index, face_fetched->index);
+  ASSERT_EQ(face_2->populated, face_fetched->populated);
+
+  face_fetched = cache.Get(999, 2);
+  ASSERT_EQ(face_fetched, nullptr);
+
+  face_fetched = cache.Get(567, 99);
+  ASSERT_EQ(face_fetched, nullptr);
+}
+
+
+
+
+

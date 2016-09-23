@@ -30,12 +30,11 @@ EMSCRIPTEN_BINDINGS(DataSourceGenerate) {
   
   class_<DataSourceGenerate>("DataSourceGenerate")
     .constructor<>()
+    .function("MakeCache", &DataSourceGenerate::MakeCache)
     .function("getFaces",
       select_overload<std::vector<std::shared_ptr<Face>>(
         const unsigned long index_high, const unsigned long index_low,
         const unsigned char recursion, const char required_depth)> (
           &DataSourceGenerate::getFaces))
-    .function("test", &DataSourceGenerate::test)
-    .function("test2", &DataSourceGenerate::test2)
     ;
 }

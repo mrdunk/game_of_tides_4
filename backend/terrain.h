@@ -32,10 +32,11 @@ typedef glm::tvec3< glm::f64, glm::defaultp > Point;
 //const uint32_t planet_diam = 12742000;  // Diameter of Earth in meters.
 const int64_t planet_radius = 12742 /2;
 
+typedef std::pair<uint64_t, int8_t> CacheKey;
 
 class Face {
  public:
-  Face() : populated{false} {}
+  Face() : populated{false}, height(0) {}
 
   uint64_t index;
   unsigned long getIndex() const {return index;}
@@ -112,9 +113,6 @@ void IndexToRootFace(uint64_t index, Face& face);
 int8_t IndexToFace(uint64_t index, Face* face, int8_t required_depth);
 int8_t IndexToFace(uint64_t index, Face& face, int8_t required_depth);
 
-/* Get the Face matching index at the least recursion (largest size). */
-int8_t IndexToBiggestFace(const uint64_t index, Face& face);
-
 /* Return the minimum recursion level this index is valid for. */
 int8_t MinRecursionFromIndex(const uint64_t index);
 
@@ -128,43 +126,53 @@ void FaceToSubface(const uint8_t index, Face parent, Face& child);
  *   3: Faces are the same.              */
 uint8_t DoFacesTouch(const Face& face_1, const Face& face_2);
 
+int8_t GetNeighbours(const uint64_t target_index, int8_t target_recursion,
+                   uint64_t* neighbours);
 
-class DataSourceBase {
+class FaceCache {
  public:
-  virtual std::shared_ptr<Face> getFace(uint64_t index) = 0;
-  virtual void cacheFace(uint64_t /*index*/, std::shared_ptr<Face> /*Face*/) {}
-};
+  FaceCache() : hits(0), misses(0) {}
 
-
-class DataSourceCache : DataSourceBase {
- public:
-  std::shared_ptr<Face> getFace(uint64_t index) {
-    if (cache_.count(index)) {
-      return cache_[index];
+  std::shared_ptr<Face> Get(uint64_t index, int8_t recursion) {
+    if (cache_.count(CacheKey(index, recursion))) {
+      hits++;
+      return cache_[CacheKey(index, recursion)];
     }
+    misses++;
     return nullptr;
   }
 
-  void cacheFace(uint64_t index, std::shared_ptr<Face> face) { cache_[index] = face; }
+  void Cache(std::shared_ptr<Face> face) { 
+    cache_[CacheKey(face->index, face->recursion)] = face;
+  }
 
+  uint32_t hits;
+  uint32_t misses;
  private:
-  std::map<uint64_t, std::shared_ptr<Face> > cache_;
+  std::map<std::pair<uint64_t, int8_t>, std::shared_ptr<Face> > cache_;
 };
 
 
 class DataSourceGenerate {
  public:
-  std::shared_ptr<Face> getFace(const uint64_t index) {
-    // TODO: Try lookup from cache before generate.
-    std::shared_ptr<Face> p_face(new Face);
-    IndexToBiggestFace(index, *p_face);
-    return p_face;
-  }
+  DataSourceGenerate(FaceCache* cache) : cache_(cache) {};
+  DataSourceGenerate() : cache_(nullptr) {};
+  void MakeCache() { cache_ = new FaceCache; }
 
   std::shared_ptr<Face> getFace(const uint64_t index, const int8_t recursion) {
-    // TODO: Try lookup from cache before generate.
-    std::shared_ptr<Face> p_face(new Face);
-    IndexToFace(index, *p_face, recursion);
+    std::shared_ptr<Face> p_face;
+    if(cache_){
+      p_face = cache_->Get(index, recursion);
+    }
+    if(!p_face){
+      std::shared_ptr<Face> p_face_new(new Face);
+      p_face = p_face_new;
+      IndexToFace(index, *p_face, recursion);
+      SetHeight(p_face);
+      if(cache_){
+        cache_->Cache(p_face);
+      }
+    }
     return p_face;
   }
   
@@ -197,40 +205,62 @@ class DataSourceGenerate {
       for(std::vector<std::shared_ptr<Face>>::iterator parent = faces_in.begin();
           parent != faces_in.end(); parent++)
       {
-        // TODO: Try lookup from cache before generate.
-        std::shared_ptr<Face> child_0(new Face);
-        FaceToSubface(0, **parent, *child_0);
-        faces_out.push_back(child_0);
-
-        std::shared_ptr<Face> child_1(new Face);
-        FaceToSubface(1, **parent, *child_1);
-        faces_out.push_back(child_1);
-
-        std::shared_ptr<Face> child_2(new Face);
-        FaceToSubface(2, **parent, *child_2);
-        faces_out.push_back(child_2);
-
-        std::shared_ptr<Face> child_3(new Face);
-        FaceToSubface(3, **parent, *child_3);
-        faces_out.push_back(child_3);
+        for(uint8_t c = 0; c < 4; c++){
+          uint64_t child_index = (*parent)->index + 
+              ((uint64_t)c << (59 - (2 * (*parent)->recursion)));
+          std::shared_ptr<Face> child = getFace(child_index, (*parent)->recursion +1);
+          faces_out.push_back(child);
+        }
       }
       std::swap(faces_in, faces_out);
     }
+    if(cache_){
+      LOG("hits: " << cache_->hits << "\tmisses: " << cache_->misses);
+    }
+    LOG("Done getFaces");
     return faces_in;
   }
 
-  Point test(unsigned char index, unsigned char point){
-    Face face = {};
-    //IndexToFace(((uint64_t)index << 61), face, 0);
-    IndexToRootFace(((uint64_t)index << 61), face);
-    return face.points[point];
+  int my_hash(uint64_t seed) {
+      seed = 6364136223846793005ULL*seed + 1;
+      return seed>>49;
   }
 
-  double test2(unsigned char index, unsigned char point, unsigned char axis){
-    return parent_faces[index][point][axis];
+  void SetHeight(std::shared_ptr<Face> face){
+    if(face->height > 0){
+      return;
+    }
+
+    if(MinRecursionFromIndex(face->index) <= 2){
+      if (my_hash(face->index) < 8000) {
+        face->height = 1;
+      } else {
+        face->height = 0;
+      }
+    } else if (MinRecursionFromIndex(face->index) > 2) {
+      if(cache_){
+        // Only doing this if cache is used.
+        // Otherwise testing would take too long when when cache is disabled.
+        uint64_t neighbours[3];
+        GetNeighbours(face->index, face->recursion, neighbours);
+        auto neighbour_0_face = getFace(neighbours[0], face->recursion -1);
+        auto neighbour_1_face = getFace(neighbours[1], face->recursion -1);
+        auto neighbour_2_face = getFace(neighbours[2], face->recursion -1);
+
+        face->height = (neighbour_0_face->height + neighbour_1_face->height +
+            neighbour_2_face->height) / 3;
+        /*if(neighbour_0_face->height >= 0.5 ||
+            neighbour_1_face->height >= 0.5 || 
+            neighbour_2_face->height >= 0.5){
+          face->height = 0.25;
+        }*/
+
+      }
+    }
   }
 
  private:
+  FaceCache* cache_;
 };
 
 
