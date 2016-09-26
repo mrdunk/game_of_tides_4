@@ -6,7 +6,7 @@ importScripts('wrap_terrain.js');
 self.postMessage('Spawned worker:', self._id);
 
 var getGeometry = function(){
-  var recursion = 5;
+  var recursion = 4;
   var total = 0;
   var face;
   var terrain_generator = new Module.DataSourceGenerate();

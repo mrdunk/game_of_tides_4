@@ -11,6 +11,8 @@ var Renderer = function(options) {
     this.renderer.setPixelRatio(window.devicePixelRatio);
     document.body.appendChild(this.renderer.domElement);
 
+    this.renderer.autoClear = false;
+
     var _this = this;
 
     this.setSize = function(width, height) {
@@ -79,6 +81,7 @@ var Renderer = function(options) {
 
   this.Update = function(){
     for (var view_index = 0; view_index < this.views.length; view_index++){
+      this.views[view_index].renderer.clear();
       this.views[view_index].render();
     }
   };
@@ -134,7 +137,6 @@ var Renderer = function(options) {
       }
     }
   }
-
   
 
   if(options){
