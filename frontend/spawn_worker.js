@@ -26,9 +26,10 @@ var WorkerInterface = function(options){
         console.log('landscape:', data);
         var position = new Float32Array(data.position);
         var color = new Float32Array(data.color);
+        var normal = new Float32Array(data.normal);
 
         // TODO: Don't just poke variables in another object.
-        var landscape = new game_loop.renderer.CreateScene(position, color);
+        var landscape = new game_loop.renderer.CreateScene(position, color, normal);
         game_loop.renderer.SetScene(landscape);
         break;
       default:

@@ -6,39 +6,41 @@ importScripts('wrap_terrain.js');
 self.postMessage('Spawned worker:', self._id);
 
 var getGeometry = function(){
-  var recursion = 4;
+  var recursion = 6;
   var total = 0;
   var face;
   var terrain_generator = new Module.DataSourceGenerate();
   terrain_generator.MakeCache();
   var terrain_data, i;
   var return_data = {};
+  var height_multiplier = 0.1;
 
   var vertices = new Float32Array(Math.pow(4,recursion) * 8 * 9);
   var color = new Float32Array(Math.pow(4,recursion) * 8 * 9);
+  var normal = new Float32Array(Math.pow(4,recursion) * 8 * 9);
   for(var root_face = 0; root_face < 8; root_face++){
     terrain_data = terrain_generator.getFaces(root_face * Math.pow(2, 29),0,0,recursion);
     for(i = 0; i < terrain_data.size(); i++){
       face = terrain_data.get(i);
-      vertices[total +0] = face.points[0][0];
-      vertices[total +1] = face.points[0][1];
-      vertices[total +2] = face.points[0][2];
-      vertices[total +3] = face.points[1][0];
-      vertices[total +4] = face.points[1][1];
-      vertices[total +5] = face.points[1][2];
-      vertices[total +6] = face.points[2][0];
-      vertices[total +7] = face.points[2][1];
-      vertices[total +8] = face.points[2][2];
+      vertices[total +0] = face.points[0][0] * (1 + (face.heights[0] * height_multiplier));
+      vertices[total +1] = face.points[0][1] * (1 + (face.heights[0] * height_multiplier));
+      vertices[total +2] = face.points[0][2] * (1 + (face.heights[0] * height_multiplier));
+      vertices[total +3] = face.points[1][0] * (1 + (face.heights[1] * height_multiplier));
+      vertices[total +4] = face.points[1][1] * (1 + (face.heights[1] * height_multiplier));
+      vertices[total +5] = face.points[1][2] * (1 + (face.heights[1] * height_multiplier));
+      vertices[total +6] = face.points[2][0] * (1 + (face.heights[2] * height_multiplier));
+      vertices[total +7] = face.points[2][1] * (1 + (face.heights[2] * height_multiplier));
+      vertices[total +8] = face.points[2][2] * (1 + (face.heights[2] * height_multiplier));
 
-      color[total +0] = face.height /4;
-      color[total +3] = face.height /2;
-      color[total +6] = face.height /4;
-      color[total +1] = face.height /2;
-      color[total +4] = face.height /2;
-      color[total +7] = face.height /2;
-      color[total +2] = face.height /4;
-      color[total +5] = face.height /4;
-      color[total +8] = face.height /4;
+      color[total +0] = face.heights[0] /4;
+      color[total +1] = face.heights[0] /2;
+      color[total +2] = face.heights[0] /4;
+      color[total +3] = face.heights[1] /4;
+      color[total +4] = face.heights[1] /2;
+      color[total +5] = face.heights[1] /4;
+      color[total +6] = face.heights[2] /4;
+      color[total +7] = face.heights[2] /2;
+      color[total +8] = face.heights[2] /4;
 
       total  = total +9;
     }
@@ -48,6 +50,7 @@ var getGeometry = function(){
 
   return_data.position = vertices.buffer;
   return_data.color = color.buffer;
+  return_data.normal = normal.buffer;
   return return_data;
 };
 

@@ -17,6 +17,12 @@ EMSCRIPTEN_BINDINGS(DataSourceGenerate) {
     .element(index<1>())
     .element(index<2>())
     ;
+  
+  value_array<std::array<float, 3>>("std::array")
+    .element(index<0>())
+    .element(index<1>())
+    .element(index<2>())
+    ;
 
   class_<Face>("Face")
     .smart_ptr<std::shared_ptr<Face>>("shared_ptr<Face>")
@@ -24,6 +30,7 @@ EMSCRIPTEN_BINDINGS(DataSourceGenerate) {
     .property("index", &Face::getIndex, &Face::setIndex)
     .property("points", &Face::getPoints, &Face::setPoints)
     .property("height", &Face::getHeight, &Face::setHeight)
+    .property("heights", &Face::getHeights, &Face::setHeights)
     ;
 
   register_vector<std::shared_ptr<Face>>("VectorFace");

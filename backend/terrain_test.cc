@@ -154,59 +154,6 @@ TEST_F(GeneralFunctionsTest, FaceToSubface) {
   ASSERT_EQ(child.recursion, 1);
 }
 
-TEST_F(GeneralFunctionsTest, GetNeighboursRootLevel) {
-  std::vector<uint64_t> neighbours;
-  for(int64_t index = 0; index < 8; index++){
-    ASSERT_EQ(GetNeighbours((index << 61), 0, neighbours), 3);
-  }
-}
-
-TEST_F(GeneralFunctionsTest, GetTouchingRootLevel) {
-  std::set<uint64_t> neighbours;
-  for(int64_t index = 0; index < 8; index++){
-    ASSERT_EQ(GetTouching((index << 61), 0, neighbours, true), 6);
-  }
-}
-
-TEST_F(GeneralFunctionsTest, GetNeighbours) {
-  uint8_t recursion = 3;
-  for(uint64_t face_number=0; face_number < 0x1FF; face_number++){
-    std::vector<uint64_t> neighbours;
-    uint64_t index = (face_number << 55);
-    ASSERT_EQ(GetNeighbours(index, recursion, neighbours), 3);
-
-    Face centre_face, neighbour_0_face, neighbour_1_face, neighbour_2_face;
-    IndexToFace(index, centre_face, recursion);
-    IndexToFace(neighbours[0], neighbour_0_face, recursion);
-    IndexToFace(neighbours[1], neighbour_1_face, recursion);
-    IndexToFace(neighbours[2], neighbour_2_face, recursion);
-
-    ASSERT_EQ(DoFacesTouch(centre_face, neighbour_0_face), 2);
-    ASSERT_EQ(DoFacesTouch(centre_face, neighbour_1_face), 2);
-    ASSERT_EQ(DoFacesTouch(centre_face, neighbour_2_face), 2);
-  }
-}
-
-TEST_F(GeneralFunctionsTest, GetTouching) {
-  uint8_t recursion = 3;
-  for(uint64_t face_number=0; face_number < 0x1FF; face_number++){
-    //LOG(face_number);
-    std::set<uint64_t> neighbours;
-    uint64_t index = (face_number << 55);
-    ASSERT_GT(GetTouching(index, recursion, neighbours, true), 9);
-    //ASSERT_EQ(GetTouching(index, recursion, neighbours), 12);
-
-    Face centre_face;
-    IndexToFace(index, centre_face, recursion);
-    for(auto neighbour = neighbours.cbegin(); neighbour != neighbours.cend(); neighbour++){
-      Face neighbour_face;
-      IndexToFace(*neighbour, neighbour_face, recursion);
-      ASSERT_GT(DoFacesTouch(centre_face, neighbour_face), 0);
-      ASSERT_NE(DoFacesTouch(centre_face, neighbour_face), 3);
-    }
-  }
-}
-
 
 class DataSourceGenerateTest : public ::testing::Test {
  protected:
@@ -388,6 +335,8 @@ TEST_F(DataSourceGenerateTest, GetFaces) {
 
 TEST_F(DataSourceGenerateTest, GetFacesDeeper) {
   DataSourceGenerate data_generator;
+  data_generator.MakeCache();
+
   // Try getFaces() starting from non-root face.
   std::shared_ptr<Face> face(new Face);
   IndexToFace(0, face.get(), 0);
@@ -455,8 +404,7 @@ TEST_F(DataSourceGenerateTest, CalculateNeighbours) {
     uint64_t index = (face_number << (61 - (2 * recursion)));
     std::shared_ptr<Face> face = data_generator.getFace(index, recursion);
 
-    LOG(face->neighbours.size()); 
-    //ASSERT_GT(face->neighbours.size(), 0);
+    ASSERT_GT(face->neighbours.size(), 9);
 
     for(auto neighbour_index = face->neighbours.cbegin();
         neighbour_index != face->neighbours.cend(); neighbour_index++)
@@ -485,29 +433,28 @@ TEST_F(FaceCacheTest, SaveAndRetreive) {
 
 
   face_1->populated = true;
-  face_1->index = 123;
+  face_1->index = (uint64_t)3 << 61;
   face_1->recursion = 0;
 
   face_2->populated = true;
-  face_2->index = 567;
+  face_2->index = ((uint64_t)4 << 61) + ((uint64_t)1 << 59) + ((uint64_t)2 << 57);
   face_2->recursion = 2;
-
 
   cache.Cache(face_1);
   cache.Cache(face_2);
 
-  face_fetched = cache.Get(123, 0);
+  face_fetched = cache.Get(face_1->index, 0);
   ASSERT_EQ(face_1->index, face_fetched->index);
   ASSERT_EQ(face_1->populated, face_fetched->populated);
-  
-  face_fetched = cache.Get(567, 2);
+
+  face_fetched = cache.Get(face_2->index, 2);
   ASSERT_EQ(face_2->index, face_fetched->index);
   ASSERT_EQ(face_2->populated, face_fetched->populated);
 
   face_fetched = cache.Get(999, 2);
   ASSERT_EQ(face_fetched, nullptr);
 
-  face_fetched = cache.Get(567, 99);
+  face_fetched = cache.Get(face_2->index, 99);
   ASSERT_EQ(face_fetched, nullptr);
 }
 

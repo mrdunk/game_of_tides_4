@@ -6,12 +6,19 @@ var Renderer = function(options) {
   this.views = [];  // All registered Viewports.
 
   var Viewport = function(width, height, camera) {
-    this.renderer = new THREE.WebGLRenderer({antialias: true});
+    this.renderer = new THREE.WebGLRenderer({antialias: true,
+        alpha: true,
+        depth: true,
+        sortObjects: true});
     this.renderer.setClearColor(0xcccccc);
     this.renderer.setPixelRatio(window.devicePixelRatio);
     document.body.appendChild(this.renderer.domElement);
 
-    this.renderer.autoClear = false;
+    this.stats = new Stats();
+    document.body.appendChild( this.stats.dom );
+
+    // Think we'll want this when we come to draw more detailed over less.
+    //this.renderer.autoClear = false;
 
     var _this = this;
 
@@ -50,39 +57,49 @@ var Renderer = function(options) {
   };
 
 
-  this.CreateScene = function(vertices, color) {
+  this.CreateScene = function(vertices, color, normal) {
     var geometry = new THREE.BufferGeometry();
     geometry.addAttribute('position', new THREE.BufferAttribute(vertices, 3));
     geometry.addAttribute('color', new THREE.BufferAttribute(color, 3));
+    geometry.addAttribute('normal', new THREE.BufferAttribute(normal, 3));
     geometry.computeVertexNormals();
-    //var material = new THREE.MeshBasicMaterial({//color: 0xff0000,
-    //                                            side : THREE.BackSide});
-    var material = new THREE.MeshPhongMaterial({//color: 0xff0000,
-                                                vertexColors: THREE.VertexColors,
-                                                  side : THREE.FrontSide,
-                                                  shading: THREE.FlatShading });
-    //var material = new THREE.MeshBasicMaterial({ vertexColors: THREE.VertexColors });
+    //geometry.computeBoundingBox ();
+    geometry.computeBoundingSphere ();
+    //geometry.normalizeNormals ();
 
-    //material.wireframe = true;
-    var mesh = new THREE.Mesh(geometry, material);
+    /*var material = new THREE.MeshPhongMaterial( {
+                color: 0xaaaaaa, 
+                shininess: 0,
+                side: THREE.FrontSide,
+                vertexColors: THREE.VertexColors
+                                    } );*/
+
+  material = new THREE.MeshLambertMaterial({
+                                            vertexColors: THREE.VertexColors,
+                                            side : THREE.FrontSide,
+                                            shading: THREE.SmoothShading,
+                                            });
+
+    this.mesh = new THREE.Mesh(geometry, material);
 
     this.scene = new THREE.Scene();
 
-    //var ambientLight = new THREE.AmbientLight( 0xb0b0b0 );
-    var ambientLight = new THREE.AmbientLight( 0xffffff );
+    var ambientLight = new THREE.AmbientLight( 0xb0b0b0 );
+    //var ambientLight = new THREE.AmbientLight( 0xffffff );
     this.scene.add(ambientLight);
 
-    /*var pointLight = new THREE.PointLight( 0xffffff, 1, 0 );
-    pointLight.position.set( 0,3000,100000 );
-    this.scene.add(pointLight);*/
+    //var pointLight = new THREE.PointLight( 0xffffff, 1, 0 );
+    //pointLight.position.set( 0,3000,100000 );
+    //this.scene.add(pointLight);
     
-    this.scene.add(mesh);
+    this.scene.add(this.mesh);
   };
 
   this.Update = function(){
     for (var view_index = 0; view_index < this.views.length; view_index++){
       this.views[view_index].renderer.clear();
       this.views[view_index].render();
+      this.views[view_index].stats.update();
     }
   };
 
@@ -93,17 +110,17 @@ var Renderer = function(options) {
   };
 
   this.RegisterView = function(port_width, port_height) {
-    var camera = new THREE.PerspectiveCamera(45, 1, 1, 0, 200);
+    var camera = new THREE.PerspectiveCamera(
+        45, window.innerWidth / window.innerHeight, 1, 10000);
     camera.position.x = 0;
     camera.position.y = 0;
-    camera.position.z = 3;
+    camera.position.z = 3000;
     var viewport = new Viewport(port_width, port_height, camera);
     camera.controls = new THREE.OrbitControls( camera, viewport.renderer.domElement )
     this.views.push(viewport);
   }.bind(this);
 
   var CameraDistance = function(data){
-    console.log(data);
     if(this.views[0]){
       this.views[0].camera.position.z = data;
     }
@@ -114,6 +131,10 @@ var Renderer = function(options) {
       this.views[0].camera.position.y = data / 10;
       this.views[0].camera.lookAt(new THREE.Vector3(0,0,0));
     }
+  }.bind(this);
+
+  var SetWireframe = function(data) {
+    this.views[0].scene.mesh.material.wireframe = data;
   }.bind(this);
 
   /* Configuration data for this module. To be inserted into the Menu. */
@@ -137,7 +158,26 @@ var Renderer = function(options) {
       }
     }
   }
-  
+
+  if(options){
+    options.RegisterClient(this);
+  }
+
+  // TODO Fix so we don't need 2 separate sections for this.
+  this.menu_data = {
+    name: "material",
+      content: {
+        description: 'material',
+        settings: {
+          wireframe: {
+            description: 'Wireframe',
+            type: options.SelectBoolean,
+            value: false,
+            callback: SetWireframe
+          }
+        }
+      }
+  }
 
   if(options){
     options.RegisterClient(this);

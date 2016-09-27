@@ -49,6 +49,9 @@ var Options = function() {
     return_val.addEventListener('change', function() {
       context.value = this.checked;
       SaveData(data);
+      if (context.callback){
+        context.callback(this.checked);
+      }
     });
 
     return return_val;
