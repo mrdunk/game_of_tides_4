@@ -432,11 +432,11 @@ TEST_F(FaceCacheTest, SaveAndRetreive) {
   std::shared_ptr<Face> face_fetched;
 
 
-  face_1->populated = true;
+  face_1->status &= Populated;
   face_1->index = (uint64_t)3 << 61;
   face_1->recursion = 0;
 
-  face_2->populated = true;
+  face_2->status &= Populated;
   face_2->index = ((uint64_t)4 << 61) + ((uint64_t)1 << 59) + ((uint64_t)2 << 57);
   face_2->recursion = 2;
 
@@ -445,11 +445,11 @@ TEST_F(FaceCacheTest, SaveAndRetreive) {
 
   face_fetched = cache.Get(face_1->index, 0);
   ASSERT_EQ(face_1->index, face_fetched->index);
-  ASSERT_EQ(face_1->populated, face_fetched->populated);
+  ASSERT_EQ(face_1->status, face_fetched->status);
 
   face_fetched = cache.Get(face_2->index, 2);
   ASSERT_EQ(face_2->index, face_fetched->index);
-  ASSERT_EQ(face_2->populated, face_fetched->populated);
+  ASSERT_EQ(face_2->status, face_fetched->status);
 
   face_fetched = cache.Get(999, 2);
   ASSERT_EQ(face_fetched, nullptr);

@@ -42,6 +42,26 @@ var getGeometry = function(){
       color[total +7] = face.heights[2] /2;
       color[total +8] = face.heights[2] /4;
 
+      /*vertices[total +0] = face.points[0][0];
+      vertices[total +1] = face.points[0][1];
+      vertices[total +2] = face.points[0][2];
+      vertices[total +3] = face.points[1][0];
+      vertices[total +4] = face.points[1][1];
+      vertices[total +5] = face.points[1][2];
+      vertices[total +6] = face.points[2][0];
+      vertices[total +7] = face.points[2][1];
+      vertices[total +8] = face.points[2][2];
+
+      color[total +0] = face.height /4;
+      color[total +3] = face.height /2;
+      color[total +6] = face.height /4;
+      color[total +1] = face.height /2;
+      color[total +4] = face.height /2;
+      color[total +7] = face.height /2;
+      color[total +2] = face.height /4;
+      color[total +5] = face.height /4;
+      color[total +8] = face.height /4;*/
+    
       total  = total +9;
     }
     terrain_data.delete();

@@ -29,7 +29,7 @@ void IndexToRootFace(uint64_t index, Face* face){
   //index &= k_top_level_mask;
   face->index = index & k_top_level_mask;
   face->recursion = 0;
-  face->populated = true;
+  face->status |= Populated;
   face->height = 0;
   index = (index >> 61);
   face->points[0].x = parent_faces[index][0][0];
@@ -49,13 +49,6 @@ void MidPoint(const Point a, const Point b, Point& mid){
   mid.z = (a.z / 2) + (b.z / 2);
 }
 
-/* Return the index of a sub face from a face. */
-inline uint64_t IndexOfSubFace(const uint64_t index, const int8_t recursion, 
-                        const uint64_t sub_index)
-{
-  return index + (sub_index << (61 - (2 * (recursion +1))));
-}
-
 inline Point WrapNormalize(const Point& input){
 #ifdef UNIT_TESTING
   return input;
@@ -65,9 +58,9 @@ inline Point WrapNormalize(const Point& input){
 }
 
 void FaceToSubface(const uint8_t sub_index, Face parent, Face& child){
-  child.index = IndexOfSubFace(parent.index, parent.recursion, sub_index);
+  child.index = IndexOfChild(parent.index, parent.recursion, sub_index);
   child.recursion = parent.recursion +1;
-  child.populated = true;
+  child.status = true;
   switch(sub_index){
     case 0:
       MidPoint(parent.points[1], parent.points[2], child.points[0]);
@@ -118,9 +111,9 @@ int8_t IndexToFace(const uint64_t index, Face* face, int8_t required_depth){
     required_depth = 30;
   }
 
-  if(!face->populated){
+  if(!(face->status & Populated)){
     IndexToRootFace(index, face);
-    face->populated = true;
+    face->status |= Populated;
   }
   int8_t depth = face->recursion;
 
@@ -171,4 +164,210 @@ int8_t IsPointOnFace(const Face& face, const Point& point){
   return -1;
 }
 
+
+/***** FaceCache *****/
+std::shared_ptr<Face> FaceCache::Get(uint64_t index, int8_t recursion) {
+  index = IndexAtRecursion(index, recursion);
+
+  if (cache_.count(CacheKey(index, recursion))) {
+    hits++;
+    return cache_[CacheKey(index, recursion)];
+  }
+  misses++;
+  return nullptr;
+}
+
+void FaceCache::Cache(std::shared_ptr<Face> face) { 
+  cache_[CacheKey(face->index, face->recursion)] = face;
+}
+
+void FaceCache::Report(){
+  LOG("hits: " << (long)hits << "\tmisses: " << (long)misses << "\tcontents: " << 
+      (long)cache_.size());
+}
+
+
+/***** DataSourceGenerate *****/
+
+std::shared_ptr<Face> DataSourceGenerate::getFace(const uint64_t index,
+    const int8_t recursion, const uint8_t recurse_count) {
+  std::shared_ptr<Face> p_face;
+  if(cache_){
+    p_face = cache_->Get(index, recursion);
+  }
+  if(!p_face){
+    std::shared_ptr<Face> p_face_new(new Face);
+    p_face = p_face_new;
+    IndexToFace(index, *p_face, recursion);
+    CalculateNeighbours(p_face);
+    if(cache_){
+      cache_->Cache(p_face);
+    }
+  }
+  SetHeight(p_face);
+
+  // Make sure we don't do SetCornerHeights() if we are here as a recursive
+  // part of another SetCornerHeights() call.
+  if(!recurse_count){
+    SetCornerHeights(p_face, recurse_count);
+  }
+  return p_face;
+}
+
+std::vector<std::shared_ptr<Face>> DataSourceGenerate::getFaces(
+    const std::shared_ptr<Face> start_face, const int8_t required_depth)
+{
+  std::vector<std::shared_ptr<Face>> faces_in;
+  std::vector<std::shared_ptr<Face>> faces_out;
+  faces_in.push_back(start_face);
+
+  for(int i = start_face->recursion; i < required_depth; i++){
+    faces_out.clear();
+    for(std::shared_ptr<Face> parent : faces_in) {
+      for(uint8_t child : {0,1,2,3}){
+        uint64_t child_index = IndexOfChild(parent->index, parent->recursion, child);
+        std::shared_ptr<Face> child_face = getFace(child_index, parent->recursion +1);
+        faces_out.push_back(child_face);
+      }
+    }
+    std::swap(faces_in, faces_out);
+  }
+  if(cache_){
+    cache_->Report();
+  }
+  return faces_in;
+}
+
+void DataSourceGenerate::SetHeight(std::shared_ptr<Face> face){
+  if(face->status & BaseHeight){
+    // Have already set height.
+    return;
+  }
+  face->status |= BaseHeight;
+
+  if(MinRecursionFromIndex(face->index) <= 2){
+    if (my_hash(face->index) < 8000) {
+      face->height = 1;
+    } else {
+      face->height = 0;
+    }
+  } else if (MinRecursionFromIndex(face->index) > 2) {
+    if(cache_){
+      // Only doing this if cache is used.
+      // Otherwise testing would take too long when when cache is disabled.
+
+      float height_total = 0;
+      for(auto neighbour : face->neighbours) {
+        auto neighbour_parent_face = getFace(neighbour, face->recursion -1);
+        height_total += neighbour_parent_face->height;
+      }
+
+      face->height = height_total / face->neighbours.size();
+    }
+  }
+}
+
+void DataSourceGenerate::SetCornerHeights(std::shared_ptr<Face> face, const uint8_t recurse_count){
+  if(!cache_){
+    // Only doing this if cache is used.
+    // Otherwise testing would take too long when when cache is disabled.
+    return;
+  }
+
+  if(face->status & Heights){
+    // Already calculated.
+    return;
+  }
+
+  std::array<uint8_t, 3> contributers;
+  for(auto neighbour : face->neighbours)
+  {
+    auto neighbour_face = getFace(neighbour, face->recursion, recurse_count +1);
+    for(uint8_t corner : {0,1,2}){
+      if(IsPointOnFace(*neighbour_face, face->points[corner]) >= 0){
+        face->heights[corner] += neighbour_face->height;
+        contributers[corner]++;
+      }
+    }
+  }
+  for(uint8_t corner : {0,1,2}){
+    face->heights[corner] += face->height;
+    face->heights[corner] /= contributers[corner];
+  }
+  
+  // Mark this section done.
+  face->status |= Heights;
+}
+
+void DataSourceGenerate::CalculateNeighbours(std::shared_ptr<Face> face){
+  if(face->status & Neighbours){
+    // Already calculated.
+    return;
+  }
+  face->status |= Neighbours;
+
+  if (face->recursion == 0){
+    for(uint64_t neighbour_index : k_root_node_indexes){
+      std::shared_ptr<Face> neighbour_face(new Face);
+      IndexToFace(neighbour_index, *neighbour_face, 0);
+
+      uint8_t touching = DoFacesTouch(*face, *neighbour_face);
+      if(touching == 1 || touching == 2){
+        face->neighbours.insert(neighbour_index);
+      }
+    }
+  } else {
+    std::shared_ptr<Face> parent_face = getFace(face->index, face->recursion -1);
+
+    // Since we are doing most of the lookups involved anyway, let's calculate
+    // the heights for all the other child faces of the parent_face.
+    std::array<std::shared_ptr<Face>, 4> peers;
+    for(int8_t child : {0,1,2,3}){
+      std::shared_ptr<Face> child_face(new Face);
+      FaceToSubface(child, *parent_face, *child_face);
+      if(child_face->index == face->index){
+        peers[child] = face;
+      } else {
+        peers[child] = child_face;
+        if(cache_){
+          cache_->Cache(peers[child]);
+        }
+      }
+    }
+
+    for(uint64_t neighbour : parent_face->neighbours) {
+      std::shared_ptr<Face> neighbour_parent_face = getFace(neighbour, face->recursion -1);
+      for(int8_t neighbour_child : {0,1,2,3}){
+        // We deliberately don't use getFace() to look up faces on the same level
+        // of recursion as getFace() calls this method which would lead to
+        // exponential growth.
+        Face neighbour_child_face;
+        FaceToSubface(neighbour_child, *neighbour_parent_face, neighbour_child_face);
+
+        for(int8_t child : {0,1,2,3}){
+          std::shared_ptr<Face> child_face = peers[child];
+
+          uint8_t touching = DoFacesTouch(*child_face, neighbour_child_face);
+          if(touching == 1 || touching == 2){
+            child_face->neighbours.insert(neighbour_child_face.index);
+          }
+        }
+      }
+    }
+
+    peers[0]->neighbours.insert(peers[1]->index);
+    peers[0]->neighbours.insert(peers[2]->index);
+    peers[0]->neighbours.insert(peers[3]->index);
+    peers[1]->neighbours.insert(peers[0]->index);
+    peers[1]->neighbours.insert(peers[2]->index);
+    peers[1]->neighbours.insert(peers[3]->index);
+    peers[2]->neighbours.insert(peers[0]->index);
+    peers[2]->neighbours.insert(peers[1]->index);
+    peers[2]->neighbours.insert(peers[3]->index);
+    peers[3]->neighbours.insert(peers[0]->index);
+    peers[3]->neighbours.insert(peers[1]->index);
+    peers[3]->neighbours.insert(peers[2]->index);
+
+  }
+}
 
