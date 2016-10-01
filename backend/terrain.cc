@@ -354,7 +354,6 @@ void DataSourceGenerate::CalculateNeighbours(std::shared_ptr<Face> face){
         }
       }
     }
-
     peers[0]->neighbours.insert(peers[1]->index);
     peers[0]->neighbours.insert(peers[2]->index);
     peers[0]->neighbours.insert(peers[3]->index);
@@ -367,7 +366,6 @@ void DataSourceGenerate::CalculateNeighbours(std::shared_ptr<Face> face){
     peers[3]->neighbours.insert(peers[0]->index);
     peers[3]->neighbours.insert(peers[1]->index);
     peers[3]->neighbours.insert(peers[2]->index);
-
   }
 }
 

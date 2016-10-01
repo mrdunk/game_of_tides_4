@@ -2,51 +2,92 @@
 
 /*global THREE*/
 
-var Renderer = function(options) {
-  this.views = [];  // All registered Viewports.
+var Camera = undefined;
 
-  var Viewport = function(width, height, camera) {
-    this.renderer = new THREE.WebGLRenderer({antialias: true,
-        alpha: true,
-        depth: true,
-        sortObjects: true});
+var Renderer = function(options) {
+  // Display statistics.
+  this.stats = new Stats();
+  document.body.appendChild( this.stats.dom );
+  this.rendererStats   = new THREEx.RendererStats();
+  this.rendererStats.domElement.style.position = 'absolute';
+  this.rendererStats.domElement.style.bottom   = '0px';
+  document.body.appendChild( this.rendererStats.domElement );
+
+  this.views = [];  // All registered Viewports.
+  this.scene = new THREE.Scene();
+
+  var ambientLight = new THREE.AmbientLight( 0xb0b0b0 );
+  this.scene.add(ambientLight);
+
+  //var pointLight = new THREE.PointLight( 0xffffff, 1, 0 );
+  //pointLight.position.set( 0,3000,100000 );
+  //this.scene.add(pointLight);
+  
+  
+  var debug_material = new THREE.LineBasicMaterial({
+    color: 0xff0000
+  });
+
+  var axis_geometry = new THREE.Geometry();
+  axis_geometry.vertices.push(new THREE.Vector3( 0, -10000, 0 ),
+                               new THREE.Vector3( 0, 10000, 0 ));
+  var axis = new THREE.Line( axis_geometry, debug_material );
+  this.scene.add( axis );
+
+  var debug_geometry = new THREE.Geometry();
+  debug_geometry.vertices.push(new THREE.Vector3( 0, 0, 0 ),
+                               new THREE.Vector3( 0, 0, 2000 ));
+  var debug_line = new THREE.Line( debug_geometry, debug_material );
+  this.scene.add(debug_line);
+
+
+  var Viewport = function(width, height, camera, scene) {
+    this.camera = camera;
+    this.renderer = new THREE.WebGLRenderer({antialias: true, alpha: true,
+        depth: true, sortObjects: true});
     this.renderer.setClearColor(0xcccccc);
     this.renderer.setPixelRatio(window.devicePixelRatio);
     document.body.appendChild(this.renderer.domElement);
 
     this.stats = new Stats();
-    document.body.appendChild( this.stats.dom );
+    this.renderer.domElement.appendChild( this.stats.dom );
 
-    // Think we'll want this when we come to draw more detailed over less.
-    //this.renderer.autoClear = false;
-
-    var _this = this;
+    this.raycaster = new THREE.Raycaster();
+    this.mouse = new THREE.Vector2();
+    this.mouse_surface_point = undefined;
 
     this.setSize = function(width, height) {
-      _this.renderer.setSize(width, height);
-      _this.camera.aspect = width / height;
-      _this.camera.updateProjectionMatrix();
+      this.renderer.setSize(width, height);
+      this.camera.camera.aspect = width / height;
+      this.camera.camera.updateProjectionMatrix();
     };
 
-    this.setScene = function(scene) {
-      _this.scene = scene;
-    };
+    this.update = function(){
+      // Render the scene.
+      this.renderer.clear();
+      this.renderer.render(scene, this.camera.camera);
 
-    this.render = function() {
-      if (typeof _this.scene === 'undefined' ||
-          typeof _this.camera === 'undefined') {
-        //console.log('Error: Secene or camera missing!');
-        return;
+      // Populate this.mouse_surface_point using raycaster from camera to surface.
+      this.raycaster.setFromCamera(this.mouse, this.camera.camera); 
+      var intersects = this.raycaster.intersectObjects(scene.children);
+      this.mouse_surface_point = undefined;
+      for (var i = 0; i < intersects.length; i++){
+        if(intersects[i].object.type === 'Mesh'){
+          this.mouse_surface_point = intersects[i].point;
+          if(this.mouse_surface_point){
+            break;
+          }
+        }
       }
-      _this.renderer.render(_this.scene.scene, _this.camera);
-    };
+      
+      // Display the cursor line.
+      if(this.mouseDirty){
+        this.mouseDirty = false;
+        if(this.mouse_surface_point){
+          debug_line.lookAt(this.mouse_surface_point);
+        }
+      }
 
-    if (typeof camera !== 'undefined') {
-      this.camera = camera;
-    } else {
-      this.camera = new THREE.PerspectiveCamera(
-          75, window.innerWidth / window.innerHeight, 0.1, 1000);
-      this.camera.position.z = 5;
     }
 
     if (width && height) {
@@ -54,16 +95,48 @@ var Renderer = function(options) {
     } else {
       this.setSize(window.innerWidth, window.innerHeight);
     }
+  
+    var onMouseMove = function(e) {
+      // calculate mouse position in normalized device coordinates
+      // (-1 to +1) for both components
+      var posx = 0;
+      var posy = 0;
+      if (!e) var e = window.event;
+      if (e.pageX || e.pageY) 	{
+        posx = e.pageX;
+        posy = e.pageY;
+      }
+      else if (e.clientX || e.clientY) 	{
+        posx = e.clientX + document.body.scrollLeft + document.documentElement.scrollLeft;
+        posy = e.clientY + document.body.scrollTop + document.documentElement.scrollTop;
+      }
+
+      var bodyRect = document.body.getBoundingClientRect();
+      var targetRect = this.renderer.domElement.getBoundingClientRect();
+      var offsetx = targetRect.left - bodyRect.left;
+      var offsety = targetRect.top - bodyRect.top;
+
+      this.mouse.x = ((posx - offsetx) / this.renderer.domElement.offsetWidth ) * 2 - 1;
+      this.mouse.y = -((posy - offsety) / this.renderer.domElement.offsetHeight ) * 2 + 1;
+      this.mouseDirty = 2;
+    }.bind(this);
+    this.renderer.domElement.addEventListener( 'mousemove', onMouseMove, false );
+
+
+    var onMouseClick = function(e){
+      this.camera.setDesiredPosition(this.mouse_surface_point);
+    }.bind(this)
+    this.renderer.domElement.addEventListener( 'mousedown', onMouseClick, false );
   };
 
 
-  this.CreateScene = function(vertices, color, normal) {
+  this.CreateObject = function(vertices, color, normal) {
     var geometry = new THREE.BufferGeometry();
     geometry.addAttribute('position', new THREE.BufferAttribute(vertices, 3));
     geometry.addAttribute('color', new THREE.BufferAttribute(color, 3));
     geometry.addAttribute('normal', new THREE.BufferAttribute(normal, 3));
     geometry.computeVertexNormals();
-    //geometry.computeBoundingBox ();
+    geometry.computeBoundingBox ();
     geometry.computeBoundingSphere ();
     //geometry.normalizeNormals ();
 
@@ -74,67 +147,51 @@ var Renderer = function(options) {
                 vertexColors: THREE.VertexColors
                                     } );*/
 
-  material = new THREE.MeshLambertMaterial({
+    material = new THREE.MeshLambertMaterial({
                                             vertexColors: THREE.VertexColors,
                                             side : THREE.FrontSide,
                                             shading: THREE.SmoothShading,
                                             });
 
-    this.mesh = new THREE.Mesh(geometry, material);
-
-    this.scene = new THREE.Scene();
-
-    var ambientLight = new THREE.AmbientLight( 0xb0b0b0 );
-    //var ambientLight = new THREE.AmbientLight( 0xffffff );
-    this.scene.add(ambientLight);
-
-    //var pointLight = new THREE.PointLight( 0xffffff, 1, 0 );
-    //pointLight.position.set( 0,3000,100000 );
-    //this.scene.add(pointLight);
-    
-    this.scene.add(this.mesh);
+    return new THREE.Mesh(geometry, material);
   };
+
+  this.addLandscape = function(landscape){
+    this.scene.add(landscape);
+  }.bind(this);
 
   this.Update = function(){
-    for (var view_index = 0; view_index < this.views.length; view_index++){
-      this.views[view_index].renderer.clear();
-      this.views[view_index].render();
-      this.views[view_index].stats.update();
-    }
-  };
+    this.stats.update();
+    this.rendererStats.update(this.views[0].renderer);
 
-  this.SetScene = function(scene){
     for (var view_index = 0; view_index < this.views.length; view_index++){
-      this.views[view_index].setScene(scene);
+      var view = this.views[view_index];
+      view.update();
+      view.camera.update();
     }
   };
 
   this.RegisterView = function(port_width, port_height) {
-    var camera = new THREE.PerspectiveCamera(
-        45, window.innerWidth / window.innerHeight, 1, 10000);
-    camera.position.x = 0;
-    camera.position.y = 0;
-    camera.position.z = 3000;
-    var viewport = new Viewport(port_width, port_height, camera);
-    camera.controls = new THREE.OrbitControls( camera, viewport.renderer.domElement )
+    var camera = new Camera(port_width, port_height);
+    camera.setPosition(new THREE.Vector3(0,0,3000));
+
+    var viewport = new Viewport(port_width, port_height, camera, this.scene);
     this.views.push(viewport);
   }.bind(this);
 
   var CameraDistance = function(data){
     if(this.views[0]){
-      this.views[0].camera.position.z = data;
-    }
-  }.bind(this);
-
-  var CameraDirection = function(data) {
-    if(this.views[0]){
-      this.views[0].camera.position.y = data / 10;
-      this.views[0].camera.lookAt(new THREE.Vector3(0,0,0));
+      this.views[0].camera.setDistance(data * 100);
     }
   }.bind(this);
 
   var SetWireframe = function(data) {
-    this.views[0].scene.mesh.material.wireframe = data;
+    for(var i in this.scene.children){
+      if(this.scene.children[i].type === 'Mesh' &&
+          this.scene.children[i].material !== undefined){
+        this.scene.children[i].material.wireframe = data;
+      }
+    }
   }.bind(this);
 
   /* Configuration data for this module. To be inserted into the Menu. */
@@ -147,12 +204,6 @@ var Renderer = function(options) {
           description : 'camera1 range',
           type: options.Slider,
           callback: CameraDistance,
-          value: 5
-        },
-        camera1_direction: {
-          description : 'camera1 direction',
-          type: options.Slider,
-          callback: CameraDirection,
           value: 5
         }
       }
@@ -181,5 +232,51 @@ var Renderer = function(options) {
 
   if(options){
     options.RegisterClient(this);
+  }
+}
+
+var Camera = function(width, height){
+  this.desired_rotation = undefined;
+  this.distance = undefined;
+
+  this.camera = new THREE.PerspectiveCamera(
+      45, width/height, 1, 10000);
+
+  this.setPosition = function(position){
+    this.camera.position.set(position.x, position.y, position.z);
+    this.camera.lookAt(new THREE.Vector3(0,0,0));
+    if(this.distance === undefined){
+      this.distance = this.camera.position.length();
+    } else {
+      this.camera.position.setLength(this.distance);
+    }
+  }
+
+  this.setDesiredPosition = function(desired){
+    if(desired){
+      desired.setLength(this.distance);
+      this.desired_rotation = desired.sub(this.camera.position);
+    }
+  }
+
+  this.setDistance = function(distance){
+    this.distance = distance;
+    this.camera.position.setLength(distance);
+  }
+
+  this.update = function(){
+    if(this.desired_rotation && this.desired_rotation.lengthSq() !== 0){
+      this.dirty = true;
+      var segment_rotation = this.desired_rotation.clone();
+      if(this.desired_rotation.lengthSq() > 100){
+        segment_rotation.divideScalar(10);
+      }
+      this.camera.position.add(segment_rotation);
+      this.desired_rotation.sub(segment_rotation);
+
+      this.camera.lookAt(new THREE.Vector3(0,0,0));
+    } else {
+      this.dirty = undefined;
+    }
   }
 }

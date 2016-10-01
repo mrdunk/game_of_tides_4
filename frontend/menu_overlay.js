@@ -179,7 +179,7 @@ var Options = function() {
     if (typeof source === 'object') {
       for (var property in source) {
         console.log(property, source[property]);
-        if (property === 'value' && typeof source[property] !== 'object') {
+        if (destination && property === 'value' && typeof source[property] !== 'object') {
           destination[property] = source[property];
           return;
         }
