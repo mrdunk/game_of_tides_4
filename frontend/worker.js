@@ -6,15 +6,15 @@ importScripts('wrap_terrain.js');
 self.postMessage('Spawned worker:', self._id);
 
 var getGeometry = function(root_face){
-  var recursion = 5;
+  var recursion = 8;
   var total = 0;
   var face;
   var terrain_generator = new Module.DataSourceGenerate();
   terrain_generator.MakeCache();
   var terrain_data, i;
   var return_data = {};
-  var height_multiplier = 0.1;
-  var sea_level = 0.4;
+  var height_multiplier = 0.02;
+  var sea_level = 0.2;
 
   //var vertices = new Float32Array(Math.pow(4,recursion) * 8 * 9);
   //var color = new Float32Array(Math.pow(4,recursion) * 8 * 9);

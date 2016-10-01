@@ -146,6 +146,18 @@ uint64_t IndexOfChild(const uint64_t parent_index, const int8_t parent_depth,
 /* Return one of the 4 child faces of a parent. */
 void FaceToSubface(const uint8_t index, Face parent, Face& child);
 
+uint32_t myHash(uint64_t seed) {
+  //seed++;  // Otherwise seed==0 returns 0.
+  //seed = 6364136223846793005ULL*seed + 1;
+  //return seed>>48;
+
+  uint32_t hash = 2166136261;
+  hash ^= seed;
+  hash *= 16777619;
+  hash ^= (seed >> 32);
+  return hash * 16777619;
+}
+
 /* Return number of common points on 2 faces.
  * Returns:
  *   0: Faces do not touch.
@@ -214,10 +226,6 @@ class DataSourceGenerate {
       const std::shared_ptr<Face> start_face, const int8_t required_depth);
 
  private:
-  int my_hash(uint64_t seed) {
-      seed = 6364136223846793005ULL*seed + 1;
-      return seed>>49;
-  }
 
   void SetHeight(std::shared_ptr<Face> face);
 

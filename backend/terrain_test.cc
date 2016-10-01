@@ -3,6 +3,7 @@
 #include "terrain.cc"
 #include "logging.cc"
 #include "gtest/gtest.h"
+#include <limits>       // std::numeric_limits
 
 
 namespace {
@@ -394,7 +395,6 @@ TEST_F(DataSourceGenerateTest, CalculateNeighboursRootFace) {
   }
 }
 
-
 TEST_F(DataSourceGenerateTest, CalculateNeighbours) {
   DataSourceGenerate data_generator;
   data_generator.MakeCache();
@@ -414,6 +414,27 @@ TEST_F(DataSourceGenerateTest, CalculateNeighbours) {
       ASSERT_LT(DoFacesTouch(*face, *neighbour_face), 3);
     }
   }
+}
+
+TEST_F(DataSourceGenerateTest, MyHash){
+  DataSourceGenerate data_generator;
+  int test_count = 10000000;
+  unsigned long long max = 0;
+  unsigned long long min = std::numeric_limits<unsigned long long>::max();
+  for(int i = 0; i < test_count; i++){
+    ASSERT_EQ(myHash(i), myHash(i));
+    ASSERT_NE(myHash(i), myHash(i +1));
+    ASSERT_NE(i, myHash(i));
+    //LOG(std::hex << i << "\t" << myHash(i) << std::dec);
+    if(myHash(i) > max){
+      max = myHash(i);
+    }
+    if(myHash(i) < min){
+      min = myHash(i);
+    }
+  }
+  LOG(std::hex << "max: " << max);
+  LOG("min: " << min << std::dec);
 }
 
 
