@@ -28,7 +28,7 @@ var game_loop = {};
     game_loop.worker_interface = new WorkerInterface(game_loop.options);
     game_loop.renderer = new Renderer(game_loop.options);
   
-    game_loop.renderer.RegisterView(window.innerWidth, window.innerHeight /2); 
+    game_loop.renderer.RegisterView(window.innerWidth, window.innerHeight * 2/3); 
     game_loop.renderer.RegisterView(window.innerWidth /4, window.innerHeight /4); 
 
     main(window.performance.now()); // Start the cycle

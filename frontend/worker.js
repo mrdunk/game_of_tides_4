@@ -2,11 +2,12 @@
 
 importScripts('3rdparty/three.js');
 importScripts('wrap_terrain.js');
+  
 
 self.postMessage('Spawned worker:', self._id);
 
-var getGeometry = function(root_face){
-  var recursion = 8;
+var getGeometry = function(face_index_high, face_index_low,
+                           recursion_start, required_depth){
   var total = 0;
   var face;
   var terrain_generator = new Module.DataSourceGenerate();
@@ -14,68 +15,65 @@ var getGeometry = function(root_face){
   var terrain_data, i;
   var return_data = {};
   var height_multiplier = 0.02;
-  var sea_level = 0.2;
+  var sea_level = 0.8;
 
-  //var vertices = new Float32Array(Math.pow(4,recursion) * 8 * 9);
-  //var color = new Float32Array(Math.pow(4,recursion) * 8 * 9);
-  //var normal = new Float32Array(Math.pow(4,recursion) * 8 * 9);
-  var vertices = new Float32Array(Math.pow(4,recursion) * 9);
-  var color = new Float32Array(Math.pow(4,recursion) * 9);
-  var normal = new Float32Array(Math.pow(4,recursion) * 9);
+  var vertices = new Float32Array(Math.pow(4,required_depth) * 9);
+  var color = new Float32Array(Math.pow(4,required_depth) * 9);
 
-  //for(var root_face = 0; root_face < 8; root_face++){
-    terrain_data = terrain_generator.getFaces(root_face * Math.pow(2, 29),0,0,recursion);
-    for(i = 0; i < terrain_data.size(); i++){
-      face = terrain_data.get(i);
-      if(face.heights[0] > sea_level){
-        vertices[total +0] = face.points[0][0] * (1 + (face.heights[0] * height_multiplier));
-        vertices[total +1] = face.points[0][1] * (1 + (face.heights[0] * height_multiplier));
-        vertices[total +2] = face.points[0][2] * (1 + (face.heights[0] * height_multiplier));
-        color[total +0] = face.heights[0] /4;
-        color[total +1] = face.heights[0] /2;
-        color[total +2] = face.heights[0] /4;
-      } else {
-        vertices[total +0] = face.points[0][0] * (1 + (sea_level * height_multiplier));
-        vertices[total +1] = face.points[0][1] * (1 + (sea_level * height_multiplier));
-        vertices[total +2] = face.points[0][2] * (1 + (sea_level * height_multiplier));
-        color[total +0] = 0.1;
-        color[total +1] = 0.5;
-        color[total +2] = 1;
-      }
-      
-      if(face.heights[1] > sea_level){
-        vertices[total +3] = face.points[1][0] * (1 + (face.heights[1] * height_multiplier));
-        vertices[total +4] = face.points[1][1] * (1 + (face.heights[1] * height_multiplier));
-        vertices[total +5] = face.points[1][2] * (1 + (face.heights[1] * height_multiplier));
-        color[total +3] = face.heights[1] /4;
-        color[total +4] = face.heights[1] /2;
-        color[total +5] = face.heights[1] /4;
-      } else {
-        vertices[total +3] = face.points[1][0] * (1 + (sea_level * height_multiplier));
-        vertices[total +4] = face.points[1][1] * (1 + (sea_level * height_multiplier));
-        vertices[total +5] = face.points[1][2] * (1 + (sea_level * height_multiplier));
-        color[total +3] = 0.1;
-        color[total +4] = 0.5;
-        color[total +5] = 1;
-      }
+  terrain_data = terrain_generator.getFaces(face_index_high, face_index_low,
+                                            recursion_start, required_depth);
 
-      if(face.heights[2] > sea_level){
-        vertices[total +6] = face.points[2][0] * (1 + (face.heights[2] * height_multiplier));
-        vertices[total +7] = face.points[2][1] * (1 + (face.heights[2] * height_multiplier));
-        vertices[total +8] = face.points[2][2] * (1 + (face.heights[2] * height_multiplier));
-        color[total +6] = face.heights[2] /4;
-        color[total +7] = face.heights[2] /2;
-        color[total +8] = face.heights[2] /4;
-      } else {
-        vertices[total +6] = face.points[2][0] * (1 + (sea_level * height_multiplier));
-        vertices[total +7] = face.points[2][1] * (1 + (sea_level * height_multiplier));
-        vertices[total +8] = face.points[2][2] * (1 + (sea_level * height_multiplier));
-        color[total +6] = 0.1;
-        color[total +7] = 0.5;
-        color[total +8] = 1;
-      }
+  for(i = 0; i < terrain_data.size(); i++){
+    face = terrain_data.get(i);
+    if(face.heights[0] > sea_level){
+      vertices[total +0] = face.points[0][0] * (1 + (face.heights[0] * height_multiplier));
+      vertices[total +1] = face.points[0][1] * (1 + (face.heights[0] * height_multiplier));
+      vertices[total +2] = face.points[0][2] * (1 + (face.heights[0] * height_multiplier));
+      color[total +0] = face.heights[0] /4;
+      color[total +1] = face.heights[0] /2;
+      color[total +2] = face.heights[0] /4;
+    } else {
+      vertices[total +0] = face.points[0][0] * (1 + (sea_level * height_multiplier));
+      vertices[total +1] = face.points[0][1] * (1 + (sea_level * height_multiplier));
+      vertices[total +2] = face.points[0][2] * (1 + (sea_level * height_multiplier));
+      color[total +0] = 0.1;
+      color[total +1] = 0.5;
+      color[total +2] = 1;
+    }
 
-      /*vertices[total +0] = face.points[0][0];
+    if(face.heights[1] > sea_level){
+      vertices[total +3] = face.points[1][0] * (1 + (face.heights[1] * height_multiplier));
+      vertices[total +4] = face.points[1][1] * (1 + (face.heights[1] * height_multiplier));
+      vertices[total +5] = face.points[1][2] * (1 + (face.heights[1] * height_multiplier));
+      color[total +3] = face.heights[1] /4;
+      color[total +4] = face.heights[1] /2;
+      color[total +5] = face.heights[1] /4;
+    } else {
+      vertices[total +3] = face.points[1][0] * (1 + (sea_level * height_multiplier));
+      vertices[total +4] = face.points[1][1] * (1 + (sea_level * height_multiplier));
+      vertices[total +5] = face.points[1][2] * (1 + (sea_level * height_multiplier));
+      color[total +3] = 0.1;
+      color[total +4] = 0.5;
+      color[total +5] = 1;
+    }
+
+    if(face.heights[2] > sea_level){
+      vertices[total +6] = face.points[2][0] * (1 + (face.heights[2] * height_multiplier));
+      vertices[total +7] = face.points[2][1] * (1 + (face.heights[2] * height_multiplier));
+      vertices[total +8] = face.points[2][2] * (1 + (face.heights[2] * height_multiplier));
+      color[total +6] = face.heights[2] /4;
+      color[total +7] = face.heights[2] /2;
+      color[total +8] = face.heights[2] /4;
+    } else {
+      vertices[total +6] = face.points[2][0] * (1 + (sea_level * height_multiplier));
+      vertices[total +7] = face.points[2][1] * (1 + (sea_level * height_multiplier));
+      vertices[total +8] = face.points[2][2] * (1 + (sea_level * height_multiplier));
+      color[total +6] = 0.1;
+      color[total +7] = 0.5;
+      color[total +8] = 1;
+    }
+
+    /*vertices[total +0] = face.points[0][0];
       vertices[total +1] = face.points[0][1];
       vertices[total +2] = face.points[0][2];
       vertices[total +3] = face.points[1][0];
@@ -95,15 +93,17 @@ var getGeometry = function(root_face){
       color[total +5] = face.height /4;
       color[total +8] = face.height /4;*/
     
-      total  = total +9;
-    }
-    terrain_data.delete();
-  //}
+    total  = total +9;
+  }
+  terrain_data.delete();
   terrain_generator.delete();
+
+  return_data.index_high = face_index_high;
+  return_data.index_low = face_index_low;
+  return_data.recursion = required_depth;
 
   return_data.position = vertices.buffer;
   return_data.color = color.buffer;
-  return_data.normal = normal.buffer;
   return return_data;
 };
 
@@ -185,11 +185,10 @@ self.addEventListener('message', function(e) {
       self.postMessage(return_value);
       break;
     case 'landscape':
-      for(var section = 0; section < 8; section++){
-        return_value = getGeometry(section);
-        return_value.type = 'geometry';
-        self.postMessage(return_value, [return_value.position, return_value.color]);
-      }
+      return_value = getGeometry(data.index_high, data.index_low,
+                                 data.recursion_start, data.recursion);
+      return_value.type = 'geometry';
+      self.postMessage(return_value, [return_value.position, return_value.color]);
       break;
     case 'stop':
       return_value.type = 'stop';

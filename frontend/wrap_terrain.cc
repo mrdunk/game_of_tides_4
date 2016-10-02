@@ -27,7 +27,8 @@ EMSCRIPTEN_BINDINGS(DataSourceGenerate) {
   class_<Face>("Face")
     .smart_ptr<std::shared_ptr<Face>>("shared_ptr<Face>")
     .constructor<>()
-    .property("index", &Face::getIndex, &Face::setIndex)
+    .property("index_high", &Face::getIndexHigh, &Face::setIndexHigh)
+    .property("index_low", &Face::getIndexLow, &Face::setIndexLow)
     .property("points", &Face::getPoints, &Face::setPoints)
     .property("height", &Face::getHeight, &Face::setHeight)
     .property("heights", &Face::getHeights, &Face::setHeights)
@@ -43,5 +44,6 @@ EMSCRIPTEN_BINDINGS(DataSourceGenerate) {
         const unsigned long index_high, const unsigned long index_low,
         const unsigned char recursion, const char required_depth)> (
           &DataSourceGenerate::getFaces))
+    .function("pointToFace", &DataSourceGenerate::pointToFace)
     ;
 }

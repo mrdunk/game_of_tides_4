@@ -11,6 +11,8 @@
 #include <memory>             // std::shared_ptr
 #include <algorithm>          // std::merge, std::sort std::swap
 #include <glm/glm.hpp>        // OpenGL Mathematics library.
+#include <glm/gtx/intersect.hpp> // intersectRayTriangle
+#include <glm/gtx/norm.hpp>   // distance2
 #include <cassert>
 
 const uint64_t k_top_level_mask = ((uint64_t)7 << 61);
@@ -35,6 +37,8 @@ typedef glm::tvec3< glm::f64, glm::defaultp > Point;
 //const uint32_t planet_diam = 12742000;  // Diameter of Earth in meters.
 const int64_t planet_radius = 12742 /2;
 
+const double k_scale = 1000;
+
 typedef std::pair<uint64_t /*index*/, int8_t /*recursion*/> CacheKey;
 
 enum FaceStatusFlags {
@@ -49,8 +53,10 @@ class Face {
   Face() : status(0x00), height(0), heights({{0,0,0}}) {}
 
   uint64_t index;
-  unsigned long getIndex() const {return index;}
-  void setIndex(unsigned long index_) {index = index_;}
+  unsigned long getIndexHigh() const {return (index >> 32);}
+  void setIndexHigh(unsigned long index_) {index = index_;}
+  unsigned long getIndexLow() const {return index;}
+  void setIndexLow(unsigned long index_) {index = index_;}
 
   std::array<Point, 3> points;
   std::array<Point, 3> getPoints() const {return points;}
@@ -144,13 +150,23 @@ uint64_t IndexOfChild(const uint64_t parent_index, const int8_t parent_depth,
 }
 
 /* Return one of the 4 child faces of a parent. */
-void FaceToSubface(const uint8_t index, Face parent, Face& child);
+void FaceToSubface(const uint8_t index, const Face& parent, Face& child);
+
+bool VectorCrossesFace(const Point& vector, const Face& face){
+  Point origin(0,0,0);
+  Point intersect;
+
+  // glm::intersectRayTriangle() would be a better choice here but i can't
+  // get it to work.
+  // glm::intersectLineTriangle() will return false positives for the root faces
+  // as it will also see the face on the far side of the planet.
+  bool ret_val = glm::intersectLineTriangle(origin, vector, face.points[0],
+      face.points[1], face.points[2], intersect);
+
+  return ret_val;
+}
 
 uint32_t myHash(uint64_t seed) {
-  //seed++;  // Otherwise seed==0 returns 0.
-  //seed = 6364136223846793005ULL*seed + 1;
-  //return seed>>48;
-
   uint32_t hash = 2166136261;
   hash ^= seed;
   hash *= 16777619;
@@ -224,6 +240,8 @@ class DataSourceGenerate {
   /* Get an array of faces which are children of the specified face.*/
   std::vector<std::shared_ptr<Face>> getFaces(
       const std::shared_ptr<Face> start_face, const int8_t required_depth);
+
+  std::shared_ptr<Face> pointToFace(const Point point, const uint8_t max_recursion);
 
  private:
 

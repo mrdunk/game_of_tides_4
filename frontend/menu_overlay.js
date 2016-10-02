@@ -116,23 +116,16 @@ var Options = function() {
           value: false
         }
       }
-    },
-    /*scene: {
-      description: 'scene',
-      settings: {
-        camera: {
-          description : 'camera range',
-          type: this.Slider,
-          value: 3
-        }
-      }
-    }*/
+    }
   };
 
   this.RegisterClient = function(client){
-    console.log("Options.RegisterClient(", client.menu_data.name, ")");
-    this.data[client.menu_data.name] = client.menu_data.content;
-    this.PopulateMenu();
+    for(var index in client.menu_data){
+      var new_data = client.menu_data[index];
+      console.log("Options.RegisterClient(", new_data.name, ")");
+      this.data[new_data.name] = new_data.content;
+      this.PopulateMenu();
+    }
   };
 
   this.openNav = function() {

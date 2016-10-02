@@ -53,11 +53,11 @@ inline Point WrapNormalize(const Point& input){
 #ifdef UNIT_TESTING
   return input;
 #else
-  return glm::normalize(input) * (double)1000;
+  return glm::normalize(input) * k_scale;
 #endif  // UNIT_TESTING
 }
 
-void FaceToSubface(const uint8_t sub_index, Face parent, Face& child){
+void FaceToSubface(const uint8_t sub_index, const Face& parent, Face& child){
   child.index = IndexOfChild(parent.index, parent.recursion, sub_index);
   child.recursion = parent.recursion +1;
   child.status = true;
@@ -246,8 +246,8 @@ void DataSourceGenerate::SetHeight(std::shared_ptr<Face> face){
   face->status |= BaseHeight;
 
   if(MinRecursionFromIndex(face->index) <= 2){
-    if (myHash(face->index) < 0x30000000) {
-      face->height = 1;
+    if (myHash(face->index) < 0x80000000) {
+      face->height = 1.5;
     } else {
       face->height = 0;
     }
@@ -370,4 +370,42 @@ void DataSourceGenerate::CalculateNeighbours(std::shared_ptr<Face> face){
     peers[3]->neighbours.insert(peers[2]->index);
   }
 }
+
+std::shared_ptr<Face> DataSourceGenerate::pointToFace(const Point point, 
+                                                      const uint8_t max_recursion)
+{
+  Face enclosing_face;
+  Point point_normal = normalize(point);
+  for(uint64_t root_index : k_root_node_indexes){
+    Face root_face;
+    IndexToRootFace(root_index, root_face);
+    if(VectorCrossesFace(point_normal, root_face)){
+      if(!(enclosing_face.status & Populated)){
+        std::swap(enclosing_face, root_face);
+        root_face.status |= Populated;
+      } else if (glm::distance2(point_normal, root_face.points[0]) <
+          glm::distance2(point_normal, enclosing_face.points[0]))
+      {
+        std::swap(enclosing_face, root_face);
+        break;
+      }
+    }
+  }
+
+  for(uint8_t recursion = 1; recursion < max_recursion; recursion++){
+    for(uint8_t child_id : {0,1,2,3}){
+      Face child_face;
+      FaceToSubface(child_id, enclosing_face, child_face);
+      if(VectorCrossesFace(point_normal, child_face)){
+        std::swap(child_face, enclosing_face);
+        break;
+      }
+    }
+  }
+
+  LOG(std::hex << enclosing_face.index << std::dec);
+  return getFace(enclosing_face.index, enclosing_face.recursion);
+}
+
+
 

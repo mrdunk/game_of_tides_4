@@ -6,7 +6,6 @@
 /*global Worker*/
 /*global game_loop*/
 
-// ;(function () {
 
 var WorkerInterface = function(options){
 
@@ -26,12 +25,11 @@ var WorkerInterface = function(options){
         console.log('landscape:', data);
         var position = new Float32Array(data.position);
         var color = new Float32Array(data.color);
-        var normal = new Float32Array(data.normal);
 
         // TODO: Don't just poke variables in another object.
-        var landscape = game_loop.renderer.CreateObject(position, color, normal);
-        //game_loop.renderer.addLandscape(landscape);
-        game_loop.renderer.scene.add(landscape);
+        var landscape = game_loop.renderer.CreateObject(
+            data.index_high, data.index_low, data.recursion, position, color);
+        game_loop.renderer.addLandscape(landscape);
         break;
       default:
         console.log(data);
@@ -39,12 +37,22 @@ var WorkerInterface = function(options){
   }
 
   var worker = new Worker('worker.js');
+  this.worker = worker;
   worker.addEventListener('message', onMsg, false);
   worker.addEventListener('error', onError, false);
 
-  worker.postMessage({
-    cmd: 'landscape'
-  });
+  // Bootstrap Planet at low resolution.
+  var initial_recursion = 5;
+  for(var section = 0; section < 8; section++){
+    root_face = section * Math.pow(2, 29);
+    worker.postMessage({
+      cmd: 'landscape',
+      index_high: root_face,
+      index_low: 0,
+      recursion_start: 0,
+      recursion: initial_recursion
+    });
+  }
 
   /*worker.postMessage({
     cmd: 'ws_con',
@@ -78,7 +86,8 @@ var WorkerInterface = function(options){
   };
 
   /* Configuration data for this module. To be inserted into the Menu. */
-  this.menu_data = {
+  this.menu_data = [
+  {
     name: "websockets",
     content: {
       description: 'websockets',
@@ -115,11 +124,10 @@ var WorkerInterface = function(options){
         }
       }
     }
-  }
+  }]
 
   if(options){
     options.RegisterClient(this);
   }
 };
 
-// })();
