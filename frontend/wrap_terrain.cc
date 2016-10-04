@@ -12,17 +12,26 @@ EMSCRIPTEN_BINDINGS(DataSourceGenerate) {
     .element(&Point::z)
     ;
 
-  value_array<std::array<Point, 3>>("std::array")
+  value_array<std::array<Point, 3>>("Points")
     .element(index<0>())
     .element(index<1>())
     .element(index<2>())
     ;
   
-  value_array<std::array<float, 3>>("std::array")
+  value_array<std::array<float, 3>>("std::array<float,3>")
     .element(index<0>())
     .element(index<1>())
     .element(index<2>())
     ;
+
+  value_array<IndexSplit>("IndexSplit")
+    .element(&IndexSplit::high)
+    .element(&IndexSplit::low)
+    ;
+
+  register_vector<IndexSplit>("Indexes");
+  
+  register_vector<std::shared_ptr<Face>>("VectorFace");
 
   class_<Face>("Face")
     .smart_ptr<std::shared_ptr<Face>>("shared_ptr<Face>")
@@ -31,11 +40,10 @@ EMSCRIPTEN_BINDINGS(DataSourceGenerate) {
     .property("index_low", &Face::getIndexLow, &Face::setIndexLow)
     .property("points", &Face::getPoints, &Face::setPoints)
     .property("height", &Face::getHeight, &Face::setHeight)
-    .property("heights", &Face::getHeights, &Face::setHeights)
+    .property("heights", &Face::getHeights)
+    .property("neighbours", &Face::getNeighbours)  //, &Face::setNeighbours)
     ;
 
-  register_vector<std::shared_ptr<Face>>("VectorFace");
-  
   class_<DataSourceGenerate>("DataSourceGenerate")
     .constructor<>()
     .function("MakeCache", &DataSourceGenerate::MakeCache)

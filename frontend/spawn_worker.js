@@ -42,7 +42,7 @@ var WorkerInterface = function(options){
   worker.addEventListener('error', onError, false);
 
   // Bootstrap Planet at low resolution.
-  var initial_recursion = 5;
+  var initial_recursion = 4;
   for(var section = 0; section < 8; section++){
     root_face = section * Math.pow(2, 29);
     worker.postMessage({

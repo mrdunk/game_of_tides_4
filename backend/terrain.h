@@ -37,7 +37,7 @@ typedef glm::tvec3< glm::f64, glm::defaultp > Point;
 //const uint32_t planet_diam = 12742000;  // Diameter of Earth in meters.
 const int64_t planet_radius = 12742 /2;
 
-const double k_scale = 1000;
+const double k_scale = 10000;
 
 typedef std::pair<uint64_t /*index*/, int8_t /*recursion*/> CacheKey;
 
@@ -46,6 +46,11 @@ enum FaceStatusFlags {
   Neighbours = 0x02,
   BaseHeight = 0x04,
   Heights =    0x08
+};
+
+struct IndexSplit{
+  unsigned long high;
+  unsigned long low;
 };
 
 class Face {
@@ -76,9 +81,23 @@ class Face {
 
   std::array<float, 3> heights;
   std::array<float, 3> getHeights() const {return heights;}
-  void setHeights(std::array<float, 3> value) {/* TODO? */}
+  //void setHeights(std::array<float, 3> value) {/* TODO? */}
 
   std::set<uint64_t> neighbours;
+  std::vector<IndexSplit> getNeighbours() const {
+    std::vector<IndexSplit> return_value;
+    for(auto neighbour : neighbours){
+      //LOG(std::hex << (unsigned long long)neighbour << std::dec);
+      IndexSplit entry;
+      entry.high = neighbour >> 32;
+      entry.low = neighbour;
+      return_value.push_back(entry);
+    }
+    return return_value;
+    //return std::vector<unsigned long>(neighbours.begin(), neighbours.end());
+    //return std::vector<unsigned long>(10,100);
+  };
+  //void setNeighbours(std::vector<uint64_t> value) {/* TODO? */};
 };
 
 inline bool operator==(const Face& lhs, const Face& rhs){

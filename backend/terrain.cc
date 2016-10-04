@@ -392,7 +392,7 @@ std::shared_ptr<Face> DataSourceGenerate::pointToFace(const Point point,
     }
   }
 
-  for(uint8_t recursion = 1; recursion < max_recursion; recursion++){
+  for(uint8_t recursion = 1; recursion <= max_recursion; recursion++){
     for(uint8_t child_id : {0,1,2,3}){
       Face child_face;
       FaceToSubface(child_id, enclosing_face, child_face);
