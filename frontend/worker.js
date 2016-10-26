@@ -6,22 +6,23 @@ importScripts('wrap_terrain.js');
 
 self.postMessage('Spawned worker:', self._id);
 
-var getGeometry = function(face_index_high, face_index_low,
-                           recursion_start, required_depth){
+var terrain_generator = new Module.DataSourceGenerate();
+terrain_generator.MakeCache();
 
+var getGeometry = function(face_index_high, face_index_low,
+                           recursion_start, required_depth)
+{
   var total = 0;
   var face;
-  var terrain_generator = new Module.DataSourceGenerate();
-  terrain_generator.MakeCache();
   var terrain_data, i;
   var return_data = {};
   var height_multiplier = 0.02;
-  var sea_level = 0.8;
+  var sea_level = 1.1;
 
   var vertices = new Float32Array(Math.pow(4, (required_depth - recursion_start)) * 9);
   var color = new Float32Array(Math.pow(4, (required_depth - recursion_start)) * 9);
 
-  terrain_data = terrain_generator.getFaces(face_index_high, face_index_low,
+  var terrain_data = terrain_generator.getFaces(face_index_high, face_index_low,
                                             recursion_start, required_depth);
   
   for(i = 0; i < terrain_data.size(); i++){
@@ -95,9 +96,10 @@ var getGeometry = function(face_index_high, face_index_low,
       color[total +8] = face.height /4;*/
     
     total  = total +9;
+    face.delete();
   }
   terrain_data.delete();
-  terrain_generator.delete();
+  terrain_generator.cleanCache(20000000);
 
   return_data.index_high = face_index_high;
   return_data.index_low = face_index_low;
@@ -106,6 +108,11 @@ var getGeometry = function(face_index_high, face_index_low,
   return_data.position = vertices.buffer;
   return_data.color = color.buffer;
   return return_data;
+};
+
+var getFaceFromCentre = function(centre, recursion){
+  console.log('getFaceFromCentre(', centre, ')');
+  return terrain_generator.pointToFace(centre, recursion);
 };
 
 var WebSocketWrapper = function(){
@@ -190,6 +197,21 @@ self.addEventListener('message', function(e) {
                                  data.recursion_start, data.recursion);
       return_value.type = 'geometry';
       self.postMessage(return_value, [return_value.position, return_value.color]);
+      break;
+    case 'face_from_centre':
+      var face = getFaceFromCentre(data.centre, data.recursion);
+      return_value.type = 'face';
+      return_value.recursion = data.recursion;
+      return_value.index_high = face.index_high;
+      return_value.index_low = face.index_low;
+      var neighbours = {};
+      neighbours.size = face.neighbours.size();
+      for(var i=0; i < neighbours.size; i++){
+        neighbours[i] = face.neighbours.get(i);
+      }
+      return_value.neighbours = neighbours;
+      self.postMessage(return_value);
+      face.delete();
       break;
     case 'stop':
       return_value.type = 'stop';

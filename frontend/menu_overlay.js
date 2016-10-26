@@ -64,7 +64,7 @@ var Options = function() {
     return_val.value = context.value;
 
     return_val.addEventListener('input', function() {
-      console.log(context.value, context, data);
+      console.log(context);
       context.value = this.value;
       SaveData(data);
       if (context.callback){

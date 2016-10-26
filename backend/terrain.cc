@@ -186,6 +186,21 @@ void FaceCache::Report(){
       (long)cache_.size());
 }
 
+void FaceCache::clean(unsigned long long oldest){
+  LOG("Before clean: " << (long)cache_.size());
+  std::vector<std::pair<uint64_t, int8_t>> delete_these;
+  for(auto item : cache_){
+    if(item.second->last_used < oldest){
+      delete_these.emplace_back(item.first);
+    }
+  }
+  for(auto key : delete_these){
+    cache_.erase(cache_.find(key));
+  }
+
+  LOG("After clean:  " << (long)cache_.size());
+}
+
 
 /***** DataSourceGenerate *****/
 
@@ -204,6 +219,7 @@ std::shared_ptr<Face> DataSourceGenerate::getFace(const uint64_t index,
       cache_->Cache(p_face);
     }
   }
+  p_face->last_used = ++update_counter;
   SetHeight(p_face);
 
   // Make sure we don't do SetCornerHeights() if we are here as a recursive
@@ -246,11 +262,16 @@ void DataSourceGenerate::SetHeight(std::shared_ptr<Face> face){
   face->status |= BaseHeight;
 
   if(MinRecursionFromIndex(face->index) <= 2){
-    if (myHash(face->index) < 0x80000000) {
+    /*if (myHash(face->index) < 0x80000000) {
       face->height = 1.5;
     } else {
       face->height = 0;
+    }*/
+    float height = (float)(myHash(face->index) % 0xFF) / 0x80;
+    if(height < 1){
+      height = 0;
     }
+    face->height = height;
   } else if (MinRecursionFromIndex(face->index) > 2) {
     if(cache_){
       // Only doing this if cache is used.
@@ -263,8 +284,9 @@ void DataSourceGenerate::SetHeight(std::shared_ptr<Face> face){
       }
 
       face->height = height_total / face->neighbours.size();
-      int16_t hashed = ((myHash(face->index) % 0xF) - 0x8);
-      face->height += (float)hashed / (face->recursion * face->recursion);
+      //int16_t hashed = ((myHash(face->index) % 0x4F));
+      int16_t hashed = ((myHash(face->index) % 0x4F)) - 0x1f;
+      face->height -= (float)hashed / (face->recursion * face->recursion * face->recursion * face->recursion);
     }
   }
 }
@@ -374,32 +396,50 @@ void DataSourceGenerate::CalculateNeighbours(std::shared_ptr<Face> face){
 std::shared_ptr<Face> DataSourceGenerate::pointToFace(const Point point, 
                                                       const uint8_t max_recursion)
 {
-  Face enclosing_face;
-  Point point_normal = normalize(point);
-  for(uint64_t root_index : k_root_node_indexes){
-    Face root_face;
-    IndexToRootFace(root_index, root_face);
-    if(VectorCrossesFace(point_normal, root_face)){
-      if(!(enclosing_face.status & Populated)){
-        std::swap(enclosing_face, root_face);
-        root_face.status |= Populated;
-      } else if (glm::distance2(point_normal, root_face.points[0]) <
-          glm::distance2(point_normal, enclosing_face.points[0]))
-      {
-        std::swap(enclosing_face, root_face);
-        break;
+  Face start_face;
+  start_face.status = 0;
+  return pointToSubFace(point, max_recursion, start_face);
+}
+
+std::shared_ptr<Face> DataSourceGenerate::pointToSubFace(const Point point, 
+                                                      const uint8_t max_recursion,
+                                                      Face& enclosing_face)
+{
+  if(!(enclosing_face.status & Populated) || (enclosing_face.recursion == 0)){
+    // Even if we have a starting enclosing_face but recursion == 0 
+    for(uint64_t root_index : k_root_node_indexes){
+      Face root_face;
+      IndexToRootFace(root_index, root_face);
+      if(VectorCrossesFace(point, root_face)){
+        if(!(enclosing_face.status & Populated)){
+          std::swap(enclosing_face, root_face);
+          root_face.status |= Populated;
+        } else if (glm::distance2(point, root_face.points[0]) <
+            glm::distance2(point, enclosing_face.points[0]))
+        {
+          std::swap(enclosing_face, root_face);
+          break;
+        }
       }
     }
   }
 
-  for(uint8_t recursion = 1; recursion <= max_recursion; recursion++){
+  for(uint8_t recursion = enclosing_face.recursion +1;
+      recursion <= max_recursion; recursion++)
+  {
+    bool sucess = false;
     for(uint8_t child_id : {0,1,2,3}){
       Face child_face;
       FaceToSubface(child_id, enclosing_face, child_face);
-      if(VectorCrossesFace(point_normal, child_face)){
+      if(VectorCrossesFace(point, child_face)){
         std::swap(child_face, enclosing_face);
+        sucess = true;
         break;
       }
+    }
+    if(!sucess){
+      // The target was not inside the suggested enclosing_face.
+      return pointToFace(point, max_recursion);
     }
   }
 

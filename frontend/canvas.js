@@ -2,6 +2,8 @@
 
 /*global THREE*/
 
+var planet_radius = 12742 /2;
+
 var Camera = undefined;
 
 function webglAvailable() {
@@ -38,113 +40,9 @@ var Renderer = function(options) {
     }
 
     this.views = [];  // All registered Viewports.
-    this.scene = new THREE.Scene();
-
-    var ambientLight = new THREE.AmbientLight( 0x808080 );
-    this.scene.add(ambientLight);
-
-    var pointLight = new THREE.PointLight( 0xc0c0c0, 1, 0 );
-    pointLight.position.set( 0,3000,100000 );
-    this.scene.add(pointLight);
-
+    this.scene = new Scene(this.enable_webGL);
+    // Should Cursor be a property of View?
     this.cursor = new Cursor(this.scene, this.views);
-  }
-
-  this.CreateObject = function(index_high, index_low, recursion, vertices, color) {
-    var geometry = new THREE.BufferGeometry();
-    geometry.addAttribute('position', new THREE.BufferAttribute(vertices, 3));
-    geometry.addAttribute('color', new THREE.BufferAttribute(color, 3));
-    geometry.computeVertexNormals();
-    geometry.computeBoundingBox ();
-    geometry.computeBoundingSphere ();
-    geometry.normalizeNormals ();
-
-    var material;
-    if(this.enable_webGL){
-      material = new THREE.MeshLambertMaterial({
-                                              vertexColors: THREE.VertexColors,
-                                              side : THREE.FrontSide,
-                                              shading: THREE.SmoothShading,
-                                              transparent: true,
-                                              depthWrite: false
-                                              });
-    } else {
-      material = new THREE.MeshLambertMaterial( { color: 0xffffff,
-                                              side : THREE.FrontSide,
-                                              shading: THREE.SmoothShading,
-                                              transparent: true,
-                                              depthWrite: false
-                                              } );
-    }
-
-    var return_val = new THREE.Mesh(geometry, material);
-    return_val.index_high = index_high;
-    return_val.index_low = index_low;
-    return_val.recursion = recursion;
-        
-    return return_val;
-  };
-
-  this.addLandscape = function(landscape){
-    var existing;
-    for(var i = 0; i < this.scene.children.length; i++){
-      var existing = this.scene.children[i];
-      if(existing.index_high === landscape.index_high &&
-          existing.index_low === landscape.index_low &&
-          existing.recursion === landscape.recursion)
-      {
-        console.log('Replacing:', existing.index_high, existing.index_low, existing.recursion);
-        console.log('With:     ', landscape.index_high, landscape.index_low, landscape.recursion);
-        landscape.renderOrder = landscape.recursion;
-       
-        this.scene.remove(existing);
-        if(existing.geometry){
-          existing.geometry.dispose();
-        }
-        if(existing.material){
-          existing.material.dispose();
-        }
-        //existing.texture.dispose();
-
-        this.scene.add(landscape);
-        return;
-      }
-    }
-    console.log('Adding:', landscape.index_high, landscape.index_low);
-    landscape.renderOrder = landscape.recursion;
-    this.scene.add(landscape);
-    console.log(this.scene);
-  }.bind(this);
-
-  // TODO Maybe the Scene should be it's own object and this a member of that?
-  this.pruneLandscape = function(){
-    // Expensive due to nested for loops. Only do this if we know a view is dirty.
-    for(var s = this.scene.children.length -1; s >= 0; s--){
-      var child = this.scene.children[s];
-      if(child.type === 'Mesh'){
-        var found = false;
-        for(var v = 0; v < this.views.length; v++){
-          var view = this.views[v];
-          for(var n = 0; n < view.view_tiles.length; n++){
-            var view_tile = view.view_tiles[n];
-            if(view_tile[0] === child.index_high &&
-               view_tile[1] === child.index_low &&
-               view_tile[2] === child.recursion)
-            {
-              found = true;
-              break;
-            }
-          }
-          if(found){ break; }
-        }
-        if(!found){
-          this.scene.remove(child);
-          child.geometry.dispose();
-          child.material.dispose();
-          //child.texture.dispose();
-        }
-      }
-    }
   }
 
   this.Update = function(){
@@ -170,7 +68,8 @@ var Renderer = function(options) {
     }
 
     if(combined_view_dirty){
-      this.pruneLandscape();
+      //TODO Want to delay calling this until better resolution has been drawn.
+      this.scene.pruneLandscape();
     }
   };
 
@@ -182,16 +81,25 @@ var Renderer = function(options) {
   }.bind(this);
 
   var CameraDistance = function(data){
-    if(this.views[0]){
-      this.views[0].camera.setDistance(data * 1000);
+    var max_height = 20000;
+    for(var i = 0; i < this.views.length; i++){
+      var view = this.views[i];
+      if(view.centre_view){
+        var min_height = view.centre_view.length();
+        var slider_ratio = data * data * data / 1000000;
+        var calculated = ((max_height - min_height) * slider_ratio) + min_height;
+        console.log(max_height, min_height, slider_ratio, calculated);
+
+        view.camera.setDistance(calculated - planet_radius);
+      }
     }
   }.bind(this);
 
   var SetWireframe = function(data) {
-    for(var i in this.scene.children){
-      if(this.scene.children[i].type === 'Mesh' &&
-          this.scene.children[i].material !== undefined){
-        this.scene.children[i].material.wireframe = data;
+    for(var i = 0; i < this.scene.scene.children.length; i++){
+      var mesh = this.scene.scene.children[i];
+      if(mesh.type === 'Mesh' && mesh.material !== undefined){
+        mesh.material.wireframe = data;
       }
     }
   }.bind(this);
@@ -246,7 +154,7 @@ var Camera = function(width, height){
   this.desired_rotation = undefined;
   this.distance = undefined;
 
-  this.camera = new THREE.PerspectiveCamera(45, width/height, 1, 100000);
+  this.camera = new THREE.PerspectiveCamera(35, width/height, 1, 100000);
 
   this.setPosition = function(position){
     this.camera.position.set(position.x, position.y, position.z);
@@ -267,8 +175,9 @@ var Camera = function(width, height){
   }
 
   this.setDistance = function(distance){
-    this.distance = distance;
-    this.camera.position.setLength(distance);
+    this.distance = distance + planet_radius;
+    console.log('Camera.setDistance: ', this.distance);
+    this.camera.position.setLength(this.distance);
   }
 
   this.update = function(){
@@ -299,13 +208,13 @@ var Cursor = function(scene, views){
   axis_geometry.vertices.push(new THREE.Vector3( 0, -100000, 0 ),
       new THREE.Vector3( 0, 100000, 0 ));
   var axis = new THREE.Line( axis_geometry, debug_material );
-  scene.add( axis );
+  scene.scene.add(axis);
 
   var debug_geometry = new THREE.Geometry();
   debug_geometry.vertices.push(new THREE.Vector3( 0, 0, 0 ),
                                new THREE.Vector3( 0, 0, 15000 ));
   this.debug_line = new THREE.Line( debug_geometry, debug_material );
-  scene.add(this.debug_line);
+  scene.scene.add(this.debug_line);
 
   this.update = function(){
     var mouse_surface_point = false;
@@ -333,33 +242,48 @@ var Cursor = function(scene, views){
   }
 }
 
+var viewport_count = 0;
 var Viewport = function(width, height, camera, scene, enable_webGL) {
-  this.recursion = 1;
-  this.camera_height = 20000;
-  this.view_tiles = [[0, 0, 4],];
+  this.init = function(){
+    this.id = 'viewport_' + viewport_count++;
+    this.recursion = 1;
+    var camera_height = 20000;
 
-  this.camera = camera;
-  this.scene = scene;
+    this.camera = camera;
+    this.scene = scene;
 
-  camera.setPosition(new THREE.Vector3(0,0,this.camera_height));
+    camera.setPosition(new THREE.Vector3(0,0, camera_height));
 
-  if(enable_webGL){
-    this.renderer = new THREE.WebGLRenderer({antialias: true, alpha: true,
-                                             depth: true, sortObjects: true});
-  } else {
-    this.renderer = new THREE.CanvasRenderer();
+    if(enable_webGL){
+      this.renderer = new THREE.WebGLRenderer({antialias: true, alpha: true,
+          depth: true, sortObjects: true});
+    } else {
+      this.renderer = new THREE.CanvasRenderer();
+    }
+
+    this.renderer.setClearColor(0xcccccc);
+    this.renderer.setPixelRatio(window.devicePixelRatio);
+    document.body.appendChild(this.renderer.domElement);
+
+    this.stats = new Stats();
+    this.renderer.domElement.appendChild(this.stats.dom);
+
+    this.raycaster = new THREE.Raycaster();
+    this.mouse = new THREE.Vector2();
+    this.mouse_surface_point = undefined;
+
+    if (width && height) {
+      this.setSize(width, height);
+    } else {
+      this.setSize(window.innerWidth, window.innerHeight);
+    }
+
+    this.bootstrapPlanet();
+
+    this.renderer.domElement.addEventListener('mousemove', onMouseMove, false);
+    this.renderer.domElement.addEventListener('mousedown', onMouseClick, false);
+    window.addEventListener('keydown', onKeyPress, false);
   }
-
-  this.renderer.setClearColor(0xcccccc);
-  this.renderer.setPixelRatio(window.devicePixelRatio);
-  document.body.appendChild(this.renderer.domElement);
-
-  this.stats = new Stats();
-  this.renderer.domElement.appendChild( this.stats.dom );
-
-  this.raycaster = new THREE.Raycaster();
-  this.mouse = new THREE.Vector2();
-  this.mouse_surface_point = undefined;
 
   this.setSize = function(width, height) {
     this.renderer.setSize(width, height);
@@ -367,22 +291,26 @@ var Viewport = function(width, height, camera, scene, enable_webGL) {
     this.camera.camera.updateProjectionMatrix();
   };
 
-  if (width && height) {
-    this.setSize(width, height);
-  } else {
-    this.setSize(window.innerWidth, window.innerHeight);
-  }
+  // We do this here rather than in the Scene object because we want to register
+  // all these View objects as being interested in the returned scenery.
+  this.bootstrapPlanet = function(){
+    var initial_recursion = 6;
+    for(var section = 0; section < 8; section++){
+      root_face = section * Math.pow(2, 29);
+      this.scene.requestLandscape(this, root_face, 0, 0, initial_recursion);
+    }
+  };
 
   this.update = function(){
     // Render the scene.
-    this.renderer.render(scene, this.camera.camera);
+    this.renderer.render(scene.scene, this.camera.camera);
 
     // Populate this.mouse_surface_point using raycaster from camera to surface.
     if(this.mouseDirty){
       // TODO: This raycasting is slow, using more CPU than anything else.
       // I think we can do better using our own pointToFace().
       this.raycaster.setFromCamera(this.mouse, this.camera.camera); 
-      var intersects = this.raycaster.intersectObjects(scene.children);
+      var intersects = this.raycaster.intersectObjects(scene.scene.children);
       this.mouse_surface_point = undefined;
       for (var i = 0; i < intersects.length; i++){
         if(intersects[i].object.type === 'Mesh'){
@@ -393,6 +321,22 @@ var Viewport = function(width, height, camera, scene, enable_webGL) {
         }
       }
     }
+  }
+
+  // TODO Better name.
+  this.requestLandscapeView = function(centre){
+    if(centre === undefined){
+      return;
+    }
+
+    this.scene.unregisterConsumerFromAll(this);
+
+    var centre_copy = centre.clone().toArray();
+    
+    this.scene.requestFaceFromCentre(centre_copy, this.recursion);
+    
+    // TODO Fix this.
+    this.dirty = true;
   }
 
   var onMouseMove = function(e) {
@@ -419,7 +363,6 @@ var Viewport = function(width, height, camera, scene, enable_webGL) {
     this.mouse.y = -((posy - offsety) / this.renderer.domElement.offsetHeight ) * 2 + 1;
     this.mouseDirty = true;
   }.bind(this);
-  this.renderer.domElement.addEventListener( 'mousemove', onMouseMove, false );
 
   var onMouseClick = function(e){
     if(this.mouse_surface_point === undefined){
@@ -427,29 +370,179 @@ var Viewport = function(width, height, camera, scene, enable_webGL) {
     }
 
     this.camera.setDesiredPosition(this.mouse_surface_point);
-		this.requestLandscapeView();
+    this.centre_view = this.mouse_surface_point;
+		this.requestLandscapeView(this.mouse_surface_point);
   }.bind(this)
-  this.renderer.domElement.addEventListener( 'mousedown', onMouseClick, false );
 
-  // TODO: Should this really live in the Viewport?
-  this.requestLandscape = function(index_high, index_low, 
-                                   recursion_start, required_depth){
+  var onKeyPress = function(data){
+    console.log(data);
+    if(data.key === 'ArrowUp' && this.recursion < 15){
+      this.recursion++;
+      this.requestLandscapeView(this.centre_view);
+      //this.camera.setDistance(planet_radius / Math.pow(2, this.recursion));
+    }
+    if(data.key === 'ArrowDown' && this.recursion > 1){
+      this.recursion--;
+      this.requestLandscapeView(this.centre_view);
+      //this.camera.setDistance(planet_radius / Math.pow(2, this.recursion));
+    }
+  }.bind(this);
+
+  this.init();
+};
+
+var Scene = function(enable_webGL){
+  this.scene = new THREE.Scene();
+
+  var ambientLight = new THREE.AmbientLight( 0x808080 );
+  this.scene.add(ambientLight);
+
+  var pointLight = new THREE.PointLight( 0xc0c0c0, 1, 0 );
+  pointLight.position.set( 0,3000,100000 );
+  this.scene.add(pointLight);
+    
+  var deleteMesh = function(old_mesh, scene){
+    if(scene){
+      scene.remove(old_mesh);
+    }
+    if(old_mesh.geometry){
+      old_mesh.geometry.dispose();
+    }
+    if(old_mesh.material){
+      old_mesh.material.dispose();
+    }
+    if(old_mesh.texture){
+      old_mesh.texture.dispose();
+    }
+  }
+
+  var replaceMesh = function(old_mesh, new_mesh, scene){
+    new_mesh.renderOrder = new_mesh.recursion;
+    new_mesh.registered_consumers = old_mesh.registered_consumers;
+    deleteMesh(old_mesh, scene);
+    if(scene){
+      scene.add(new_mesh);
+    }
+  };
+
+  this.addLandscape = function(landscape){
+    var existing;
+    for(var i = 0; i < this.scene.children.length; i++){
+      var existing = this.scene.children[i];
+      if(existing.index_high === landscape.index_high &&
+          existing.index_low === landscape.index_low &&
+          existing.recursion === landscape.recursion)
+      {
+        console.log('Replacing:', existing.index_high, existing.index_low, existing.recursion);
+        console.log('With:     ', landscape.index_high, landscape.index_low, landscape.recursion);
+        replaceMesh(existing, landscape, this.scene);
+        return;
+      }
+    }
+    console.log('Adding:', landscape.index_high, landscape.index_low);
+    landscape.renderOrder = landscape.recursion;
+    this.scene.add(landscape);
+  };
+
+  this.pruneLandscape = function(){
+    // Expensive due to nested for loops. Only do this if we know a view is dirty.
+    console.log('pruneLandscape()');
+    for(var s = this.scene.children.length -1; s >= 0; s--){
+      var child = this.scene.children[s];
+      if(child.type === 'Mesh'){
+        if(child.registered_consumers.length === 0){
+          deleteMesh(child, this.scene);
+        }
+      }
+    }
+  }
+  
+  this.CreateObject = function(index_high, index_low, recursion, vertices, color) {
+    var geometry = new THREE.BufferGeometry();
+    geometry.addAttribute('position', new THREE.BufferAttribute(vertices, 3));
+    geometry.addAttribute('color', new THREE.BufferAttribute(color, 3));
+    geometry.computeVertexNormals();
+    geometry.computeBoundingBox ();
+    geometry.computeBoundingSphere ();
+    geometry.normalizeNormals ();
+
+    var material;
+    if(enable_webGL){
+      material = new THREE.MeshLambertMaterial({
+                                              vertexColors: THREE.VertexColors,
+                                              side : THREE.FrontSide,
+                                              shading: THREE.SmoothShading,
+                                              transparent: true,
+                                              depthWrite: false
+                                              });
+    } else {
+      material = new THREE.MeshLambertMaterial( { color: 0xffffff,
+                                              side : THREE.FrontSide,
+                                              shading: THREE.SmoothShading,
+                                              transparent: true,
+                                              depthWrite: false
+                                              } );
+    }
+
+    var return_val = new THREE.Mesh(geometry, material);
+    return_val.index_high = index_high;
+    return_val.index_low = index_low;
+    return_val.recursion = recursion;
+    return_val.registered_consumers = [];
+        
+    return return_val;
+  };
+  
+  // TODO: Landscape Mesh as it's own object?
+  var registerMeshConsumer = function(mesh, consumer){
+    mesh.registered_consumers = (mesh.registered_consumers || []);
+    for(var i = 0; i < mesh.registered_consumers.length; i++){
+      if(mesh.registered_consumers[i].id === consumer.id){
+        // Already registered.
+        return true;
+      }
+    }
+    mesh.registered_consumers.push(consumer);
+  }
+
+  var unregisterMeshConsumer = function(mesh, consumer){
+    mesh.registered_consumers = mesh.registered_consumers || [];
+    for(var i = 0; i < mesh.registered_consumers.length; i++){
+      if(mesh.registered_consumers[i].id === consumer.id){
+        mesh.registered_consumers.splice(i, 1);
+        return true;
+      }
+    }
+  }
+
+  this.unregisterConsumerFromAll = function(consumer){
+    for(var m = 0; m < this.scene.children.length; m++){
+      var mesh = this.scene.children[m];
+      unregisterMeshConsumer(mesh, consumer);
+    }
+  };
+
+  this.requestLandscape = function(consumer, index_high, index_low, 
+                                   recursion_start, required_depth)
+  {
     for(var i = 0; i < this.scene.children.length; i++){
       var existing = this.scene.children[i];
       if(existing.index_high === index_high && existing.index_low === index_low &&
           existing.recursion === required_depth)
       {
         console.log('Already exists.');
+        registerMeshConsumer(existing, consumer);
         return;
       }
     }
 
-    // Add a placeholder with the peramiters of the expected new object.
+    // Add a placeholder with the parameters of the expected new object.
     var placeholder = new THREE.Object3D();
     placeholder.index_high = index_high;
     placeholder.index_low = index_low;
     placeholder.recursion = required_depth;
     placeholder.visible = false;
+    registerMeshConsumer(placeholder, consumer);
     this.scene.add(placeholder);
 
     // Now get the WebWorker to generate us the landscape.
@@ -458,35 +551,25 @@ var Viewport = function(width, height, camera, scene, enable_webGL) {
                                                     index_low: index_low,
                                                     recursion_start: recursion_start,
                                                     recursion: required_depth });
-  }.bind(this);
+  };
 
-  // TODO Better name.
-  this.requestLandscapeView = function(){
-    this.view_tiles = [];
-   
-    var terrain_generator = new Module.DataSourceGenerate();  // Share an existing copy?
-    var mouse_surface_point_copy = this.mouse_surface_point.clone().toArray();
-    console.log("+");
-    // TODO Optimize pointToFace() or run in WebWorker;
-    var face = terrain_generator.pointToFace(mouse_surface_point_copy, this.recursion);
-    console.log("-");
-    terrain_generator.delete();
+  this.requestFaceFromCentre = function(centre, recursion){
+    game_loop.worker_interface.worker.postMessage({ cmd: 'face_from_centre',
+                                                    centre: centre,
+                                                    recursion: recursion});
+  };
 
-    //console.log(face.index_high.toString(16));
-
-    this.requestLandscape(face.index_high, face.index_low, this.recursion, this.recursion +5);
-    this.view_tiles.push([face.index_high, face.index_low, this.recursion +5]);
+  this.requestLandscapeArroundFace = function(face){
+    this.unregisterConsumerFromAll(this);
+    
+    this.requestLandscape(this, face.index_high, face.index_low,
+        face.recursion, face.recursion +7);
 
     var neighbours = face.neighbours;
-    for(var i = 0; i < neighbours.size(); i++){
-      var neighbour = neighbours.get(i);
-      this.requestLandscape(neighbour[0], neighbour[1], this.recursion, this.recursion +5);
-      this.view_tiles.push([neighbour[0], neighbour[1], this.recursion +5]);
+    for(var i = 0; i < neighbours.size; i++){
+      var neighbour = neighbours[i];
+      this.requestLandscape(this, neighbour[0], neighbour[1],
+                            face.recursion, face.recursion +7);
     }
-
-    this.recursion++;
-    this.dirty = true;
-    face.delete();
   }
 };
-

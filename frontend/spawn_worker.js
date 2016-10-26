@@ -17,19 +17,23 @@ var WorkerInterface = function(options){
 
   /* Gets called in response to a self.postMessage() in the worker thread. */ 
   function onMsg (e) {
-    console.log(e);
+    //console.log(e);
 
     var data = e.data;
     switch (data.type) {
       case 'geometry':
-        console.log('landscape:', data);
+        //console.log('landscape:', data);
         var position = new Float32Array(data.position);
         var color = new Float32Array(data.color);
 
         // TODO: Don't just poke variables in another object.
-        var landscape = game_loop.renderer.CreateObject(
+        var landscape = game_loop.renderer.scene.CreateObject(
             data.index_high, data.index_low, data.recursion, position, color);
-        game_loop.renderer.addLandscape(landscape);
+        game_loop.renderer.scene.addLandscape(landscape);
+        break;
+      case 'face':
+        //console.log('face:', data);
+        game_loop.renderer.scene.requestLandscapeArroundFace(data);
         break;
       default:
         console.log(data);
@@ -41,18 +45,6 @@ var WorkerInterface = function(options){
   worker.addEventListener('message', onMsg, false);
   worker.addEventListener('error', onError, false);
 
-  // Bootstrap Planet at low resolution.
-  var initial_recursion = 4;
-  for(var section = 0; section < 8; section++){
-    root_face = section * Math.pow(2, 29);
-    worker.postMessage({
-      cmd: 'landscape',
-      index_high: root_face,
-      index_low: 0,
-      recursion_start: 0,
-      recursion: initial_recursion
-    });
-  }
 
   /*worker.postMessage({
     cmd: 'ws_con',

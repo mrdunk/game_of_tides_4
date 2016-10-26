@@ -14,6 +14,7 @@
 #include <glm/gtx/intersect.hpp> // intersectRayTriangle
 #include <glm/gtx/norm.hpp>   // distance2
 #include <cassert>
+#include <atomic>             // std::atomic_ullong
 
 const uint64_t k_top_level_mask = ((uint64_t)7 << 61);
 const uint64_t k_root_node_indexes[] = {
@@ -37,7 +38,7 @@ typedef glm::tvec3< glm::f64, glm::defaultp > Point;
 //const uint32_t planet_diam = 12742000;  // Diameter of Earth in meters.
 const int64_t planet_radius = 12742 /2;
 
-const double k_scale = 10000;
+const double k_scale = planet_radius;
 
 typedef std::pair<uint64_t /*index*/, int8_t /*recursion*/> CacheKey;
 
@@ -55,7 +56,7 @@ struct IndexSplit{
 
 class Face {
  public:
-  Face() : status(0x00), height(0), heights({{0,0,0}}) {}
+  Face() : status(0x00), height(0), heights({{0,0,0}}), last_used(0) {}
 
   uint64_t index;
   unsigned long getIndexHigh() const {return (index >> 32);}
@@ -87,17 +88,16 @@ class Face {
   std::vector<IndexSplit> getNeighbours() const {
     std::vector<IndexSplit> return_value;
     for(auto neighbour : neighbours){
-      //LOG(std::hex << (unsigned long long)neighbour << std::dec);
       IndexSplit entry;
       entry.high = neighbour >> 32;
       entry.low = neighbour;
       return_value.push_back(entry);
     }
     return return_value;
-    //return std::vector<unsigned long>(neighbours.begin(), neighbours.end());
-    //return std::vector<unsigned long>(10,100);
   };
   //void setNeighbours(std::vector<uint64_t> value) {/* TODO? */};
+ 
+  unsigned long long last_used;
 };
 
 inline bool operator==(const Face& lhs, const Face& rhs){
@@ -218,6 +218,9 @@ class FaceCache {
   // Display some information about cache usage.
   void Report();
 
+  // Do garbage collection.
+  void clean(unsigned long long age);
+
  private:
   uint32_t hits;
   uint32_t misses;
@@ -227,8 +230,8 @@ class FaceCache {
 
 class DataSourceGenerate {
  public:
-  DataSourceGenerate(FaceCache* cache) : cache_(cache) {};
-  DataSourceGenerate() : cache_(nullptr) {};
+  DataSourceGenerate(FaceCache* cache) : cache_(cache), update_counter(0) {};
+  DataSourceGenerate() : cache_(nullptr), update_counter(0) {};
   void MakeCache() { cache_ = new FaceCache; }
 
   /* Get a face either by retrieving it from the cache (if available) or by
@@ -261,6 +264,16 @@ class DataSourceGenerate {
       const std::shared_ptr<Face> start_face, const int8_t required_depth);
 
   std::shared_ptr<Face> pointToFace(const Point point, const uint8_t max_recursion);
+  std::shared_ptr<Face> pointToSubFace(const Point point, const uint8_t max_recursion,
+                                       Face& enclosing_face);
+
+  /* Do garbage collection on cache. */
+  void cleanCache(unsigned long max_cache_age){
+    if(max_cache_age < update_counter){
+      LOG("update_counter: " << update_counter << "\toldest: " << update_counter - max_cache_age);
+      cache_->clean(update_counter - max_cache_age);
+    }
+  }
 
  private:
 
@@ -274,6 +287,8 @@ class DataSourceGenerate {
   void CalculateNeighbours(std::shared_ptr<Face> face);
 
   FaceCache* cache_;
+
+  std::atomic_ullong update_counter;
 };
 
 
