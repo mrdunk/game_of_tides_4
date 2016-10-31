@@ -168,6 +168,23 @@ uint64_t IndexOfChild(const uint64_t parent_index, const int8_t parent_depth,
     ((uint64_t)child_number << (59 - (2 * parent_depth)));
 }
 
+// TODO Write test.
+bool IsChildIndex(const uint64_t parent_index, const int8_t parent_recursion,
+                  const uint64_t child_index, const int8_t child_recursion)
+{
+  if(parent_recursion >= child_recursion){
+    return false;
+  }
+  uint64_t mask = ~0;  // All "1"s.
+  mask = mask << (61 - (2 * parent_recursion));
+  return (parent_index & mask) == (child_index & mask);
+}
+
+bool IsChild(const Face& parent, const Face& child){
+  return IsChildIndex(parent.index, parent.recursion, child.index, child.recursion);
+}
+
+
 /* Return one of the 4 child faces of a parent. */
 void FaceToSubface(const uint8_t index, const Face& parent, Face& child);
 

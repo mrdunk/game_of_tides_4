@@ -262,11 +262,6 @@ void DataSourceGenerate::SetHeight(std::shared_ptr<Face> face){
   face->status |= BaseHeight;
 
   if(MinRecursionFromIndex(face->index) <= 2){
-    /*if (myHash(face->index) < 0x80000000) {
-      face->height = 1.5;
-    } else {
-      face->height = 0;
-    }*/
     float height = (float)(myHash(face->index) % 0xFF) / 0x80;
     if(height < 1){
       height = 0;
@@ -286,7 +281,8 @@ void DataSourceGenerate::SetHeight(std::shared_ptr<Face> face){
       face->height = height_total / face->neighbours.size();
       //int16_t hashed = ((myHash(face->index) % 0x4F));
       int16_t hashed = ((myHash(face->index) % 0x4F)) - 0x1f;
-      face->height -= (float)hashed / (face->recursion * face->recursion * face->recursion * face->recursion);
+      //face->height -= (float)hashed / (face->recursion * face->recursion * face->recursion * face->recursion);
+      face->height -= (float)hashed * 10 / (face->recursion * face->recursion * face->recursion * face->recursion * face->recursion);
     }
   }
 }

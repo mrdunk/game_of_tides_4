@@ -13,6 +13,35 @@ var WorkerInterface = function(options){
     console.log([
         'ERROR: Line ', e.lineno, ' in ', e.filename, ': ', e.message
     ].join(''));
+    this.busy = false;
+    this.ExecuteTask();
+  }
+
+  /* Queue up a task to be executed on the WebWorker. */
+  this.busy = false;
+  this.tasks = [];
+  this.QueueTask = function(label, task){
+    this.tasks.push([label, task]);
+    this.ExecuteTask();
+  }
+
+  /* Pop a task from the queue and execute it. */
+  this.ExecuteTask = function(){
+    if(this.busy === false && this.tasks.length > 0){
+      this.busy = true;
+      var task = this.tasks.shift();
+      console.log('Executing: ', task);
+      worker.postMessage(task[1]);
+    }
+  }
+
+  /* Clear all tasks with a specific label from the queue. */
+  this.ClearTasks = function(label){
+    for(var i=this.tasks.length -1; i >= 0; i--){
+      if(label === undefined || label === this.tasks[i][0]){
+        this.tasks.splice(i, 1);
+      }
+    }
   }
 
   /* Gets called in response to a self.postMessage() in the worker thread. */ 
@@ -29,21 +58,24 @@ var WorkerInterface = function(options){
         // TODO: Don't just poke variables in another object.
         var landscape = game_loop.renderer.scene.CreateObject(
             data.index_high, data.index_low, data.recursion, position, color);
+        landscape.recursion = data.recursion;
         game_loop.renderer.scene.addLandscape(landscape);
         break;
       case 'face':
         //console.log('face:', data);
-        game_loop.renderer.scene.requestLandscapeArroundFace(data);
+        game_loop.renderer.scene.receivedFace(data);
         break;
       default:
         console.log(data);
     }
+    this.busy = false;
+    this.ExecuteTask();
   }
 
   var worker = new Worker('worker.js');
   this.worker = worker;
-  worker.addEventListener('message', onMsg, false);
-  worker.addEventListener('error', onError, false);
+  worker.addEventListener('message', onMsg.bind(this), false);
+  worker.addEventListener('error', onError.bind(this), false);
 
 
   /*worker.postMessage({
@@ -55,26 +87,21 @@ var WorkerInterface = function(options){
   /* Callbacks for the Menu system. */
   var ConnectWs = function(data) {
     console.log('ConnectWs', data, this);
-    worker.postMessage({
-      cmd: 'ws_con',
-      url: data.websockets.settings.url.value,
-      protocol: data.websockets.settings.protocol.value
-    });
+    var task = {cmd: 'ws_con', url: data.websockets.settings.url.value,
+      protocol: data.websockets.settings.protocol.value };
+    game_loop.worker_interface.QueueTask('ws_con', task);
   };
 
   var DisconnectWs = function(data) {
     console.log('DisconnectWs');
-    worker.postMessage({
-      cmd: 'ws_discon'
-    });
+    var task = {cmd: 'ws_discon'};
+    game_loop.worker_interface.QueueTask('ws_discon', task);
   };
 
   var SendViaWs = function(data) {
     console.log('SendViaWs');
-    worker.postMessage({
-      cmd: 'ws_send',
-      data: data.websockets.settings.test_message.value
-    });
+    var task = {cmd: 'ws_send', data: data.websockets.settings.test_message.value};
+    game_loop.worker_interface.QueueTask('ws_send', task);
   };
 
   /* Configuration data for this module. To be inserted into the Menu. */

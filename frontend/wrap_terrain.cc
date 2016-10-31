@@ -4,6 +4,24 @@
 using namespace emscripten;
 
 
+IndexSplit IndexSplitOfChild(const unsigned long parent_index_high,
+    const unsigned long parent_index_low,
+    const int8_t parent_depth, const uint8_t child_number)
+{
+  uint64_t parent_index = (static_cast<uint64_t>(parent_index_high) << 32) + parent_index_low;
+  uint64_t child_index = IndexOfChild(parent_index, parent_depth, child_number);
+  return {static_cast<unsigned long>(child_index >> 32), static_cast<unsigned long>(child_index)};
+}
+
+bool IsChildSplit(const unsigned long parent_index_high, const unsigned long parent_index_low,
+    const int8_t parent_recursion, const unsigned long child_index_high,
+    const unsigned long child_index_low, const int8_t child_recursion)
+{
+  uint64_t parent_index = (static_cast<uint64_t>(parent_index_high) << 32) + parent_index_low;
+  uint64_t child_index = (static_cast<uint64_t>(child_index_high) << 32) + child_index_low;
+  return IsChildIndex(parent_index, parent_recursion, child_index, child_recursion);
+}
+
 EMSCRIPTEN_BINDINGS(DataSourceGenerate) {
 
   value_array<Point>("Point")
@@ -56,4 +74,7 @@ EMSCRIPTEN_BINDINGS(DataSourceGenerate) {
     .function("pointToFace", &DataSourceGenerate::pointToFace)
     .function("pointToSubFace", &DataSourceGenerate::pointToFace)
     ;
+
+  function("IndexOfChild", &IndexSplitOfChild);
+  function("IsChild", &IsChildSplit);
 }

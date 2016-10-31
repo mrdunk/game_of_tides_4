@@ -24,7 +24,9 @@ var getGeometry = function(face_index_high, face_index_low,
 
   var terrain_data = terrain_generator.getFaces(face_index_high, face_index_low,
                                             recursion_start, required_depth);
-  
+
+  var sea_depth_offset = 1/(recursion_start +1);
+
   for(i = 0; i < terrain_data.size(); i++){
     face = terrain_data.get(i);
     if(face.heights[0] > sea_level){
@@ -38,9 +40,10 @@ var getGeometry = function(face_index_high, face_index_low,
       vertices[total +0] = face.points[0][0] * (1 + (sea_level * height_multiplier));
       vertices[total +1] = face.points[0][1] * (1 + (sea_level * height_multiplier));
       vertices[total +2] = face.points[0][2] * (1 + (sea_level * height_multiplier));
-      color[total +0] = 0.1;
-      color[total +1] = 0.3;
-      color[total +2] = 0.7;
+      var depth_multiplier = sea_level - ((sea_level - face.heights[0]) * (recursion_start*recursion_start +1));
+      color[total +0] = depth_multiplier * 0.1;
+      color[total +1] = depth_multiplier * 0.3;
+      color[total +2] = depth_multiplier * 0.7;
     }
 
     if(face.heights[1] > sea_level){
@@ -54,9 +57,10 @@ var getGeometry = function(face_index_high, face_index_low,
       vertices[total +3] = face.points[1][0] * (1 + (sea_level * height_multiplier));
       vertices[total +4] = face.points[1][1] * (1 + (sea_level * height_multiplier));
       vertices[total +5] = face.points[1][2] * (1 + (sea_level * height_multiplier));
-      color[total +3] = 0.1;
-      color[total +4] = 0.3;
-      color[total +5] = 0.7;
+      var depth_multiplier = sea_level - ((sea_level - face.heights[1]) * (recursion_start*recursion_start +1));
+      color[total +3] = depth_multiplier * 0.1;
+      color[total +4] = depth_multiplier * 0.3;
+      color[total +5] = depth_multiplier * 0.7;
     }
 
     if(face.heights[2] > sea_level){
@@ -70,9 +74,10 @@ var getGeometry = function(face_index_high, face_index_low,
       vertices[total +6] = face.points[2][0] * (1 + (sea_level * height_multiplier));
       vertices[total +7] = face.points[2][1] * (1 + (sea_level * height_multiplier));
       vertices[total +8] = face.points[2][2] * (1 + (sea_level * height_multiplier));
-      color[total +6] = 0.1;
-      color[total +7] = 0.3;
-      color[total +8] = 0.7;
+      var depth_multiplier = sea_level - ((sea_level - face.heights[2]) * (recursion_start*recursion_start +1));
+      color[total +6] = depth_multiplier * 0.1;
+      color[total +7] = depth_multiplier * 0.3;
+      color[total +8] = depth_multiplier * 0.7;
     }
 
     /*vertices[total +0] = face.points[0][0];
@@ -107,6 +112,7 @@ var getGeometry = function(face_index_high, face_index_low,
 
   return_data.position = vertices.buffer;
   return_data.color = color.buffer;
+  return_data.recursion = required_depth;
   return return_data;
 };
 
@@ -185,6 +191,7 @@ var web_socket = new WebSocketWrapper();
 self.addEventListener('message', function(e) {
   var data = e.data;
   //self.postMessage(data);
+  console.log(data);
   var return_value = {};
   switch (data.cmd) {
     case 'echo':
@@ -201,6 +208,7 @@ self.addEventListener('message', function(e) {
     case 'face_from_centre':
       var face = getFaceFromCentre(data.centre, data.recursion);
       return_value.type = 'face';
+      return_value.view = data.view;
       return_value.recursion = data.recursion;
       return_value.index_high = face.index_high;
       return_value.index_low = face.index_low;
