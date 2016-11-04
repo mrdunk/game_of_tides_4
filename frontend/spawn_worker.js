@@ -30,7 +30,7 @@ var WorkerInterface = function(options){
     if(this.busy === false && this.tasks.length > 0){
       this.busy = true;
       var task = this.tasks.shift();
-      console.log('Executing: ', task);
+      //console.log('Executing: ', task);
       worker.postMessage(task[1]);
     }
   }
@@ -39,6 +39,7 @@ var WorkerInterface = function(options){
   this.ClearTasks = function(label){
     for(var i=this.tasks.length -1; i >= 0; i--){
       if(label === undefined || label === this.tasks[i][0]){
+        //console.log('clearing: ', label);
         this.tasks.splice(i, 1);
       }
     }
@@ -58,7 +59,8 @@ var WorkerInterface = function(options){
         // TODO: Don't just poke variables in another object.
         var landscape = game_loop.renderer.scene.CreateObject(
             data.index_high, data.index_low, data.recursion, position, color);
-        landscape.recursion = data.recursion;
+        landscape.recursion_min = data.recursion_min;
+        landscape.recursion_max = data.recursion_max;
         game_loop.renderer.scene.addLandscape(landscape);
         break;
       case 'face':

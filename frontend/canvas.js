@@ -58,18 +58,6 @@ var Renderer = function(options) {
     }
 
     this.cursor.update();
-
-    var combined_view_dirty = false;
-    for (var view_index = 0; view_index < this.views.length; view_index++){
-      var view = this.views[view_index];
-      view.mouseDirty = undefined;
-      combined_view_dirty |= view.dirty;
-      view.dirty = undefined;
-    }
-
-    if(combined_view_dirty){
-      this.scene.pruneLandscape();
-    }
   };
 
   this.RegisterView = function(port_width, port_height) {
@@ -326,7 +314,10 @@ var Viewport = function(width, height, camera, scene, enable_webGL) {
     var initial_recursion = 6;
     for(var section = 0; section < 8; section++){
       root_face = section * Math.pow(2, 29);
-      this.scene.requestLandscape(this, root_face, 0, 0, initial_recursion);
+
+      // TODO Don't hardcode 'viewport_0' here.
+      //this.scene.requestLandscape('viewport_0', root_face, 0, 0, initial_recursion);
+      this.scene.requestFaceFromCentre([0,0,1], 'viewport_0');
     }
   };
 
@@ -344,7 +335,7 @@ var Viewport = function(width, height, camera, scene, enable_webGL) {
       var deepest_so_far = 0;
       for (var i = 0; i < intersects.length; i++){
         if(intersects[i].object.type === 'Mesh' && 
-            intersects[i].object.recursion > deepest_so_far &&
+            intersects[i].object.recursion_min > deepest_so_far &&
             intersects[i].point){
           deepest_so_far = intersects[i].object.recursion;
           this.mouse_surface_point = intersects[i].point;
@@ -435,7 +426,7 @@ var Viewport = function(width, height, camera, scene, enable_webGL) {
         var existing = this.scene.scene.children[i];
         console.log(existing.type);
         if(existing.type === 'Mesh'){
-          if(existing.recursion && existing.recursion === number + this.scene.recursion_difference){
+          if(existing.recursion_min && existing.recursion_min === number){
             existing.visible = true;
           } else {
             existing.visible = false;
@@ -457,6 +448,8 @@ var Scene = function(enable_webGL){
   var pointLight = new THREE.PointLight( 0xc0c0c0, 1, 0 );
   pointLight.position.set( 0,3000,100000 );
   this.scene.add(pointLight);
+
+  this.faces = {};
     
   var deleteMesh = function(old_mesh, scene){
     if(scene){
@@ -474,7 +467,6 @@ var Scene = function(enable_webGL){
   }
 
   var replaceMesh = function(old_mesh, new_mesh, scene){
-    new_mesh.renderOrder = new_mesh.recursion;
     deleteMesh(old_mesh, scene);
     if(scene){
       scene.add(new_mesh);
@@ -483,47 +475,25 @@ var Scene = function(enable_webGL){
 
   this.addLandscape = function(landscape){
     var existing;
+    
+    removeOverlappingGeometry(landscape, this.scene);
+
     for(var i = 0; i < this.scene.children.length; i++){
       var existing = this.scene.children[i];
       if(existing.index_high === landscape.index_high &&
           existing.index_low === landscape.index_low &&
           existing.recursion === landscape.recursion)
       {
-        console.log('Replacing:', existing.index_high, existing.index_low, existing.recursion);
-        console.log('With:     ', landscape.index_high, landscape.index_low, landscape.recursion);
+        console.log('Replacing:', existing.index_high, existing.index_low, existing.recursion_min,
+            'With:     ', landscape.index_high, landscape.index_low, landscape.recursion_min);
         replaceMesh(existing, landscape, this.scene);
         return;
       }
     }
     console.log('Adding:', landscape.index_high, landscape.index_low);
-    landscape.renderOrder = landscape.recursion;
     this.scene.add(landscape);
   };
 
-  // TODO Currently does nothing.
-  this.pruneLandscape = function(){
-    // Expensive due to nested for loops. Only do this if we know a view is dirty.
-    console.log('pruneLandscape()');
-
-    var scene = this.scene;
-    function doPrune(){
-      for(var s = scene.children.length -1; s >= 0; s--){
-        var child = scene.children[s];
-        if(child.type === 'Mesh'){
-          if(false /* TODO */){
-            deleteMesh(child, scene);
-          }
-        }
-      }
-    }
-
-    // Delay the pruning until after new faces have been drawn.
-    if(this.prune_timer){
-      window.clearTimeout(this.prune_timer);
-    }
-    this.prune_timer = setTimeout(doPrune, 30000);
-  }
-  
   this.CreateObject = function(index_high, index_low, recursion, vertices, color) {
     var geometry = new THREE.BufferGeometry();
     geometry.addAttribute('position', new THREE.BufferAttribute(vertices, 3));
@@ -576,95 +546,135 @@ var Scene = function(enable_webGL){
     for(var i = 0; i < this.scene.children.length; i++){
       var existing = this.scene.children[i];
       if(existing.index_high === index_high && existing.index_low === index_low &&
-          existing.recursion === required_depth)
+          existing.recursion_min === recursion_start)
       {
-        //console.log('Already exists.');
+        existing.stale = undefined;
         return;
       }
     }
-
+    
     // Add a placeholder with the parameters of the expected new object.
-    // Used to make sure we don't queue up more than one request for a paticular
+    // Used to make sure we don't queue up more than one request for a particular
     // face.
     var placeholder = new THREE.Object3D();
     placeholder.index_high = index_high;
     placeholder.index_low = index_low;
-    placeholder.recursion = required_depth;
+    placeholder.recursion_min = recursion_start;
     placeholder.visible = false;
     this.scene.add(placeholder);
 
     // Now get the WebWorker to generate us the landscape.
     var task = {cmd: 'landscape', index_high: index_high, index_low: index_low,
-      recursion_start: recursion_start, recursion: required_depth};
+      recursion_start: recursion_start, recursion: required_depth, view: consumer_id};
     game_loop.worker_interface.QueueTask('landscape__' + consumer_id, task);
   };
 
   this.recursion_min = 0;
   this.recursion_max = 6;
-  this.recursion_step = 1;
   this.recursion_difference = 5;
 
   this.requestFaceFromCentre = function(centre, view_id){
     game_loop.worker_interface.ClearTasks('face_from_centre__' + view_id);
     game_loop.worker_interface.ClearTasks('landscape__' + view_id);
     this.RemovePlaceholders();
-    this.faces = {};
-    for(var i = this.recursion_min; i <= this.recursion_max; i=i+this.recursion_step){
+    this.faces[view_id] = {};
+    for(var i = this.recursion_min; i <= this.recursion_max; i++){
       var task = { cmd: 'face_from_centre', view: view_id, centre: centre, recursion: i};
       game_loop.worker_interface.QueueTask('face_from_centre__' + view_id, task);
     }
   };
 
-  function isChildAlreadyAdded(draw_these, candidate){
+  function isChildAlreadyAdded(draw_these, parent){
     for(var i = 0; i < draw_these.length; i++){
-      if(Module.IsChild(candidate.index_high, candidate.index_low, candidate.recursion,
-            draw_these[i].index_high, draw_these[i].index_low, draw_these[i].recursion)){
+      var child = draw_these[i];
+      if(Module.IsChild(parent.index_high, parent.index_low, parent.recursion,
+            child.index_high, child.index_low, child.recursion)){
         return true;
       }
     }
   }
 
+  function removeOverlappingParent(draw_these, child){
+    for(var i = draw_these.length -1; i >= 0; i--){
+      var parent = draw_these[i];
+      if(parent.index_high !== undefined &&
+         Module.IsChild(parent.index_high, parent.index_low, parent.recursion,
+            child.index_high, child.index_low, child.recursion)){
+        draw_these.splice(i, 1);
+      }
+    }
+  }
+
+  function removeOverlappingGeometry(new_geometry, scene){
+    for(var i = scene.children.length -1; i >= 0; i--){
+      var existing_geometry = scene.children[i];
+      if(existing_geometry.type === 'Mesh' && existing_geometry.index_high !== undefined){
+        if(Module.IsChild(new_geometry.index_high, new_geometry.index_low,
+              new_geometry.recursion_min,
+            existing_geometry.index_high, existing_geometry.index_low,
+              existing_geometry.recursion_min))
+        { 
+          deleteMesh(existing_geometry, scene);
+        } else if(Module.IsChild(existing_geometry.index_high, existing_geometry.index_low,
+              existing_geometry.recursion_min,
+              new_geometry.index_high, new_geometry.index_low,
+              new_geometry.recursion_min))
+        { 
+          deleteMesh(existing_geometry, scene);
+        }
+      }
+    }
+  }
+
   this.receivedFace = function(face){
-    this.faces[face.recursion] = face;
-    console.log(this.faces);
-    for(var i = this.recursion_min; i <= this.recursion_max; i=i+this.recursion_step){
-      if(this.faces[i] === undefined){
-        return;
+    this.faces[face.view][face.recursion] = face;
+    
+    for(var view in this.faces){
+      for(var i = this.recursion_min; i <= this.recursion_max; i++){
+        if(this.faces[view][i] === undefined){
+          return;
+        }
       }
     }
 
     // All faces have been populated.
     var draw_these = [];
-    for(var i = this.recursion_max; i >= this.recursion_min; i=i - this.recursion_step){
-      // Add the face it's self.
-      if(!isChildAlreadyAdded(draw_these, this.faces[i])){
-        draw_these.push({index_high: this.faces[i].index_high,
-                         index_low: this.faces[i].index_low,
-                         recursion: this.faces[i].recursion,
-                         required_depth: this.faces[i].recursion + this.recursion_difference});
-      }
-
-      // Add any faces adjacent to the primary face.
-      var neighbours = this.faces[i].neighbours;
-      for(var k = 0; k < neighbours.size; k++){
-        var neighbour = {index_high: neighbours[k][0],
-                         index_low: neighbours[k][1],
-                         recursion: this.faces[i].recursion,
-                         required_depth: this.faces[i].recursion + this.recursion_difference};
-        if(!isChildAlreadyAdded(draw_these, neighbour)){
-          draw_these.push(neighbour);
+    for(var view in this.faces){
+      for(var i = this.recursion_max; i >= this.recursion_min; i--){
+        // Add the face it's self.
+        if(!isChildAlreadyAdded(draw_these, this.faces[view][i])){
+          draw_these.push({index_high: this.faces[view][i].index_high,
+                           index_low: this.faces[view][i].index_low,
+                           recursion: this.faces[view][i].recursion,
+                           required_depth: this.faces[view][i].recursion +
+                                           this.recursion_difference});
         }
-      
-        // Fill in any gaps in partially populated parents.
-        for(var f=0; f<4; f++){
-          var peer_index = Module.IndexOfChild(neighbour.index_high, neighbour.index_low,
-              neighbour.recursion -1, f);
-          var peer = {index_high: peer_index[0],
-                      index_low: peer_index[1],
-                      recursion: neighbour.recursion,
-                      required_depth: neighbour.required_depth};
-          if(!isChildAlreadyAdded(draw_these, peer)){
-            draw_these.push(peer);
+        removeOverlappingParent(draw_these, this.faces[view][i]);
+
+        // Add any faces adjacent to the primary face.
+        var neighbours = this.faces[view][i].neighbours;
+        for(var k = 0; k < neighbours.size; k++){
+          var neighbour = {index_high: neighbours[k][0],
+                           index_low: neighbours[k][1],
+                           recursion: this.faces[view][i].recursion,
+                           required_depth: this.faces[view][i].recursion +
+                                           this.recursion_difference};
+          if(!isChildAlreadyAdded(draw_these, neighbour)){
+            draw_these.push(neighbour);
+          }
+          removeOverlappingParent(draw_these, neighbour);
+
+          // Fill in any gaps in partially populated parents.
+          for(var f=0; f<4; f++){
+            var peer_index = Module.IndexOfChild(neighbour.index_high, neighbour.index_low,
+                neighbour.recursion -1, f);
+            var peer = {index_high: peer_index[0],
+                        index_low: peer_index[1],
+                        recursion: neighbour.recursion,
+                        required_depth: neighbour.required_depth};
+            if(!isChildAlreadyAdded(draw_these, peer)){
+              draw_these.push(peer);
+            }
           }
         }
       }
@@ -673,7 +683,7 @@ var Scene = function(enable_webGL){
     // Now we have a full list of faces to be drawn, actually draw them.
     for(var j = draw_these.length -1; j >= 0; j--){
       //console.log(draw_these[j]);
-      this.requestLandscape(this, draw_these[j].index_high, draw_these[j].index_low,
+      this.requestLandscape(face.view, draw_these[j].index_high, draw_these[j].index_low,
                             draw_these[j].recursion, draw_these[j].required_depth);
     }
   }

@@ -155,6 +155,37 @@ TEST_F(GeneralFunctionsTest, FaceToSubface) {
   ASSERT_EQ(child.recursion, 1);
 }
 
+TEST_F(GeneralFunctionsTest, IsChild) {
+  Face parent;
+  Face child;
+  Face grandchild;
+
+  parent.index = (uint64_t)0;
+  parent.recursion = 0;
+  FaceToSubface(0, parent, child);
+  FaceToSubface(1, child, grandchild);
+  ASSERT_EQ(IsChild(parent, child), true);
+  ASSERT_EQ(IsChild(child, grandchild), true);
+  ASSERT_EQ(IsChild(parent, grandchild), true);
+  ASSERT_EQ(IsChild(child, parent), false);
+ 
+
+  parent.index = (uint64_t)0;
+  parent.recursion = 0;
+  FaceToSubface(3, parent, child);
+  ASSERT_EQ(IsChild(parent, child), true);
+
+  parent.index = (uint64_t)7 << 61;
+  parent.recursion = 0;
+  FaceToSubface(0, parent, child);
+  ASSERT_EQ(IsChild(parent, child), true);
+
+  parent.index = (uint64_t)7 << 61;
+  parent.recursion = 0;
+  FaceToSubface(3, parent, child);
+  ASSERT_EQ(IsChild(parent, child), true);
+}
+
 
 class DataSourceGenerateTest : public ::testing::Test {
  protected:

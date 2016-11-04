@@ -1,5 +1,6 @@
 *.swp
 *.pyc
+*.swo
 build/
 3rdparty/
 rapidjson/

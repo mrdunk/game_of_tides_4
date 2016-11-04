@@ -108,11 +108,10 @@ var getGeometry = function(face_index_high, face_index_low,
 
   return_data.index_high = face_index_high;
   return_data.index_low = face_index_low;
-  return_data.recursion = required_depth;
-
   return_data.position = vertices.buffer;
   return_data.color = color.buffer;
-  return_data.recursion = required_depth;
+  return_data.recursion_min = recursion_start;
+  return_data.recursion_max = required_depth;
   return return_data;
 };
 
@@ -191,7 +190,7 @@ var web_socket = new WebSocketWrapper();
 self.addEventListener('message', function(e) {
   var data = e.data;
   //self.postMessage(data);
-  console.log(data);
+  //console.log(data);
   var return_value = {};
   switch (data.cmd) {
     case 'echo':
@@ -203,6 +202,7 @@ self.addEventListener('message', function(e) {
       return_value = getGeometry(data.index_high, data.index_low,
                                  data.recursion_start, data.recursion);
       return_value.type = 'geometry';
+      return_value.view = data.view;
       self.postMessage(return_value, [return_value.position, return_value.color]);
       break;
     case 'face_from_centre':
