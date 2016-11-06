@@ -402,7 +402,7 @@ TEST_F(DataSourceGenerateTest, PrintFaces) {
 
   for(uint8_t base_root_index = 0; base_root_index < 8; base_root_index++){
     uint32_t root_index = (uint32_t)base_root_index << 29;
-    std::vector<std::shared_ptr<Face>> faces = data_generator.getFaces(root_index, 0, 0, 0);
+    std::vector<std::shared_ptr<Face>> faces = data_generator.getFaces(root_index, 0, 0);
     LOG(faces[0]->points[0].x << ",\t" << faces[0]->points[0].y << ",\t" << faces[0]->points[0].z << "\t\t" <<
         faces[0]->points[1].x << ",\t" << faces[0]->points[1].y << ",\t" << faces[0]->points[1].z << "\t\t" <<
         faces[0]->points[2].x << ",\t" << faces[0]->points[2].y << ",\t" << faces[0]->points[2].z);

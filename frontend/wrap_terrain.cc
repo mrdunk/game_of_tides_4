@@ -22,6 +22,28 @@ bool IsChildSplit(const unsigned long parent_index_high, const unsigned long par
   return IsChildIndex(parent_index, parent_recursion, child_index, child_recursion);
 }
 
+std::vector<std::shared_ptr<Face>> getFaces(DataSourceGenerate& that,
+  const unsigned long index_high,
+  const unsigned long index_low, const unsigned char recursion,
+  const char required_depth)
+{
+  uint64_t index = ((uint64_t)index_high << 32) + index_low;
+  return that.getFaces(index, recursion, required_depth);
+}
+
+std::vector<std::shared_ptr<Face>> getFacesAndSkirt(DataSourceGenerate& that,
+    std::vector<std::shared_ptr<Face>> faces)
+{
+  return that.getFacesAndSkirt(faces);
+}
+
+std::vector<std::shared_ptr<Face>> getSkirt(DataSourceGenerate& that,
+    std::vector<std::shared_ptr<Face>> faces, std::vector<std::shared_ptr<Face>> faces_and_skirt)
+{
+  return that.getSkirt(faces, faces_and_skirt);
+}
+
+
 EMSCRIPTEN_BINDINGS(DataSourceGenerate) {
 
   value_array<Point>("Point")
@@ -66,11 +88,9 @@ EMSCRIPTEN_BINDINGS(DataSourceGenerate) {
     .constructor<>()
     .function("MakeCache", &DataSourceGenerate::MakeCache)
     .function("cleanCache", &DataSourceGenerate::cleanCache)
-    .function("getFaces",
-      select_overload<std::vector<std::shared_ptr<Face>>(
-        const unsigned long index_high, const unsigned long index_low,
-        const unsigned char recursion, const char required_depth)> (
-          &DataSourceGenerate::getFaces))
+    .function("getFaces", &getFaces)
+    .function("getFacesAndSkirt", &getFacesAndSkirt)
+    .function("getSkirt", &getSkirt)
     .function("pointToFace", &DataSourceGenerate::pointToFace)
     .function("pointToSubFace", &DataSourceGenerate::pointToFace)
     ;

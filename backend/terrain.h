@@ -256,19 +256,8 @@ class DataSourceGenerate {
   std::shared_ptr<Face> getFace(const uint64_t index, const int8_t recursion,
       const uint8_t recurse_count = 0);
   
-  /* Get an array of faces which are children of the specified index.
-     This overload is to provide compatibility with Embind. 
-     JavaScript cannot handle 64bit integers so we must split the index into 2.
-   */ 
-  std::vector<std::shared_ptr<Face>> getFaces(const unsigned long index_high,
-      const unsigned long index_low, const unsigned char recursion,
-      const char required_depth)
-  {
-    uint64_t index = ((uint64_t)index_high << 32) + index_low;
-    return getFaces(index, recursion, required_depth);
-  }
-
-  /* Get an array of faces which are children of the specified index.*/
+ 
+  /* Get an array of faces which are children of the specified face.*/
   std::vector<std::shared_ptr<Face>> getFaces(const uint64_t index,
       const uint8_t recursion, const int8_t required_depth)
   {
@@ -276,9 +265,51 @@ class DataSourceGenerate {
     return getFaces(start_face, required_depth);
   }
 
-  /* Get an array of faces which are children of the specified face.*/
   std::vector<std::shared_ptr<Face>> getFaces(
-      const std::shared_ptr<Face> start_face, const int8_t required_depth);
+      const std::shared_ptr<Face>& start_face, const int8_t required_depth);
+  
+ 
+  /* Get an array of faces which are children and adjacent of the specified index. */
+  std::vector<std::shared_ptr<Face>> getFacesAndSkirt(const uint64_t index,
+      const uint8_t recursion, const int8_t required_depth)
+  {
+    std::vector<std::shared_ptr<Face>> faces = getFaces(index, recursion, required_depth);
+    return getFacesAndSkirt(faces);
+  }
+  
+  std::vector<std::shared_ptr<Face>> getFacesAndSkirt(
+      const std::shared_ptr<Face>& start_face, const int8_t required_depth)
+  {
+    std::vector<std::shared_ptr<Face>> faces = getFaces(start_face, required_depth);
+    return getFacesAndSkirt(faces);
+  }
+  
+  std::vector<std::shared_ptr<Face>> getFacesAndSkirt(
+      std::vector<std::shared_ptr<Face>>& faces);
+  
+
+  /* Get an array of child faces which surround the specified face.*/
+  std::vector<std::shared_ptr<Face>> getSkirt(const uint64_t index,
+      const uint8_t recursion, const int8_t required_depth)
+  {
+    std::vector<std::shared_ptr<Face>> faces =
+      getFaces(index, recursion, required_depth);
+    std::vector<std::shared_ptr<Face>> faces_and_skirt =
+      getFacesAndSkirt(index, recursion, required_depth);
+    return getSkirt(faces, faces_and_skirt);
+  }
+
+  std::vector<std::shared_ptr<Face>> getSkirt(
+      const std::shared_ptr<Face>& start_face, const int8_t required_depth)
+  {
+    std::vector<std::shared_ptr<Face>> faces = getFaces(start_face, required_depth);
+    std::vector<std::shared_ptr<Face>> faces_and_skirt = 
+      getFacesAndSkirt(start_face, required_depth);
+    return getSkirt(faces, faces_and_skirt);
+  }
+
+  std::vector<std::shared_ptr<Face>> getSkirt(std::vector<std::shared_ptr<Face>>& faces,
+      std::vector<std::shared_ptr<Face>>& faces_and_skirt);
 
   std::shared_ptr<Face> pointToFace(const Point point, const uint8_t max_recursion);
   std::shared_ptr<Face> pointToSubFace(const Point point, const uint8_t max_recursion,

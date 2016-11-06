@@ -12,6 +12,7 @@ terrain_generator.MakeCache();
 var getGeometry = function(face_index_high, face_index_low,
                            recursion_start, required_depth)
 {
+  var time_start = performance.now();
   var total = 0;
   var face;
   var terrain_data, i;
@@ -19,11 +20,15 @@ var getGeometry = function(face_index_high, face_index_low,
   var height_multiplier = 0.02;
   var sea_level = 1.1;
 
-  var vertices = new Float32Array(Math.pow(4, (required_depth - recursion_start)) * 9);
-  var color = new Float32Array(Math.pow(4, (required_depth - recursion_start)) * 9);
-
-  var terrain_data = terrain_generator.getFaces(face_index_high, face_index_low,
+  var faces = terrain_generator.getFaces(face_index_high, face_index_low,
                                             recursion_start, required_depth);
+  var faces_and_skirt = terrain_generator.getFacesAndSkirt(faces);
+  //var skirt = terrain_generator.getSkirt(faces, faces_and_skirt);
+
+  var terrain_data = faces_and_skirt;
+
+  var vertices = new Float32Array(terrain_data.size() * 9);
+  var color = new Float32Array(terrain_data.size() * 9);
 
   var sea_depth_offset = 1/(recursion_start +1);
 
@@ -112,6 +117,7 @@ var getGeometry = function(face_index_high, face_index_low,
   return_data.color = color.buffer;
   return_data.recursion_min = recursion_start;
   return_data.recursion_max = required_depth;
+  return_data.time_to_generate = performance.now() - time_start;
   return return_data;
 };
 

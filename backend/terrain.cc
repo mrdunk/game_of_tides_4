@@ -231,7 +231,7 @@ std::shared_ptr<Face> DataSourceGenerate::getFace(const uint64_t index,
 }
 
 std::vector<std::shared_ptr<Face>> DataSourceGenerate::getFaces(
-    const std::shared_ptr<Face> start_face, const int8_t required_depth)
+    const std::shared_ptr<Face>& start_face, const int8_t required_depth)
 {
   std::vector<std::shared_ptr<Face>> faces_in;
   std::vector<std::shared_ptr<Face>> faces_out;
@@ -253,6 +253,45 @@ std::vector<std::shared_ptr<Face>> DataSourceGenerate::getFaces(
   }
   return faces_in;
 }
+
+bool isFaceIn(std::vector<std::shared_ptr<Face>>& container,
+    uint64_t face_index, uint8_t face_recursion)
+{
+  auto found = std::find_if(container.begin(), container.end(),
+      [face_index, face_recursion](std::shared_ptr<Face> face_2){
+          return ((face_2->index == face_index) && (face_2->recursion == face_recursion));});
+  return found == container.end();
+}
+
+std::vector<std::shared_ptr<Face>> DataSourceGenerate::getFacesAndSkirt(
+    std::vector<std::shared_ptr<Face>>& faces)
+{
+  std::set<std::shared_ptr<Face>>faces_and_skirt;
+  
+  for(std::shared_ptr<Face> face : faces){
+    for(auto neighbour : face->neighbours){
+      auto neighbour_face = getFace(neighbour, face->recursion);
+      faces_and_skirt.insert(neighbour_face);
+    }
+  }
+
+  return std::vector<std::shared_ptr<Face>>(faces_and_skirt.begin(), faces_and_skirt.end());
+}
+
+std::vector<std::shared_ptr<Face>> DataSourceGenerate::getSkirt(
+    std::vector<std::shared_ptr<Face>>& faces,
+    std::vector<std::shared_ptr<Face>>& faces_and_skirt)
+{
+  std::vector<std::shared_ptr<Face>>skirt;
+  for(std::shared_ptr<Face> face : faces_and_skirt){
+    if(isFaceIn(faces, face->index, face->recursion)){
+      skirt.push_back(face);
+    }
+  }
+
+  return skirt;
+}
+
 
 void DataSourceGenerate::SetHeight(std::shared_ptr<Face> face){
   if(face->status & BaseHeight){

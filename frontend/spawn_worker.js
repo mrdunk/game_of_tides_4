@@ -8,6 +8,7 @@
 
 
 var WorkerInterface = function(options){
+  var generate_times = {total: 0, sample_count: 0};
 
   function onError(e) {
     console.log([
@@ -53,6 +54,10 @@ var WorkerInterface = function(options){
     switch (data.type) {
       case 'geometry':
         //console.log('landscape:', data);
+        generate_times.total += data.time_to_generate;
+        generate_times.sample_count++;
+        console.log('Average face generate time:',
+            generate_times.total / generate_times.sample_count, 'ms');
         var position = new Float32Array(data.position);
         var color = new Float32Array(data.color);
 

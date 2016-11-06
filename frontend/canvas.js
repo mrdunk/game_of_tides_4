@@ -272,8 +272,8 @@ var Viewport = function(width, height, camera, scene, enable_webGL) {
     camera.setPosition(new THREE.Vector3(0,0, camera_height));
 
     if(enable_webGL){
-      this.renderer = new THREE.WebGLRenderer({antialias: true, alpha: true,
-          depth: true, sortObjects: true});
+      this.renderer = new THREE.WebGLRenderer({/*antialias: true, alpha: true,
+          depth: true, sortObjects: true*/});
     } else {
       this.renderer = new THREE.CanvasRenderer();
     }
@@ -498,29 +498,34 @@ var Scene = function(enable_webGL){
     var geometry = new THREE.BufferGeometry();
     geometry.addAttribute('position', new THREE.BufferAttribute(vertices, 3));
     geometry.addAttribute('color', new THREE.BufferAttribute(color, 3));
-    geometry.computeVertexNormals();
-    geometry.computeBoundingBox ();
-    geometry.computeBoundingSphere ();
-    geometry.normalizeNormals ();
+    var geometry_temp = new THREE.Geometry().fromBufferGeometry(geometry);
+    //geometry_temp.computeFaceNormals();
+    geometry_temp.mergeVertices();
+    geometry_temp.computeVertexNormals();
+    geometry = new THREE.BufferGeometry().fromGeometry(geometry_temp);
+    //geometry.computeBoundingBox ();
+    //geometry.computeBoundingSphere ();
+    //geometry.normalizeNormals ();
+
+    console.log(geometry_temp, geometry);
 
     var material;
     if(enable_webGL){
       material = new THREE.MeshLambertMaterial({
                                               vertexColors: THREE.VertexColors,
                                               side : THREE.FrontSide,
-                                              shading: THREE.SmoothShading,
-                                              opacity: 1,
                                               transparent: false, 
-                                              //transparent: true,
-                                              depthWrite: false
-                                              //depthTest: false
                                               });
+      /*material = new THREE.MeshPhongMaterial({
+                                              vertexColors: THREE.VertexColors,
+                                              side : THREE.FrontSide,
+                                              transparent: false,
+                                              shading: THREE.SmoothShading
+                                              });*/
     } else {
       material = new THREE.MeshLambertMaterial( { color: 0xffffff,
                                               side : THREE.FrontSide,
                                               shading: THREE.SmoothShading,
-                                              transparent: true,
-                                              depthWrite: false
                                               } );
     }
 
@@ -548,7 +553,6 @@ var Scene = function(enable_webGL){
       if(existing.index_high === index_high && existing.index_low === index_low &&
           existing.recursion_min === recursion_start)
       {
-        existing.stale = undefined;
         return;
       }
     }
@@ -570,7 +574,7 @@ var Scene = function(enable_webGL){
   };
 
   this.recursion_min = 0;
-  this.recursion_max = 6;
+  this.recursion_max = 14;
   this.recursion_difference = 5;
 
   this.requestFaceFromCentre = function(centre, view_id){
@@ -689,7 +693,7 @@ var Scene = function(enable_webGL){
   }
 
   this.DropShape = function(position){
-    var geometry = new THREE.BoxGeometry( 0.1, 0.1, 0.1 );
+    var geometry = new THREE.BoxGeometry( 0.001, 0.001, 1 );
     var material = new THREE.MeshBasicMaterial( { color: 0xff0000, transparent: false } );
     geometry.translate(position.x, position.y, position.z);
     var cube = new THREE.Mesh( geometry, material );
