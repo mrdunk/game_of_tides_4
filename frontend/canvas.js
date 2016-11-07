@@ -498,16 +498,17 @@ var Scene = function(enable_webGL){
     var geometry = new THREE.BufferGeometry();
     geometry.addAttribute('position', new THREE.BufferAttribute(vertices, 3));
     geometry.addAttribute('color', new THREE.BufferAttribute(color, 3));
-    var geometry_temp = new THREE.Geometry().fromBufferGeometry(geometry);
+    //var geometry_temp = new THREE.Geometry().fromBufferGeometry(geometry);
     //geometry_temp.computeFaceNormals();
-    geometry_temp.mergeVertices();
-    geometry_temp.computeVertexNormals();
-    geometry = new THREE.BufferGeometry().fromGeometry(geometry_temp);
+    //geometry_temp.mergeVertices();
+    //geometry_temp.computeVertexNormals();
+    //geometry = new THREE.BufferGeometry().fromGeometry(geometry_temp);
     //geometry.computeBoundingBox ();
     //geometry.computeBoundingSphere ();
     //geometry.normalizeNormals ();
-
-    console.log(geometry_temp, geometry);
+    geometry.computeVertexNormals();
+    console.log(geometry.getAttribute('color'));
+    //console.log(geometry_temp, geometry);
 
     var material;
     if(enable_webGL){
