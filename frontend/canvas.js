@@ -494,10 +494,11 @@ var Scene = function(enable_webGL){
     this.scene.add(landscape);
   };
 
-  this.CreateObject = function(index_high, index_low, recursion, vertices, color) {
+  this.CreateObject = function(index_high, index_low, recursion, vertices, colors, normals) {
     var geometry = new THREE.BufferGeometry();
     geometry.addAttribute('position', new THREE.BufferAttribute(vertices, 3));
-    geometry.addAttribute('color', new THREE.BufferAttribute(color, 3));
+    geometry.addAttribute('color', new THREE.BufferAttribute(colors, 3));
+    geometry.addAttribute('normal', new THREE.BufferAttribute(normals, 3));
     //var geometry_temp = new THREE.Geometry().fromBufferGeometry(geometry);
     //geometry_temp.computeFaceNormals();
     //geometry_temp.mergeVertices();
@@ -506,8 +507,9 @@ var Scene = function(enable_webGL){
     //geometry.computeBoundingBox ();
     //geometry.computeBoundingSphere ();
     //geometry.normalizeNormals ();
-    geometry.computeVertexNormals();
-    console.log(geometry.getAttribute('color'));
+    //geometry.computeVertexNormals();
+    
+    //console.log(geometry.getAttribute('color'));
     //console.log(geometry_temp, geometry);
 
     var material;

@@ -58,12 +58,14 @@ var WorkerInterface = function(options){
         generate_times.sample_count++;
         console.log('Average face generate time:',
             generate_times.total / generate_times.sample_count, 'ms');
-        var position = new Float32Array(data.position);
-        var color = new Float32Array(data.color);
+        var positions = new Float32Array(data.positions);
+        var colors = new Float32Array(data.colors);
+        var normals = new Float32Array(data.normals);
+        console.log(positions.length, colors.length, normals.length);
 
         // TODO: Don't just poke variables in another object.
         var landscape = game_loop.renderer.scene.CreateObject(
-            data.index_high, data.index_low, data.recursion, position, color);
+            data.index_high, data.index_low, data.recursion, positions, colors, normals);
         landscape.recursion_min = data.recursion_min;
         landscape.recursion_max = data.recursion_max;
         game_loop.renderer.scene.addLandscape(landscape);

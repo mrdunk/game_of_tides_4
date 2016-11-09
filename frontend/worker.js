@@ -22,9 +22,9 @@ var getGeometry = function(face_index_high, face_index_low,
   var faces = terrain_generator.getFaces(face_index_high, face_index_low,
                                             recursion_start, required_depth);
   var faces_and_skirt = terrain_generator.getFacesAndSkirt(faces);
-  //var skirt = terrain_generator.getSkirt(faces, faces_and_skirt);
+  var skirt = terrain_generator.getSkirt(faces, faces_and_skirt);
 
-  var terrain_data = faces_and_skirt;
+  var terrain_data = faces.concat(skirt);
 
   var geometry = new THREE.Geometry();
 
@@ -100,16 +100,18 @@ var getGeometry = function(face_index_high, face_index_low,
   terrain_data.delete();
   terrain_generator.cleanCache(20000000);
   
+  geometry.computeFaceNormals();
   geometry.mergeVertices();
+  geometry.computeVertexNormals();
 
   var buffer_geometry = new THREE.BufferGeometry().fromGeometry(geometry);
-  console.log(geometry, buffer_geometry, buffer_geometry.getAttribute('color').array.buffer);
 
   return_data.index_high = face_index_high;
   return_data.index_low = face_index_low;
   return_data.recursion_min = recursion_start;
   return_data.recursion_max = required_depth;
-  return_data.position = buffer_geometry.getAttribute('position').array.buffer;
+  return_data.positions = buffer_geometry.getAttribute('position').array.buffer;
+  return_data.normals = buffer_geometry.getAttribute('normal').array.buffer;
   
   // NOTE: For some reason we cannot access 'color' attribute directly so we need to copy
   // it into a buffer manually.
@@ -120,7 +122,7 @@ var getGeometry = function(face_index_high, face_index_low,
     colors[i * 3 + 1] = geometry.colors[i].g;
     colors[i * 3 + 2] = geometry.colors[i].r;
   }
-  return_data.color = colors.buffer;
+  return_data.colors = colors.buffer;
 
   return_data.time_to_generate = performance.now() - time_start;
   return return_data;
@@ -215,7 +217,8 @@ self.addEventListener('message', function(e) {
       return_value.type = 'geometry';
       return_value.view = data.view;
       console.log(return_value);
-      self.postMessage(return_value, [return_value.position, return_value.color]);
+      self.postMessage(return_value,
+          [return_value.positions, return_value.colors, return_value.normals]);
       break;
     case 'face_from_centre':
       var face = getFaceFromCentre(data.centre, data.recursion);
