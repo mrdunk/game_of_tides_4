@@ -15,16 +15,23 @@ var addTerrainToGeometry =
 {
   var geom_start_size = geometry.faces.length;
   for(i = 0; i < terrain.size(); i++){
-    face = terrain.get(i);
+    var three_face = new THREE.Face3(3 * (i + geom_start_size),
+                                     3 * (i + geom_start_size) + 1,
+                                     3 * (i + geom_start_size) + 2);
+    three_face.tag = tag;
+    geometry.faces.push(three_face);
+   
+
+    var face = terrain.get(i);
 
     if(face.heights[0] > sea_level){
       geometry.vertices.push(new THREE.Vector3(
             face.points[0][0] * (1 + (face.heights[0] * height_multiplier)),
             face.points[0][1] * (1 + (face.heights[0] * height_multiplier)),
             face.points[0][2] * (1 + (face.heights[0] * height_multiplier))));
-      geometry.colors.push(new THREE.Color(face.heights[0] /4,
-                                           face.heights[0] /2,
-                                           face.heights[0] /4));
+      three_face.vertexColors.push(new THREE.Color(face.heights[0] /4,
+                                    face.heights[0] /2,
+                                    face.heights[0] /4));
     } else {
       geometry.vertices.push(new THREE.Vector3(
             face.points[0][0] * (1 + (sea_level * height_multiplier)),
@@ -32,9 +39,9 @@ var addTerrainToGeometry =
             face.points[0][2] * (1 + (sea_level * height_multiplier))));
       var depth_multiplier =
         sea_level - ((sea_level - face.heights[0]) * (recursion_start*recursion_start +1));
-      geometry.colors.push(new THREE.Color(depth_multiplier * 0.7,
-                                           depth_multiplier * 0.3,
-                                           depth_multiplier * 0.1));
+      three_face.vertexColors.push(new THREE.Color(depth_multiplier * 0.1,
+                                    depth_multiplier * 0.3,
+                                    depth_multiplier * 0.7));
     }
       
     if(face.heights[1] > sea_level){
@@ -42,9 +49,9 @@ var addTerrainToGeometry =
             face.points[1][0] * (1 + (face.heights[1] * height_multiplier)),
             face.points[1][1] * (1 + (face.heights[1] * height_multiplier)),
             face.points[1][2] * (1 + (face.heights[1] * height_multiplier))));
-      geometry.colors.push(new THREE.Color(face.heights[1] /4,
-                                           face.heights[1] /2,
-                                           face.heights[1] /4));
+      three_face.vertexColors.push(new THREE.Color(face.heights[1] /4,
+                                    face.heights[1] /2,
+                                    face.heights[1] /4));
     } else{
       geometry.vertices.push(new THREE.Vector3(
             face.points[1][0] * (1 + (sea_level * height_multiplier)),
@@ -52,9 +59,9 @@ var addTerrainToGeometry =
             face.points[1][2] * (1 + (sea_level * height_multiplier))));
       var depth_multiplier =
         sea_level - ((sea_level - face.heights[1]) * (recursion_start*recursion_start +1));
-      geometry.colors.push(new THREE.Color(depth_multiplier * 0.7,
-                                           depth_multiplier * 0.3,
-                                           depth_multiplier * 0.1));
+      three_face.vertexColors.push(new THREE.Color(depth_multiplier * 0.1,
+                                    depth_multiplier * 0.3,
+                                    depth_multiplier * 0.7));
     }
       
       
@@ -63,9 +70,9 @@ var addTerrainToGeometry =
             face.points[2][0] * (1 + (face.heights[2] * height_multiplier)),
             face.points[2][1] * (1 + (face.heights[2] * height_multiplier)),
             face.points[2][2] * (1 + (face.heights[2] * height_multiplier))));
-      geometry.colors.push(new THREE.Color(face.heights[2] /4,
-                                           face.heights[2] /2,
-                                           face.heights[2] /4));
+      three_face.vertexColors.push(new THREE.Color(face.heights[2] /4,
+                                    face.heights[2] /2,
+                                    face.heights[2] /4));
     } else{
       geometry.vertices.push(new THREE.Vector3(
             face.points[2][0] * (1 + (sea_level * height_multiplier)),
@@ -73,17 +80,11 @@ var addTerrainToGeometry =
             face.points[2][2] * (1 + (sea_level * height_multiplier))));
       var depth_multiplier = 
         sea_level - ((sea_level - face.heights[2]) * (recursion_start*recursion_start +1));
-      geometry.colors.push(new THREE.Color(depth_multiplier * 0.7,
-                                           depth_multiplier * 0.3,
-                                           depth_multiplier * 0.1));
+      three_face.vertexColors.push(new THREE.Color(depth_multiplier * 0.1,
+                                    depth_multiplier * 0.3,
+                                    depth_multiplier * 0.7));
     }
-      
 
-    var three_face = new THREE.Face3(3 * (i + geom_start_size),
-                                     3 * (i + geom_start_size) + 1,
-                                     3 * (i + geom_start_size) + 2);
-    three_face.tag = tag;
-    geometry.faces.push(three_face);
     face.delete();
   }
 }
@@ -92,8 +93,6 @@ var getGeometry = function(face_index_high, face_index_low,
                            recursion_start, required_depth)
 {
   var time_start = performance.now();
-  var face;
-  var terrain_data, i;
   var return_data = {};
   var height_multiplier = 0.02;
   var sea_level = 1.1;
@@ -111,14 +110,12 @@ var getGeometry = function(face_index_high, face_index_low,
   addTerrainToGeometry(faces, geometry, sea_level, height_multiplier, recursion_start, 'face');
   addTerrainToGeometry(skirt, geometry, sea_level, height_multiplier, recursion_start, 'skirt');
   
-  geometry.computeFaceNormals();
+  //geometry.computeFaceNormals();
   geometry.mergeVertices();
   geometry.computeVertexNormals();
 
-  // Note: .clone() should not be necessary here but Chrome (maybe others as well?)
-  // garbles face colors if we try doing this filter in place.
-  geometry.faces = geometry.clone().faces.filter(function(a){return a.tag !== 'skirt'});
-
+  geometry.faces = geometry.faces.filter(function(a){return a.tag !== 'skirt'});
+  
   var buffer_geometry = new THREE.BufferGeometry().fromGeometry(geometry);
 
   return_data.index_high = face_index_high;
@@ -127,17 +124,7 @@ var getGeometry = function(face_index_high, face_index_low,
   return_data.recursion_max = required_depth;
   return_data.positions = buffer_geometry.getAttribute('position').array.buffer;
   return_data.normals = buffer_geometry.getAttribute('normal').array.buffer;
-  
-  // NOTE: For some reason we cannot access 'color' attribute directly so we need to copy
-  // it into a buffer manually.
-  //return_data.color = buffer_geometry.getAttribute('color').array.buffer;
-  var colors = new Float32Array(geometry.colors.length * 3);
-  for(var i = 0; i < geometry.colors.length; i++){
-    colors[i * 3 + 0] = geometry.colors[i].b;
-    colors[i * 3 + 1] = geometry.colors[i].g;
-    colors[i * 3 + 2] = geometry.colors[i].r;
-  }
-  return_data.colors = colors.buffer;
+  return_data.colors = buffer_geometry.getAttribute('color').array.buffer;
 
   faces.delete();
   faces_and_skirt.delete();
