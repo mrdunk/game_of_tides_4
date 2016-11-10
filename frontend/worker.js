@@ -9,27 +9,13 @@ self.postMessage('Spawned worker:', self._id);
 var terrain_generator = new Module.DataSourceGenerate();
 terrain_generator.MakeCache();
 
-var getGeometry = function(face_index_high, face_index_low,
-                           recursion_start, required_depth)
+
+var addTerrainToGeometry = 
+    function(terrain, geometry, sea_level, height_multiplier, recursion_start, tag)
 {
-  var time_start = performance.now();
-  var face;
-  var terrain_data, i;
-  var return_data = {};
-  var height_multiplier = 0.02;
-  var sea_level = 1.1;
-
-  var faces = terrain_generator.getFaces(face_index_high, face_index_low,
-                                            recursion_start, required_depth);
-  var faces_and_skirt = terrain_generator.getFacesAndSkirt(faces);
-  var skirt = terrain_generator.getSkirt(faces, faces_and_skirt);
-
-  var terrain_data = faces.concat(skirt);
-
-  var geometry = new THREE.Geometry();
-
-  for(i = 0; i < terrain_data.size(); i++){
-    face = terrain_data.get(i);
+  var geom_start_size = geometry.faces.length;
+  for(i = 0; i < terrain.size(); i++){
+    face = terrain.get(i);
 
     if(face.heights[0] > sea_level){
       geometry.vertices.push(new THREE.Vector3(
@@ -93,16 +79,45 @@ var getGeometry = function(face_index_high, face_index_low,
     }
       
 
-    geometry.faces.push(new THREE.Face3(3 * i, 3 * i + 1, 3 * i + 2));
-
+    var three_face = new THREE.Face3(3 * (i + geom_start_size),
+                                     3 * (i + geom_start_size) + 1,
+                                     3 * (i + geom_start_size) + 2);
+    three_face.tag = tag;
+    geometry.faces.push(three_face);
     face.delete();
   }
-  terrain_data.delete();
+}
+
+var getGeometry = function(face_index_high, face_index_low,
+                           recursion_start, required_depth)
+{
+  var time_start = performance.now();
+  var face;
+  var terrain_data, i;
+  var return_data = {};
+  var height_multiplier = 0.02;
+  var sea_level = 1.1;
+
+  var faces = terrain_generator.getFaces(face_index_high, face_index_low,
+                                            recursion_start, required_depth);
+  var faces_and_skirt = terrain_generator.getFacesAndSkirt(faces);
+  var skirt = terrain_generator.getSkirt(faces, faces_and_skirt);
+  
+  // Finished generating faces so clear some memory.
   terrain_generator.cleanCache(20000000);
+
+  var geometry = new THREE.Geometry();
+
+  addTerrainToGeometry(faces, geometry, sea_level, height_multiplier, recursion_start, 'face');
+  addTerrainToGeometry(skirt, geometry, sea_level, height_multiplier, recursion_start, 'skirt');
   
   geometry.computeFaceNormals();
   geometry.mergeVertices();
   geometry.computeVertexNormals();
+
+  // Note: .clone() should not be necessary here but Chrome (maybe others as well?)
+  // garbles face colors if we try doing this filter in place.
+  geometry.faces = geometry.clone().faces.filter(function(a){return a.tag !== 'skirt'});
 
   var buffer_geometry = new THREE.BufferGeometry().fromGeometry(geometry);
 
@@ -124,6 +139,10 @@ var getGeometry = function(face_index_high, face_index_low,
   }
   return_data.colors = colors.buffer;
 
+  faces.delete();
+  faces_and_skirt.delete();
+  skirt.delete();
+  
   return_data.time_to_generate = performance.now() - time_start;
   return return_data;
 };
