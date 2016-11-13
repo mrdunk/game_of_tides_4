@@ -61,7 +61,6 @@ var WorkerInterface = function(options){
         var positions = new Float32Array(data.positions);
         var colors = new Float32Array(data.colors);
         var normals = new Float32Array(data.normals);
-        console.log(positions.length, colors.length, normals.length);
 
         // TODO: Don't just poke variables in another object.
         var landscape = game_loop.renderer.scene.CreateObject(

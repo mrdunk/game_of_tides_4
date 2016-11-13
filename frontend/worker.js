@@ -114,9 +114,25 @@ var getGeometry = function(face_index_high, face_index_low,
   geometry.mergeVertices();
   geometry.computeVertexNormals();
 
-  geometry.faces = geometry.faces.filter(function(a){return a.tag !== 'skirt'});
+  for(var i = 0; i < geometry.faces.length; i++){
+    var face = geometry.faces[i];
+    if(face.tag === 'face'){
+      geometry.vertices[face.a].belongs_to_face = true;
+      geometry.vertices[face.b].belongs_to_face = true;
+      geometry.vertices[face.c].belongs_to_face = true;
+    }
+  }
+
+  for(var i = 0; i < geometry.vertices.length; i++){
+    if(geometry.vertices[i].belongs_to_face === undefined){
+      geometry.vertices[i] = new THREE.Vector3(0,0,0);
+    }
+  }
+  //geometry.faces = geometry.faces.filter(function(a){return a.tag !== 'skirt'});
   
   var buffer_geometry = new THREE.BufferGeometry().fromGeometry(geometry);
+
+  //console.log(geometry, buffer_geometry);
 
   return_data.index_high = face_index_high;
   return_data.index_low = face_index_low;
@@ -222,7 +238,7 @@ self.addEventListener('message', function(e) {
                                  data.recursion_start, data.recursion);
       return_value.type = 'geometry';
       return_value.view = data.view;
-      console.log(return_value);
+      //console.log(return_value);
       self.postMessage(return_value,
           [return_value.positions, return_value.colors, return_value.normals]);
       break;

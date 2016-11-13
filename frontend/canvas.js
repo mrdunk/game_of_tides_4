@@ -144,7 +144,8 @@ var Renderer = function(options) {
 }
 
 var Camera = function(width, height){
-  this.desired_rotation = undefined;
+  this.rotation = new THREE.Vector2(0, 0);
+  this.desired_position = undefined;
   this.distance = undefined;
 
   this.camera = new THREE.PerspectiveCamera(35, width/height, 1, 20000);
@@ -163,7 +164,7 @@ var Camera = function(width, height){
     if(desired){
       var desired_copy = desired.clone();
       desired_copy.setLength(this.distance);
-      this.desired_rotation = desired_copy.sub(this.camera.position);
+      this.desired_position = desired_copy.sub(this.camera.position);
       this.desired_direction = new THREE.Vector3(0,0,0);
     }
   }
@@ -177,7 +178,7 @@ var Camera = function(width, height){
 
   this.setDistance = function(distance){
     this.camera.near = distance / 1000;
-    this.camera.far = distance * 2;
+    this.camera.far = distance * 10;
     console.log(distance, this.camera.near, this.camera.far);
     this.camera.updateProjectionMatrix();
     this.distance = distance + planet_radius;
@@ -187,20 +188,22 @@ var Camera = function(width, height){
 
   this.update = function(){
     var return_val = false;
-    if(this.desired_rotation && this.desired_rotation.lengthSq() !== 0){
-      var segment_rotation = this.desired_rotation.clone();
-      if(this.desired_rotation.lengthSq() > 10){
+    if(this.desired_position && this.desired_position.lengthSq() !== 0){
+      var segment_rotation = this.desired_position.clone();
+      if(this.desired_position.lengthSq() > 10){
         segment_rotation.divideScalar(10);
       } else {
         // Last movement frame.
         return_val = true;
+        this.desired_direction = undefined;
       }
       this.camera.position.add(segment_rotation);
-      this.desired_rotation.sub(segment_rotation);
+      this.desired_position.sub(segment_rotation);
     }
     if(this.desired_direction){
       this.camera.lookAt(this.desired_direction);
-      this.desired_direction = undefined;
+      this.camera.rotateOnAxis(new THREE.Vector3(0,0,1), this.rotation.y);
+      this.camera.rotateX(this.rotation.x);
     }
     return return_val;
   }
@@ -400,11 +403,21 @@ var Viewport = function(width, height, camera, scene, enable_webGL) {
     if(data.key === 'ArrowDown' && data.shiftKey === true){
       this.camera.move(0, -1);
     }
+    if(data.key === 'ArrowLeft' && data.ctrlKey === true){
+      this.camera.rotation.y += 0.1;
+      this.camera.desired_direction = new THREE.Vector3(0,0,0);
+    }
+    if(data.key === 'ArrowRight' && data.ctrlKey === true){
+      this.camera.rotation.y -= 0.1;
+      this.camera.desired_direction = new THREE.Vector3(0,0,0);
+    }
     if(data.key === 'ArrowUp' && data.ctrlKey === true){
-      this.camera.camera.rotateX(0.1);
+      this.camera.rotation.x += 0.1;
+      this.camera.desired_direction = new THREE.Vector3(0,0,0);
     }
     if(data.key === 'ArrowDown' && data.ctrlKey === true){
-      this.camera.camera.rotateX(-0.1);
+      this.camera.rotation.x -= 0.1;
+      this.camera.desired_direction = new THREE.Vector3(0,0,0);
     }
     if(data.code === 'ShiftRight'){
       if(this.mouse_surface_point){
@@ -418,6 +431,9 @@ var Viewport = function(width, height, camera, scene, enable_webGL) {
         var existing = this.scene.scene.children[i];
         existing.visible = true;
       }
+      this.camera.desired_direction = new THREE.Vector3(0,0,0);
+      this.camera.rotation.x = 0;
+      this.camera.rotation.y = 0;
     }
     if(data.code.startsWith('Digit')){
       var number = parseInt(data.code.split('Digit')[1]);
@@ -500,7 +516,7 @@ var Scene = function(enable_webGL){
     geometry.addAttribute('color', new THREE.BufferAttribute(colors, 3));
     geometry.addAttribute('normal', new THREE.BufferAttribute(normals, 3));
     
-    var geometry_temp = new THREE.Geometry().fromBufferGeometry(geometry);
+    //var geometry_temp = new THREE.Geometry().fromBufferGeometry(geometry);
 
     var material;
     if(enable_webGL){

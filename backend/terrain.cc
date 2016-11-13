@@ -300,13 +300,13 @@ void DataSourceGenerate::SetHeight(std::shared_ptr<Face> face){
   }
   face->status |= BaseHeight;
 
-  if(MinRecursionFromIndex(face->index) <= 2){
-    float height = (float)(myHash(face->index) % 0xFF) / 0x80;
+  if(MinRecursionFromIndex(face->index) <= 3){
+    float height = (float)(myHash(face->index) % 0xFFFF) / 0x8000;
     if(height < 1){
       height = 0;
     }
     face->height = height;
-  } else if (MinRecursionFromIndex(face->index) > 2) {
+  } else {
     if(cache_){
       // Only doing this if cache is used.
       // Otherwise testing would take too long when when cache is disabled.
@@ -316,12 +316,15 @@ void DataSourceGenerate::SetHeight(std::shared_ptr<Face> face){
         auto neighbour_parent_face = getFace(neighbour, face->recursion -1);
         height_total += neighbour_parent_face->height;
       }
-
       face->height = height_total / face->neighbours.size();
-      //int16_t hashed = ((myHash(face->index) % 0x4F));
-      int16_t hashed = ((myHash(face->index) % 0x4F)) - 0x1f;
-      //face->height -= (float)hashed / (face->recursion * face->recursion * face->recursion * face->recursion);
-      face->height -= (float)hashed * 10 / (face->recursion * face->recursion * face->recursion * face->recursion * face->recursion);
+
+      if(myHash(face->index) > 0xD0000000){
+        float scale = 10.0f * myHashFloat(face->index +1) / pow(2, face->recursion);
+        face->height -= scale;
+      } else if(myHash(face->index) < 0x20000000){
+        float scale = 20.0f * myHashFloat(face->index +1) / pow(2, face->recursion);
+        face->height += scale;
+      }
     }
   }
 }

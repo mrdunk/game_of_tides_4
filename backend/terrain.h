@@ -204,10 +204,14 @@ bool VectorCrossesFace(const Point& vector, const Face& face){
 
 uint32_t myHash(uint64_t seed) {
   uint32_t hash = 2166136261;
-  hash ^= seed;
-  hash *= 16777619;
   hash ^= (seed >> 32);
+  hash *= 16777619;
+  hash ^= seed;
   return hash * 16777619;
+}
+
+float myHashFloat(uint64_t seed) {
+  return (float)myHash(seed) / 0xFFFFFFFF;
 }
 
 /* Return number of common points on 2 faces.
