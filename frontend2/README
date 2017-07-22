@@ -1,0 +1,8 @@
+To import all modules:
+  $ npm install
+
+To view gulp targets:
+  $ gulp -T
+
+To compile code and run test server:
+  $ gulp serve
