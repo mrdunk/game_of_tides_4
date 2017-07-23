@@ -1,7 +1,12 @@
 /// <reference path='../../node_modules/@types/three/index.d.ts' />
 
+// Diagram showing how Threejs components fits together:
+// http://davidscottlyons.com/threejs/presentations/frontporch14/#slide-16
+
+
 const timeStep = 1000 / 60;
 const maxFps = 65;
+
 
 class Camera extends THREE.PerspectiveCamera {
   private userInput: string[] = [];
@@ -14,10 +19,8 @@ class Camera extends THREE.PerspectiveCamera {
   }
 
   public service() {
-    // console.log("Camera.service()", this.userInput);
     while (this.userInput.length) {
       const input = this.userInput.pop();
-      console.log(input);
     }
   }
 }
@@ -25,14 +28,15 @@ class Camera extends THREE.PerspectiveCamera {
 class Renderer extends THREE.WebGLRenderer {
   private scene: Scene;
   private camera: Camera;
+
   constructor(public label: string,
               public width?: number,
               public height?: number) {
     super({antialias: true});
-    if (!this.width) {
+    if(!this.width) {
       this.width = window.innerWidth;
     }
-    if (!this.height) {
+    if(!this.height) {
       this.height = window.innerHeight;
     }
     this.setSize(this.width, this.height);
@@ -50,7 +54,7 @@ class Renderer extends THREE.WebGLRenderer {
   }
 
   public service(now: number) {
-    if (this.scene && this.camera) {
+    if(this.scene && this.camera) {
       this.scene.service(now);
       this.camera.service();
       this.render(this.scene, this.camera);
@@ -61,6 +65,7 @@ class Renderer extends THREE.WebGLRenderer {
 class Scene extends THREE.Scene {
   private meshes: {};
   private lastUpdate: number;
+
   constructor() {
     super();
     this.meshes = {};
@@ -73,14 +78,14 @@ class Scene extends THREE.Scene {
   }
 
   public service(now: number) {
-    if (now - this.lastUpdate > 1000) {
-      console.log("ERROR: Scene last update more than 1second ago.");
+    if(now - this.lastUpdate > 1000) {
+      console.log("ERROR: Scene last update more than 1 second ago.");
       this.lastUpdate = now;
     }
-    while (this.lastUpdate < now - timeStep) {
+    while(this.lastUpdate < now - timeStep) {
       this.lastUpdate += timeStep;
-      for (const mesh in this.meshes) {
-        if (this.meshes.hasOwnProperty(mesh)) {
+      for(const mesh in this.meshes) {
+        if(this.meshes.hasOwnProperty(mesh)) {
           this.meshes[mesh].service();
         }
       }
@@ -97,15 +102,79 @@ abstract class Mesh extends THREE.Mesh {
 }
 
 class Box extends Mesh {
+  private userInput: string[] = [];
+  private materialIndex: number = -1;
+  private materialIndexChanged: number = 0;
+  private animate: boolean = true;
+  private animateChanged: number = 0;
+
   constructor(public label: string) {
     super(label);
     this.geometry = new THREE.BoxGeometry( 1, 1, 1 );
-    this.material = new THREE.MeshBasicMaterial( { color: "#433F81" } );
+    this.changeMaterial();
+
+    UIMaster.clientMessageQueues.push(this.userInput);
   }
 
   public service() {
-    this.rotation.x += 0.01;
-    this.rotation.y += 0.01;
+    while (this.userInput.length) {
+      const input = this.userInput.pop();
+      switch(input) {
+        case "c":
+          this.changeMaterial();
+          break;
+        case "b":
+          if(Date.now() - this.animateChanged < 200) {
+            // Debounce input.
+            return;
+          }
+          this.animateChanged = Date.now();
+          this.animate = !this.animate;
+          break;
+        case "ArrowRight":
+          if(this.animate) {
+            this.rotation.y -= 0.01;
+          }
+          break;
+        case "ArrowLeft":
+          if(this.animate) {
+            this.rotation.y += 0.01;
+          }
+          break;
+        case "ArrowUp":
+          if(this.animate) {
+            this.rotation.x += 0.01;
+          }
+          break;
+        case "ArrowDown":
+          if(this.animate) {
+            this.rotation.x -= 0.01;
+          }
+          break;
+      }
+    }
+  }
+
+  private changeMaterial() {
+    if(Date.now() - this.materialIndexChanged < 200) {
+      // Debounce input.
+      return;
+    }
+    this.materialIndexChanged = Date.now();
+
+    if(++this.materialIndex >= 3) {
+      this.materialIndex = 0;
+    }
+    switch(this.materialIndex) {
+      case 0:
+        this.material = new THREE.MeshLambertMaterial({color: 0x55B663});
+        break;
+      case 1:
+        this.material = new THREE.MeshBasicMaterial( { color: "#433F81" } );
+        break;
+      case 2:
+        this.material = new THREE.MeshNormalMaterial();
+    }
   }
 }
 
@@ -117,6 +186,12 @@ function init() {
   const mesh1 = new Box("mesh1");
   scene.setMesh(mesh1);
 
+  const light = new THREE.PointLight(0xffffff);
+  light.position.set(-10,20,10);
+  scene.add(light);
+  const ambientLight = new THREE.AmbientLight( 0x444444 );
+  scene.add(ambientLight);
+
   renderer.setScene(scene);
   renderer.setCamera(camera);
 
@@ -124,6 +199,8 @@ function init() {
   MainLoop.startRendering();
 
   const keyboard = new UIKeyboard();
+
+  const fpsWidget = new StatusWidget("top", "right");
 }
 
 
