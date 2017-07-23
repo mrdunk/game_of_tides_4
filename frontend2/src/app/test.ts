@@ -4,28 +4,108 @@
 // http://davidscottlyons.com/threejs/presentations/frontporch14/#slide-16
 
 
-const timeStep = 1000 / 60;
-const maxFps = 65;
-
-
 class Camera extends THREE.PerspectiveCamera {
-  private userInput: string[] = [];
+  public lat: number = 0;
+  public lon: number = 0;
+  public distance: number = 4;
+  private userInput: KeyboardEvent[] = [];
+  private animate: boolean = true;
+  private animateChanged: number = 0;
 
   constructor(public label: string) {
     super( 75, window.innerWidth / window.innerHeight, 0.1, 1000 );
     this.position.z = 4;
 
     UIMaster.clientMessageQueues.push(this.userInput);
+    this.updatePos();
   }
 
   public service() {
     while (this.userInput.length) {
       const input = this.userInput.pop();
+      switch(input.key) {
+        case "C":
+          if(Date.now() - this.animateChanged < 200) {
+            // Debounce input.
+            return;
+          }
+          this.animateChanged = Date.now();
+          this.animate = !this.animate;
+          break;
+        case "ArrowRight":
+          if(this.animate) {
+            if(input.shiftKey) {
+              this.rotation.y -= 0.01;
+            } else {
+              this.lon += 1;
+              this.updatePos();
+            }
+          }
+          break;
+        case "ArrowLeft":
+          if(this.animate) {
+            if(input.shiftKey) {
+              this.rotation.y += 0.01;
+            } else {
+              this.lon -= 1;
+              this.updatePos();
+            }
+          }
+          break;
+        case "ArrowUp":
+          if(this.animate) {
+            if(input.shiftKey) {
+              this.rotation.x += 0.01;
+            } else {
+              this.lat += 1;
+              this.updatePos();
+            }
+          }
+          break;
+        case "ArrowDown":
+          if(this.animate) {
+            if(input.shiftKey) {
+              this.rotation.x -= 0.01;
+            } else {
+              this.lat -= 1;
+              this.updatePos();
+            }
+          }
+          break;
+        case " ":
+          if(this.animate) {
+            this.updatePos();
+          }
+          break;
+      }
     }
+  }
+
+  public updatePos() {
+    if(this.lat > 90) { this.lat = 90; }
+    if(this.lat < -90) { this.lat = -90; }
+    if(this.lon > 180) { this.lon -= 360; }
+    if(this.lon < -180) { this.lon += 360; }
+
+    const lat = 90 - this.lat;
+    const lon = this.lon + 90;
+    const origin = new THREE.Vector3(0,0,0);
+
+    this.position.x =
+      -((this.distance) * Math.sin(THREE.Math.degToRad(lat)) *
+                          Math.cos(THREE.Math.degToRad(lon)));
+    this.position.z =
+      ((this.distance) * Math.sin(THREE.Math.degToRad(lat)) *
+                         Math.sin(THREE.Math.degToRad(lon)));
+    this.position.y =
+      ((this.distance) * Math.cos(THREE.Math.degToRad(lat)));
+
+    this.lookAt(origin);
   }
 }
 
 class Renderer extends THREE.WebGLRenderer {
+  public element: HTMLElement;
   private scene: Scene;
   private camera: Camera;
 
@@ -40,7 +120,8 @@ class Renderer extends THREE.WebGLRenderer {
       this.height = window.innerHeight;
     }
     this.setSize(this.width, this.height);
-    document.getElementById(label).appendChild(this.domElement);
+    this.element = document.getElementById(label);
+    this.element.appendChild(this.domElement);
   }
 
   public setScene(scene: Scene) {
@@ -70,6 +151,18 @@ class Scene extends THREE.Scene {
     super();
     this.meshes = {};
     this.lastUpdate = new Date().getTime();
+
+    const light = new THREE.PointLight(0xffffff);
+    light.position.set(0,0,100);
+    this.add(light);
+    const twighLight1 = new THREE.PointLight(0x444455);
+    twighLight1.position.set(100,50,-20);
+    this.add(twighLight1);
+    const twighLight2 = new THREE.PointLight(0x554444);
+    twighLight2.position.set(-100,-50,-20);
+    this.add(twighLight2);
+    // const ambientLight = new THREE.AmbientLight(0x444444);
+    // this.add(ambientLight);
   }
 
   public setMesh(mesh: Mesh) {
@@ -102,11 +195,9 @@ abstract class Mesh extends THREE.Mesh {
 }
 
 class Box extends Mesh {
-  private userInput: string[] = [];
+  private userInput: KeyboardEvent[] = [];
   private materialIndex: number = -1;
   private materialIndexChanged: number = 0;
-  private animate: boolean = true;
-  private animateChanged: number = 0;
 
   constructor(public label: string) {
     super(label);
@@ -119,37 +210,9 @@ class Box extends Mesh {
   public service() {
     while (this.userInput.length) {
       const input = this.userInput.pop();
-      switch(input) {
+      switch(input.key) {
         case "c":
           this.changeMaterial();
-          break;
-        case "b":
-          if(Date.now() - this.animateChanged < 200) {
-            // Debounce input.
-            return;
-          }
-          this.animateChanged = Date.now();
-          this.animate = !this.animate;
-          break;
-        case "ArrowRight":
-          if(this.animate) {
-            this.rotation.y -= 0.01;
-          }
-          break;
-        case "ArrowLeft":
-          if(this.animate) {
-            this.rotation.y += 0.01;
-          }
-          break;
-        case "ArrowUp":
-          if(this.animate) {
-            this.rotation.x += 0.01;
-          }
-          break;
-        case "ArrowDown":
-          if(this.animate) {
-            this.rotation.x -= 0.01;
-          }
           break;
       }
     }
@@ -178,33 +241,4 @@ class Box extends Mesh {
   }
 }
 
-function init() {
-  const camera = new Camera("camera_1");
-  const scene = new Scene();
-  const renderer = new Renderer("renderer1");
-
-  const mesh1 = new Box("mesh1");
-  scene.setMesh(mesh1);
-
-  const light = new THREE.PointLight(0xffffff);
-  light.position.set(-10,20,10);
-  scene.add(light);
-  const ambientLight = new THREE.AmbientLight( 0x444444 );
-  scene.add(ambientLight);
-
-  renderer.setScene(scene);
-  renderer.setCamera(camera);
-
-  MainLoop.renderers.push(renderer);
-  MainLoop.startRendering();
-
-  const keyboard = new UIKeyboard();
-
-  const fpsWidget = new StatusWidget("top", "right");
-}
-
-
-window.onload = () => {
-  init();
-};
 

@@ -39,7 +39,7 @@ class UIMaster {
 }
 
 abstract class UIBase {
-  public newData: string[] = [];
+  public newData: KeyboardEvent[] = [];
 
   constructor() {
     UIMaster.registerListiner(this);
@@ -63,7 +63,7 @@ class UIKeyboard extends UIBase {
   public service() {
     for(const key in this.currentlyDown) {
       if(this.currentlyDown.hasOwnProperty(key)) {
-        this.newData.push(key);
+        this.newData.push(this.currentlyDown[key]);
       }
     }
   }
@@ -73,7 +73,7 @@ class UIKeyboard extends UIBase {
   }
 
   private keydown(event) {
-    this.currentlyDown[event.key] = {event};
+    this.currentlyDown[event.key] = event;
   }
 
   private keyup(event) {

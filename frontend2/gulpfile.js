@@ -14,7 +14,7 @@ const webserver = require('gulp-webserver');
 
 var paths = {
 		ts: ['src/app/**/*.ts'],
-    html: ['src/*.html'],
+    html: ['src/*.html', 'src/*.css'],
     other: ['node_modules/systemjs/dist/system.js'],
 		dist: 'dist'
 };
@@ -62,6 +62,7 @@ gulp.task('clean', function (cb) {
 															// path to all sourcemap files auto gen'd by editor
                               paths.dist +'/**/*.js.map',
                               paths.dist +'/**/*.html',
+                              paths.dist +'/**/*.css',
                               '!' + paths.dist + '/lib'
                            ];
 
