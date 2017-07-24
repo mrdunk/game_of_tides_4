@@ -15,7 +15,7 @@ const webserver = require('gulp-webserver');
 var paths = {
 		ts: ['src/app/**/*.ts'],
     html: ['src/*.html', 'src/*.css'],
-    other: ['node_modules/systemjs/dist/system.js'],
+    other: ['build/wrap_terrain.js'],
 		dist: 'dist'
 };
 

@@ -12,7 +12,7 @@ MODIFIED_OBJECTS=$(OBJECTS:%.o=$(BUILD_DIR)%.o)
 MODIFIED_OBJECTS_TEST=$(OBJECTS_TEST:%.o=$(BUILD_DIR)tests/%.o)
 BUILD_DIR=build/
 
-# Options to build dependecy files for tracking .h files.
+# Options to build dependency files for tracking .h files.
 DEPFLAGS = -MT $@ -MMD -MP -MF $(BUILD_DIR)$*.Td
 DEP=$(MODIFIED_OBJECTS:.o=.d)
 VPATH=build/
@@ -25,7 +25,7 @@ $(shell mkdir -p $(BUILD_DIR) >/dev/null)
 
 all: $(OBJECTS) $(EXECUTABLE)
 
-# Source dependecy files to see if anything other than one of the SOURCES has changed.
+# Source dependency files to see if anything other than one of the SOURCES has changed.
 # Note, this must be done after all:
 -include $(DEP)
 

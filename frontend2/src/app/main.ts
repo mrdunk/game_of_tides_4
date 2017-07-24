@@ -6,7 +6,8 @@ function init() {
   const scene = new Scene();
   const renderer = new Renderer("renderer1");
 
-  const mesh1 = new Box("mesh1");
+  // const mesh1 = new Box("mesh1");
+  const mesh1 = new World("mesh1");
   scene.setMesh(mesh1);
 
   renderer.setScene(scene);

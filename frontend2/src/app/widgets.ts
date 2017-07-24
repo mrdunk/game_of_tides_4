@@ -59,7 +59,8 @@ class LatLonWidget extends WidgetBase {
 
   public service() {
     this.element.innerHTML =
-      "lat: " + this.camera.lat + "\xB0&nbsp;&nbsp;&nbsp;lon: " + this.camera.lon +
+      "lat: " + this.camera.lat +
+      "\xB0&nbsp;&nbsp;&nbsp;lon: " + this.camera.lon +
       "\xB0<br/>" + Math.round(this.camera.position.x * 100) / 100 +
       ", " + Math.round(this.camera.position.y * 100) / 100 +
       ", " + Math.round(this.camera.position.z * 100) / 100;
