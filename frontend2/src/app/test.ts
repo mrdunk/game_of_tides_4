@@ -286,7 +286,7 @@ class World extends Mesh {
     const faceIndexHigh = 0;
     const faceIndexLow = 0;
     const recursionStart = 0;
-    const requiredDepth = 8;
+    const requiredDepth = 10;
     const faces = this.terrainGenerator.getFaces(faceIndexHigh,
                                                  faceIndexLow,
                                                  recursionStart,
@@ -300,12 +300,35 @@ class World extends Mesh {
     const normals = new Float32Array(facesAndSkirt.size() * 3 * 3);
     const colors = new Uint8Array(facesAndSkirt.size() * 3 * 3);
 
+    let highest = 0;
+    let lowest = 255;
+
     for(let i = 0; i < facesAndSkirt.size(); i++) {
       const face = facesAndSkirt.get(i);
       for(let point=0; point<3; point++) {
+        let height = face.heights[point] * 255 / 3;
+        if(height < 0) {
+          height = 0;
+        }
+        if(height > highest){
+          highest = height;
+        }
+        if(height < lowest){
+          lowest = height;
+        }
+        if(height > 100){
+          colors[(i * 9) + (point * 3) + 0] = height /2;
+          colors[(i * 9) + (point * 3) + 1] = height;
+          colors[(i * 9) + (point * 3) + 2] = height /2;
+        } else {
+          colors[(i * 9) + (point * 3) + 0] = height /2;
+          colors[(i * 9) + (point * 3) + 1] = height /2;
+          colors[(i * 9) + (point * 3) + 2] = height;
+        }
+
         for(let coord=0; coord<3; coord++) {
           vertices[(i * 9) + (point * 3) + coord] = face.points[point][coord];
-          colors[(i * 9) + (point * 3) + coord] = Math.random() * 255;
+          // colors[(i * 9) + (point * 3) + coord] = Math.random() * 255;
         }
       }
 
@@ -326,6 +349,9 @@ class World extends Mesh {
       }
       face.delete();
     }
+
+    console.log("highest: ", highest);
+    console.log("lowest: ", lowest);
 
     this.geometry = new THREE.BufferGeometry();
     this.geometry.addAttribute("position",
