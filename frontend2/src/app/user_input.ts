@@ -81,4 +81,27 @@ class UIKeyboard extends UIBase {
   }
 }
 
+class UIMouse extends UIBase {
+  private currentlyDown: {};
 
+  constructor() {
+    super();
+    document.addEventListener("mousemove", this.mouseMove.bind(this));
+  }
+
+  public service() {
+    for(const key in this.currentlyDown) {
+      if(this.currentlyDown.hasOwnProperty(key)) {
+        this.newData.push(this.currentlyDown[key]);
+      }
+    }
+  }
+
+  public resetListinerKeys() {
+    this.currentlyDown = {};
+  }
+
+  private mouseMove(event) {
+    console.log(event);
+  }
+}

@@ -4,18 +4,18 @@
 using namespace emscripten;
 
 
-IndexSplit IndexSplitOfChild(const uint16_t parent_index_high,
-    const uint16_t parent_index_low,
+IndexSplit IndexSplitOfChild(const uint32_t parent_index_high,
+    const uint32_t parent_index_low,
     const int8_t parent_depth, const uint8_t child_number)
 {
   uint64_t parent_index = (static_cast<uint64_t>(parent_index_high) << 32) + parent_index_low;
   uint64_t child_index = IndexOfChild(parent_index, parent_depth, child_number);
-  return {static_cast<uint16_t>(child_index >> 32), static_cast<uint16_t>(child_index)};
+  return {static_cast<uint32_t>(child_index >> 32), static_cast<uint32_t>(child_index)};
 }
 
-bool IsChildSplit(const uint16_t parent_index_high, const uint16_t parent_index_low,
-    const int8_t parent_recursion, const uint16_t child_index_high,
-    const uint16_t child_index_low, const int8_t child_recursion)
+bool IsChildSplit(const uint32_t parent_index_high, const uint32_t parent_index_low,
+    const int8_t parent_recursion, const uint32_t child_index_high,
+    const uint32_t child_index_low, const int8_t child_recursion)
 {
   uint64_t parent_index = (static_cast<uint64_t>(parent_index_high) << 32) + parent_index_low;
   uint64_t child_index = (static_cast<uint64_t>(child_index_high) << 32) + child_index_low;
@@ -25,8 +25,9 @@ bool IsChildSplit(const uint16_t parent_index_high, const uint16_t parent_index_
 // TODO: Profile if it is quicker to make multiple calls for single faces rather
 // than copying everything into vector before making the geometry.
 std::vector<std::shared_ptr<Face>> getFaces(DataSourceGenerate& that,
-  const uint16_t index_high,
-  const uint16_t index_low, const unsigned char recursion,
+  const uint32_t index_high,
+  const uint32_t index_low,
+  const unsigned char recursion,
   const char required_depth)
 {
   uint64_t index = ((uint64_t)index_high << 32) + index_low;

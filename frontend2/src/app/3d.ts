@@ -9,6 +9,8 @@
 class Camera extends THREE.PerspectiveCamera {
   public lat: number = 0;
   public lon: number = 0;
+  public pitch: number = 0;
+  public yaw: number = 0;
   public distance: number = 20000;
   private userInput: KeyboardEvent[] = [];
   private animate: boolean = true;
@@ -37,7 +39,9 @@ class Camera extends THREE.PerspectiveCamera {
         case "ArrowRight":
           if(this.animate) {
             if(input.shiftKey) {
-              this.rotation.y -= 0.01;
+              // this.rotation.y -= 0.01;
+              this.yaw -= 0.01;
+              this.updatePos();
             } else {
               this.lon += 1;
               this.updatePos();
@@ -47,7 +51,9 @@ class Camera extends THREE.PerspectiveCamera {
         case "ArrowLeft":
           if(this.animate) {
             if(input.shiftKey) {
-              this.rotation.y += 0.01;
+              // this.rotation.y += 0.01;
+              this.yaw += 0.01;
+              this.updatePos();
             } else {
               this.lon -= 1;
               this.updatePos();
@@ -57,7 +63,9 @@ class Camera extends THREE.PerspectiveCamera {
         case "ArrowUp":
           if(this.animate) {
             if(input.shiftKey) {
-              this.rotation.x += 0.01;
+              // this.rotation.x += 0.01;
+              this.pitch += 0.01;
+              this.updatePos();
             }else if(input.ctrlKey) {
               this.distance -= 100;
               this.updatePos();
@@ -70,7 +78,9 @@ class Camera extends THREE.PerspectiveCamera {
         case "ArrowDown":
           if(this.animate) {
             if(input.shiftKey) {
-              this.rotation.x -= 0.01;
+              // this.rotation.x -= 0.01;
+              this.pitch -= 0.01;
+              this.updatePos();
             }else if(input.ctrlKey) {
               this.distance += 100;
               this.updatePos();
@@ -82,6 +92,8 @@ class Camera extends THREE.PerspectiveCamera {
           break;
         case " ":
           if(this.animate) {
+            this.pitch = 0;
+            this.yaw = 0;
             this.updatePos();
           }
           break;
@@ -109,6 +121,9 @@ class Camera extends THREE.PerspectiveCamera {
       ((this.distance) * Math.cos(THREE.Math.degToRad(lat)));
 
     this.lookAt(origin);
+    this.rotateZ(this.yaw);
+    this.rotateX(this.pitch);
+
   }
 }
 
@@ -169,8 +184,8 @@ class Scene extends THREE.Scene {
     const twighLight2 = new THREE.PointLight(0x554444);
     twighLight2.position.set(-20000,-10000,-2000);
     this.add(twighLight2);
-    // const ambientLight = new THREE.AmbientLight(0x444444);
-    // this.add(ambientLight);
+    const ambientLight = new THREE.AmbientLight(0x444444);
+    this.add(ambientLight);
 
     this.background = new THREE.Color(0x444444);
   }
@@ -217,23 +232,26 @@ abstract class Mesh extends THREE.Mesh {
     }
     this.materialIndexChanged = Date.now();
 
-    if(++this.materialIndex >= 4) {
+    if(++this.materialIndex >= 5) {
       this.materialIndex = 0;
     }
     switch(this.materialIndex) {
       case 0:
-        //this.material = new THREE.MeshLambertMaterial({color: 0x55B663});
+        // this.material = new THREE.MeshLambertMaterial({color: 0x55B663});
         this.material = new THREE.MeshLambertMaterial({
           vertexColors: THREE.VertexColors});
         break;
       case 1:
-        this.material = new THREE.MeshBasicMaterial({color: 0x433F81});
+        this.material.wireframe = true;
         break;
       case 2:
-        this.material = new THREE.MeshNormalMaterial({side : THREE.DoubleSide,
-                                                      wireframeLinewidth: 5});
+        this.material = new THREE.MeshBasicMaterial({color: 0x433F81});
         break;
       case 3:
+        this.material = new THREE.MeshNormalMaterial({side : THREE.DoubleSide,
+                                                      wireframeLinewidth: 1});
+        break;
+      case 4:
         this.material.wireframe = true;
         break;
     }
@@ -267,30 +285,70 @@ declare var Module: {
   DataSourceGenerate: () => void;
 };
 
-class World extends Mesh {
+class World {
+  public meshes: Mesh[] = [];
   private terrainGenerator = new Module.DataSourceGenerate();
-  private userInput: KeyboardEvent[] = [];
 
   constructor(public label: string) {
+    window.addEventListener("beforeunload", (event) => {
+      // Try to Enscripten cleanup memory allocation before page reload.
+      // TODO: Does this work?
+      console.log("Reloading page");
+      this.meshes.forEach((mesh) => {
+        mesh.dispose();
+        mesh = null;
+      });
+      delete this.terrainGenerator;
+      console.log("done cleanup");
+
+      const confirmationMessage = "\o/";
+
+      event.returnValue = confirmationMessage;     // Gecko, Trident, Chrome 34+
+      return confirmationMessage;              // Gecko, WebKit, Chrome <34
+    });
+
+    this.terrainGenerator.MakeCache();
+
+    for(let section = 0; section < 8; section++) {
+      const rootFace = section * Math.pow(2, 29);
+      this.meshes.push(new WorldTile("tile_" + rootFace,
+                                     this.terrainGenerator,
+                                     rootFace,
+                                     0,
+                                     0,
+                                     9));
+    }
+  }
+}
+
+class WorldTile extends Mesh {
+  private userInput: KeyboardEvent[] = [];
+
+  constructor(public label: string,
+              private terrainGenerator,
+              public faceIndexHigh: number,
+              public faceIndexLow: number,
+              public recursionStart: number,
+              public requiredDepth: number) {
     super(label);
+
     this.changeMaterial();
 
     UIMaster.clientMessageQueues.push(this.userInput);
 
-    this.terrainGenerator.MakeCache();
+    this.generateTerrain();
+  }
 
-    // for(var section = 0; section < 8; section++){
-    //   root_face = section * Math.pow(2, 29);
-    // }
+  public generateTerrain() {
+    console.log(this.faceIndexHigh,
+      this.faceIndexLow,
+      this.recursionStart,
+      this.requiredDepth);
 
-    const faceIndexHigh = 0;
-    const faceIndexLow = 0;
-    const recursionStart = 0;
-    const requiredDepth = 10;
-    const faces = this.terrainGenerator.getFaces(faceIndexHigh,
-                                                 faceIndexLow,
-                                                 recursionStart,
-                                                 requiredDepth);
+    const faces = this.terrainGenerator.getFaces(this.faceIndexHigh,
+                                                 this.faceIndexLow,
+                                                 this.recursionStart,
+                                                 this.requiredDepth);
     const facesAndSkirt = this.terrainGenerator.getFacesAndSkirt(faces);
 
     // Finished generating faces so clear some memory.
@@ -310,13 +368,13 @@ class World extends Mesh {
         if(height < 0) {
           height = 0;
         }
-        if(height > highest){
+        if(height > highest) {
           highest = height;
         }
-        if(height < lowest){
+        if(height < lowest) {
           lowest = height;
         }
-        if(height > 100){
+        if(height > 100) {
           colors[(i * 9) + (point * 3) + 0] = height /2;
           colors[(i * 9) + (point * 3) + 1] = height;
           colors[(i * 9) + (point * 3) + 2] = height /2;
@@ -327,11 +385,14 @@ class World extends Mesh {
         }
 
         for(let coord=0; coord<3; coord++) {
-          vertices[(i * 9) + (point * 3) + coord] = face.points[point][coord];
+          vertices[(i * 9) + (point * 3) + coord] =
+            face.points[point][coord] * (1 + (face.heights[point] * 0.01));
           // colors[(i * 9) + (point * 3) + coord] = Math.random() * 255;
         }
       }
 
+      // Compute Vertex Normals as Face Normals.
+      // (ie, all 3 vertex normals are the same.)
       const vA = new THREE.Vector3();
       const vB = new THREE.Vector3();
       const vC = new THREE.Vector3();
@@ -360,10 +421,9 @@ class World extends Mesh {
                                new THREE.BufferAttribute(colors, 3, true));
     this.geometry.addAttribute("normal",
                                new THREE.BufferAttribute(normals, 3, true));
-    //this.geometry.computeVertexNormals();
-    // this.geometry.normalizeNormals();
 
     faces.delete();
+    facesAndSkirt.delete();
   }
 
   public service() {
@@ -372,10 +432,6 @@ class World extends Mesh {
       switch(input.key) {
         case "c":
           this.changeMaterial();
-          break;
-        case "1":
-          break;
-        case "2":
           break;
       }
     }

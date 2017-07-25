@@ -1,3 +1,4 @@
+// Copyright 2017 duncan law (mrdunk@gmail.com)
 const timeStep = 1000 / 60;
 const maxFps = 60;
 
@@ -7,8 +8,8 @@ function init() {
   const renderer = new Renderer("renderer1");
 
   // const mesh1 = new Box("mesh1");
-  const mesh1 = new World("mesh1");
-  scene.setMesh(mesh1);
+  const meshes = new World("mesh1");
+  meshes.meshes.forEach((mesh) => {scene.setMesh(mesh);});
 
   renderer.setScene(scene);
   renderer.setCamera(camera);
@@ -17,6 +18,7 @@ function init() {
   MainLoop.startRendering();
 
   const keyboard = new UIKeyboard();
+  const mouse = new UIMouse();
 
   const fpsWidget = new StatusWidget();
   const latLonWidget = new LatLonWidget(camera);
