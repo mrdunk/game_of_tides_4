@@ -21,11 +21,11 @@ function init() {
   const mouse = new UIMouse();
 
   const fpsWidget = new StatusWidget();
-  const latLonWidget = new LatLonWidget(camera);
+  const cameraWidget = new CameraPositionWidget(camera);
   const widgetContainer = document.createElement("div");
   widgetContainer.className = "widget-container";
   widgetContainer.appendChild(fpsWidget.element);
-  widgetContainer.appendChild(latLonWidget.element);
+  widgetContainer.appendChild(cameraWidget.element);
   renderer.element.appendChild(widgetContainer);
 }
 

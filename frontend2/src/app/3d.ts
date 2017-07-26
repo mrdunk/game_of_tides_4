@@ -129,6 +129,7 @@ class Camera extends THREE.PerspectiveCamera {
 
 class Renderer extends THREE.WebGLRenderer {
   public element: HTMLElement;
+  private userInput: KeyboardEvent[] = [];
   private scene: Scene;
   private camera: Camera;
 
@@ -143,8 +144,11 @@ class Renderer extends THREE.WebGLRenderer {
       this.height = window.innerHeight;
     }
     this.setSize(this.width, this.height);
+    this.setPixelRatio( window.devicePixelRatio );
     this.element = document.getElementById(label);
     this.element.appendChild(this.domElement);
+
+    UIMaster.clientMessageQueues.push(this.userInput);
   }
 
   public setScene(scene: Scene) {
@@ -163,12 +167,49 @@ class Renderer extends THREE.WebGLRenderer {
       this.camera.service();
       this.render(this.scene, this.camera);
     }
+
+    // User input.
+    while (this.userInput.length) {
+      const input = this.userInput.pop();
+      switch(input.key || input.type) {
+        case "mousemove":
+          // console.log(input);
+          this.getFaceUnderMouse(input);
+          break;
+      }
+    }
+  }
+
+  private getFaceUnderMouse(event) {
+    const raycaster = new THREE.Raycaster();
+    const mouse = new THREE.Vector2();
+    mouse.x = ( event.clientX / window.innerWidth ) * 2 - 1;
+    mouse.y = - ( event.clientY / window.innerHeight ) * 2 + 1;
+
+    raycaster.setFromCamera( mouse, this.camera );
+    let surfacePoint;
+    for(const meshName in this.scene.meshes) {
+      if(this.scene.meshes.hasOwnProperty(meshName)) {
+        const intersects =
+          raycaster.intersectObject(this.scene.meshes[meshName]);
+        if(intersects.length) {
+          surfacePoint = intersects[0].point;
+          console.log(intersects[0].point);
+          this.scene.setCursor(intersects[0].point);
+        }
+      }
+    }
+    if(!surfacePoint) {
+      this.scene.clearCursor();
+    }
   }
 }
 
 class Scene extends THREE.Scene {
-  private meshes: {};
+  public meshes: {};
   private lastUpdate: number;
+  private cursor: Line = new Line(new THREE.Vector3(0, 0, 0),
+                                  new THREE.Vector3(0, 0, 0));
 
   constructor() {
     super();
@@ -188,11 +229,26 @@ class Scene extends THREE.Scene {
     this.add(ambientLight);
 
     this.background = new THREE.Color(0x444444);
+
+    const axis = new Line(new THREE.Vector3(0, 10000, 0),
+                          new THREE.Vector3(0, -10000, 0));
+    this.add(axis);
+
+    this.add(this.cursor);
   }
 
   public setMesh(mesh: Mesh) {
     this.meshes[mesh.label] = mesh;
     this.add( mesh );
+  }
+
+  public setCursor(point: THREE.Vector3) {
+    point.setLength(point.length() * 2);
+    this.cursor.setEnd(point);
+  }
+
+  public clearCursor() {
+    this.cursor.setEnd(new THREE.Vector3(0, 0, 0));
   }
 
   public service(now: number) {
@@ -208,6 +264,25 @@ class Scene extends THREE.Scene {
         }
       }
     }
+  }
+}
+
+class Line extends THREE.Line {
+  public geometry: THREE.Geometry;
+
+  constructor(start: THREE.Vector3 = new THREE.Vector3(0, 0, 0),
+              end: THREE.Vector3 = new THREE.Vector3(10000, 0, 0)) {
+    super();
+    this.material = new THREE.LineBasicMaterial({ color: 0xff0000 });
+    this.geometry = new THREE.Geometry();
+    this.geometry.vertices.push(start);
+    this.geometry.vertices.push(end);
+  }
+
+  public setEnd(point: THREE.Vector3) {
+    console.log("Line.setEnd()");
+    this.geometry.vertices[1] = point;
+    this.geometry.verticesNeedUpdate = true;
   }
 }
 
@@ -316,7 +391,7 @@ class World {
                                      rootFace,
                                      0,
                                      0,
-                                     9));
+                                     7));
     }
   }
 }
@@ -361,6 +436,8 @@ class WorldTile extends Mesh {
     let highest = 0;
     let lowest = 255;
 
+    const sealevel = 80;
+
     for(let i = 0; i < facesAndSkirt.size(); i++) {
       const face = facesAndSkirt.get(i);
       for(let point=0; point<3; point++) {
@@ -374,7 +451,7 @@ class WorldTile extends Mesh {
         if(height < lowest) {
           lowest = height;
         }
-        if(height > 100) {
+        if(height >= sealevel) {
           colors[(i * 9) + (point * 3) + 0] = height /2;
           colors[(i * 9) + (point * 3) + 1] = height;
           colors[(i * 9) + (point * 3) + 2] = height /2;
@@ -384,9 +461,12 @@ class WorldTile extends Mesh {
           colors[(i * 9) + (point * 3) + 2] = height;
         }
 
+        if(height < sealevel) {
+          height = sealevel;
+        }
         for(let coord=0; coord<3; coord++) {
           vertices[(i * 9) + (point * 3) + coord] =
-            face.points[point][coord] * (1 + (face.heights[point] * 0.01));
+            face.points[point][coord] * (1 + (height * 0.0001));
           // colors[(i * 9) + (point * 3) + coord] = Math.random() * 255;
         }
       }
@@ -427,9 +507,11 @@ class WorldTile extends Mesh {
   }
 
   public service() {
+    // TODO: Should this actually happen for each mesh or for the whole scene?
     while (this.userInput.length) {
       const input = this.userInput.pop();
-      switch(input.key) {
+      // console.log(input.type, input.key);
+      switch(input.key || input.type) {
         case "c":
           this.changeMaterial();
           break;

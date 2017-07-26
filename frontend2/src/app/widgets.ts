@@ -51,19 +51,28 @@ class StatusWidget extends WidgetBase {
   }
 }
 
-class LatLonWidget extends WidgetBase {
+class CameraPositionWidget extends WidgetBase {
   constructor(private camera: Camera) {
-    super("FPS", 150, 50);
+    super("CameraPos", 180, 50);
     setInterval(this.service.bind(this), 20);
   }
 
   public service() {
+    const pitch = Math.round(THREE.Math.radToDeg(this.camera.pitch)) -90;
+    const pitchString = "" + pitch + "\xB0";
+
+    const yaw = Math.round(THREE.Math.radToDeg(this.camera.yaw));
+    let yawString = "0\xB0";
+    if(yaw < 0) {
+      yawString = "" + (0 - yaw) + "\xB0E";
+    } else if(yaw > 0) {
+      yawString = "" + yaw + "\xB0W";
+    }
+
     this.element.innerHTML =
       "lat: " + this.camera.lat +
-      "\xB0&nbsp;&nbsp;&nbsp;lon: " + this.camera.lon +
-      "\xB0<br/>" + Math.round(this.camera.position.x * 100) / 100 +
-      ", " + Math.round(this.camera.position.y * 100) / 100 +
-      ", " + Math.round(this.camera.position.z * 100) / 100;
+      "\xB0&nbsp;&nbsp;&nbsp;lon: " + this.camera.lon + "\xB0<br/>" +
+      "pitch: " + pitchString + "&nbsp;&nbsp;&nbsp;yaw: " + yawString;
   }
 }
 

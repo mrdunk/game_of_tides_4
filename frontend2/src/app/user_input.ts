@@ -50,14 +50,12 @@ abstract class UIBase {
 }
 
 class UIKeyboard extends UIBase {
-  private currentlyDown: {};
+  private currentlyDown: {} = {};
 
   constructor() {
     super();
     document.addEventListener("keydown", this.keydown.bind(this));
     document.addEventListener("keyup", this.keyup.bind(this));
-
-    this.currentlyDown = {};
   }
 
   public service() {
@@ -82,11 +80,13 @@ class UIKeyboard extends UIBase {
 }
 
 class UIMouse extends UIBase {
-  private currentlyDown: {};
+  private currentlyDown: {} = {};
 
   constructor() {
     super();
     document.addEventListener("mousemove", this.mouseMove.bind(this));
+    document.addEventListener("mousedown", this.mouseDown.bind(this));
+    document.addEventListener("mouseup", this.mouseUp.bind(this));
   }
 
   public service() {
@@ -95,6 +95,8 @@ class UIMouse extends UIBase {
         this.newData.push(this.currentlyDown[key]);
       }
     }
+
+    delete this.currentlyDown["mousemove"];
   }
 
   public resetListinerKeys() {
@@ -102,6 +104,15 @@ class UIMouse extends UIBase {
   }
 
   private mouseMove(event) {
-    console.log(event);
+    // TODO Limit this to one update per frame.
+    this.currentlyDown["mousemove"] = event;
+  }
+
+  private mouseDown(event) {
+    this.currentlyDown["mousedown"] = event;
+  }
+
+  private mouseUp(event) {
+    delete this.currentlyDown["mousedown"];
   }
 }
