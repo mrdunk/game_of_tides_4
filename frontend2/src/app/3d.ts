@@ -132,8 +132,10 @@ class Renderer extends THREE.WebGLRenderer {
   private userInput: KeyboardEvent[] = [];
   private scene: Scene;
   private camera: Camera;
+  private rateLimitMouse: number = 0;
 
   constructor(public label: string,
+              private terrainGenerator,
               public width?: number,
               public height?: number) {
     super({antialias: true});
@@ -153,12 +155,12 @@ class Renderer extends THREE.WebGLRenderer {
 
   public setScene(scene: Scene) {
     this.scene = scene;
-    this.service(new Date().getTime());
+    this.service(Date.now());
   }
 
   public setCamera(camera: Camera) {
     this.camera = camera;
-    this.service(new Date().getTime());
+    this.service(Date.now());
   }
 
   public service(now: number) {
@@ -173,7 +175,6 @@ class Renderer extends THREE.WebGLRenderer {
       const input = this.userInput.pop();
       switch(input.key || input.type) {
         case "mousemove":
-          // console.log(input);
           this.getFaceUnderMouse(input);
           break;
       }
@@ -181,12 +182,45 @@ class Renderer extends THREE.WebGLRenderer {
   }
 
   private getFaceUnderMouse(event) {
+    if(this.rateLimitMouse + 20 > Date.now()) {
+      return;
+    }
+    this.rateLimitMouse = Date.now();
+
     const raycaster = new THREE.Raycaster();
     const mouse = new THREE.Vector2();
     mouse.x = ( event.clientX / window.innerWidth ) * 2 - 1;
     mouse.y = - ( event.clientY / window.innerHeight ) * 2 + 1;
 
     raycaster.setFromCamera( mouse, this.camera );
+    const origin = [raycaster.ray.origin.x,
+                    raycaster.ray.origin.y,
+                    raycaster.ray.origin.z];
+    const direction = [raycaster.ray.direction.x,
+                       raycaster.ray.direction.y,
+                       raycaster.ray.direction.z];
+
+    const face = this.terrainGenerator.rayCrossesFace(origin, direction, 2);
+    if(face) {
+      const surfacePoint0 = new THREE.Vector3(face.points[0][0],
+                                              face.points[0][1],
+                                              face.points[0][2]);
+      const surfacePoint1 = new THREE.Vector3(face.points[1][0],
+                                              face.points[1][1],
+                                              face.points[1][2]);
+      const surfacePoint2 = new THREE.Vector3(face.points[2][0],
+                                              face.points[2][1],
+                                              face.points[2][2]);
+      this.scene.setCursor(surfacePoint0, 0);
+      this.scene.setCursor(surfacePoint1, 1);
+      this.scene.setCursor(surfacePoint2, 2);
+      face.delete();
+    } else {
+      this.scene.clearCursor(0);
+      this.scene.clearCursor(1);
+      this.scene.clearCursor(2);
+    }
+    /*
     let surfacePoint;
     for(const meshName in this.scene.meshes) {
       if(this.scene.meshes.hasOwnProperty(meshName)) {
@@ -194,7 +228,6 @@ class Renderer extends THREE.WebGLRenderer {
           raycaster.intersectObject(this.scene.meshes[meshName]);
         if(intersects.length) {
           surfacePoint = intersects[0].point;
-          console.log(intersects[0].point);
           this.scene.setCursor(intersects[0].point);
         }
       }
@@ -202,19 +235,19 @@ class Renderer extends THREE.WebGLRenderer {
     if(!surfacePoint) {
       this.scene.clearCursor();
     }
+    */
   }
 }
 
 class Scene extends THREE.Scene {
   public meshes: {};
   private lastUpdate: number;
-  private cursor: Line = new Line(new THREE.Vector3(0, 0, 0),
-                                  new THREE.Vector3(0, 0, 0));
+  private cursor: {} = {};
 
   constructor() {
     super();
     this.meshes = {};
-    this.lastUpdate = new Date().getTime();
+    this.lastUpdate = Date.now();
 
     const light = new THREE.PointLight(0xffffff);
     light.position.set(0,0,20000);
@@ -233,8 +266,6 @@ class Scene extends THREE.Scene {
     const axis = new Line(new THREE.Vector3(0, 10000, 0),
                           new THREE.Vector3(0, -10000, 0));
     this.add(axis);
-
-    this.add(this.cursor);
   }
 
   public setMesh(mesh: Mesh) {
@@ -242,13 +273,24 @@ class Scene extends THREE.Scene {
     this.add( mesh );
   }
 
-  public setCursor(point: THREE.Vector3) {
+  public setCursor(point: THREE.Vector3, id: number = 0) {
+    let cursor = this.cursor[id];
+    if(!cursor){
+      cursor = new Line(new THREE.Vector3(0, 0, 0),
+                        new THREE.Vector3(0, 0, 0));
+      this.cursor[id] = cursor;
+      this.add(cursor);
+    }
+
     point.setLength(point.length() * 2);
-    this.cursor.setEnd(point);
+    cursor.setEnd(point);
   }
 
-  public clearCursor() {
-    this.cursor.setEnd(new THREE.Vector3(0, 0, 0));
+  public clearCursor(id: number = 0) {
+    const cursor = this.cursor[id];
+    if(cursor){
+      cursor.setEnd(new THREE.Vector3(0, 0, 0));
+    }
   }
 
   public service(now: number) {
@@ -280,7 +322,6 @@ class Line extends THREE.Line {
   }
 
   public setEnd(point: THREE.Vector3) {
-    console.log("Line.setEnd()");
     this.geometry.vertices[1] = point;
     this.geometry.verticesNeedUpdate = true;
   }
@@ -362,25 +403,25 @@ declare var Module: {
 
 class World {
   public meshes: Mesh[] = [];
-  private terrainGenerator = new Module.DataSourceGenerate();
 
-  constructor(public label: string) {
-    window.addEventListener("beforeunload", (event) => {
+  constructor(public label: string,
+              private terrainGenerator) {
+    /*window.addEventListener("beforeunload", (event) => {
       // Try to Enscripten cleanup memory allocation before page reload.
       // TODO: Does this work?
       console.log("Reloading page");
       this.meshes.forEach((mesh) => {
-        mesh.dispose();
-        mesh = null;
+        // mesh.geometry.dispose();
+        // mesh = null;
       });
-      delete this.terrainGenerator;
+      // this.terrainGenerator.delete();
       console.log("done cleanup");
 
-      const confirmationMessage = "\o/";
+      const confirmationMessage = null;
 
       event.returnValue = confirmationMessage;     // Gecko, Trident, Chrome 34+
       return confirmationMessage;              // Gecko, WebKit, Chrome <34
-    });
+    });*/
 
     this.terrainGenerator.MakeCache();
 

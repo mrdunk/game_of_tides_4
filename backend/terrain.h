@@ -188,18 +188,17 @@ bool IsChild(const Face& parent, const Face& child){
 /* Return one of the 4 child faces of a parent. */
 void FaceToSubface(const uint8_t index, const Face& parent, Face& child);
 
-bool VectorCrossesFace(const Point& vector, const Face& face){
-  Point origin(0,0,0);
+bool VectorCrossesFace(const Point& origin, const Point& vector, const Face& face){
   Point intersect;
-
-  // glm::intersectRayTriangle() would be a better choice here but i can't
-  // get it to work.
-  // glm::intersectLineTriangle() will return false positives for the root faces
-  // as it will also see the face on the far side of the planet.
-  bool ret_val = glm::intersectLineTriangle(origin, vector, face.points[0],
+  bool ret_val = glm::intersectRayTriangle(origin, vector, face.points[0],
       face.points[1], face.points[2], intersect);
 
   return ret_val;
+}
+
+bool VectorCrossesFace(const Point& vector, const Face& face){
+  const Point origin(0,0,0);
+  return VectorCrossesFace(origin, vector, face);
 }
 
 uint32_t myHash(uint64_t seed) {
@@ -318,6 +317,15 @@ class DataSourceGenerate {
   std::shared_ptr<Face> pointToFace(const Point point, const uint8_t max_recursion);
   std::shared_ptr<Face> pointToSubFace(const Point point, const uint8_t max_recursion,
                                        Face& enclosing_face);
+
+  std::shared_ptr<Face> rayCrossesFace(const Point ray_origin,
+                                       const Point ray_direction, 
+                                       const uint8_t max_recursion);
+  std::shared_ptr<Face> rayCrossesSubFace(const Point ray_origin,
+                                          const Point ray_direction, 
+                                          const uint8_t max_recursion,
+                                          Face& enclosing_face);
+
 
   /* Do garbage collection on cache. */
   void cleanCache(unsigned long max_cache_age){

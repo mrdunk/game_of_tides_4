@@ -96,6 +96,8 @@ EMSCRIPTEN_BINDINGS(DataSourceGenerate) {
     .function("getSkirt", &getSkirt)
     .function("pointToFace", &DataSourceGenerate::pointToFace)
     .function("pointToSubFace", &DataSourceGenerate::pointToFace)
+    .function("rayCrossesFace", &DataSourceGenerate::rayCrossesFace)
+    .function("rayCrossesSubFace", &DataSourceGenerate::rayCrossesSubFace)
     ;
 
   function("IndexOfChild", &IndexSplitOfChild);

@@ -4,13 +4,6 @@
 
 
 int8_t MinRecursionFromIndex(const uint64_t index){
-  /*  for (int i = 0; i < 61; ++i) {
-      if (((uint64_t)1 << i) & index) {
-        return (62 - i) / 2;
-      }
-    }
-    // Top level face.
-    return 0;*/
   int8_t return_value = 0;
   uint64_t index_ = index & ~((uint64_t)7 << 61);
   while (index_ > 0){
@@ -443,19 +436,35 @@ std::shared_ptr<Face> DataSourceGenerate::pointToSubFace(const Point point,
                                                       const uint8_t max_recursion,
                                                       Face& enclosing_face)
 {
+  const Point origin(0,0,0);
+  return rayCrossesSubFace(origin, point, max_recursion, enclosing_face);
+}
+
+std::shared_ptr<Face>
+DataSourceGenerate::rayCrossesFace(const Point ray_origin,
+                                   const Point ray_direction, 
+                                   const uint8_t max_recursion)
+{
+  Face start_face;
+  start_face.status = 0;
+  return rayCrossesSubFace(ray_origin, ray_direction, max_recursion, start_face);
+}
+
+std::shared_ptr<Face>
+DataSourceGenerate::rayCrossesSubFace(const Point ray_origin,
+                                      const Point ray_direction, 
+                                      const uint8_t max_recursion,
+                                      Face& enclosing_face)
+{
   if(!(enclosing_face.status & Populated) || (enclosing_face.recursion == 0)){
     // Even if we have a starting enclosing_face but recursion == 0 
     for(uint64_t root_index : k_root_node_indexes){
       Face root_face;
       IndexToRootFace(root_index, root_face);
-      if(VectorCrossesFace(point, root_face)){
+      if(VectorCrossesFace(ray_origin, ray_direction, root_face)){
         if(!(enclosing_face.status & Populated)){
           std::swap(enclosing_face, root_face);
-          root_face.status |= Populated;
-        } else if (glm::distance2(point, root_face.points[0]) <
-            glm::distance2(point, enclosing_face.points[0]))
-        {
-          std::swap(enclosing_face, root_face);
+          enclosing_face.status |= Populated;
           break;
         }
       }
@@ -469,7 +478,7 @@ std::shared_ptr<Face> DataSourceGenerate::pointToSubFace(const Point point,
     for(uint8_t child_id : {0,1,2,3}){
       Face child_face;
       FaceToSubface(child_id, enclosing_face, child_face);
-      if(VectorCrossesFace(point, child_face)){
+      if(VectorCrossesFace(ray_origin, ray_direction, child_face)){
         std::swap(child_face, enclosing_face);
         sucess = true;
         break;
@@ -477,11 +486,12 @@ std::shared_ptr<Face> DataSourceGenerate::pointToSubFace(const Point point,
     }
     if(!sucess){
       // The target was not inside the suggested enclosing_face.
-      return pointToFace(point, max_recursion);
+      LOG("Failed to find face");
+      return nullptr;
     }
   }
 
-  LOG(std::hex << enclosing_face.index << std::dec);
+  // LOG(std::hex << " " << enclosing_face.index << " " << std::dec);
   return getFace(enclosing_face.index, enclosing_face.recursion);
 }
 
