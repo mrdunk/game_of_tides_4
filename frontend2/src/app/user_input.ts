@@ -17,12 +17,12 @@ class UIMaster {
     });
   }
 
+  private static listiners: UIBase[] = [];
+
   private static visibilityCallback =
       document.addEventListener("visibilitychange", UIMaster.resetListinerKeys);
   private static blurCallback =
       window.addEventListener("blur", UIMaster.resetListinerKeys);
-
-  private static listiners: UIBase[] = [];
 
   private static clearListinerKeys() {
     UIMaster.listiners.forEach((listiner) => {

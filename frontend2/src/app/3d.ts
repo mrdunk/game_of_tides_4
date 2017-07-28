@@ -5,6 +5,20 @@
 // Diagram showing how Threejs components fits together:
 // http://davidscottlyons.com/threejs/presentations/frontporch14/#slide-16
 
+declare var Module: {
+  DataSourceGenerate: () => void;
+};
+
+interface MouseRay {
+  type: string;
+  origin: number[];
+  direction: number[];
+  shiftKey?: number;
+  ctrlKey?: number;
+  altKey?: number;
+  key?: string;
+}
+
 
 class Camera extends THREE.PerspectiveCamera {
   public lat: number = 0;
@@ -12,7 +26,7 @@ class Camera extends THREE.PerspectiveCamera {
   public pitch: number = 0;
   public yaw: number = 0;
   public distance: number = 20000;
-  private userInput: KeyboardEvent[] = [];
+  public userInput: Array<KeyboardEvent | MouseRay> = [];
   private animate: boolean = true;
   private animateChanged: number = 0;
 
@@ -20,14 +34,13 @@ class Camera extends THREE.PerspectiveCamera {
     super( 75, window.innerWidth / window.innerHeight, 0.1, 100000 );
     this.position.z = this.distance;
 
-    UIMaster.clientMessageQueues.push(this.userInput);
     this.updatePos();
   }
 
   public service() {
     while (this.userInput.length) {
       const input = this.userInput.pop();
-      switch(input.key) {
+      switch(input.key || input.type) {
         case "C":
           if(Date.now() - this.animateChanged < 200) {
             // Debounce input.
@@ -129,13 +142,11 @@ class Camera extends THREE.PerspectiveCamera {
 
 class Renderer extends THREE.WebGLRenderer {
   public element: HTMLElement;
-  private userInput: KeyboardEvent[] = [];
+  public userInput: Array<KeyboardEvent | MouseRay> = [];
   private scene: Scene;
   private camera: Camera;
-  private rateLimitMouse: number = 0;
 
   constructor(public label: string,
-              private terrainGenerator,
               public width?: number,
               public height?: number) {
     super({antialias: true});
@@ -164,29 +175,31 @@ class Renderer extends THREE.WebGLRenderer {
   }
 
   public service(now: number) {
+    // User input.
+    const userInput = this.userInput.slice();  // Copy array.
+    while (userInput.length) {
+      const input = userInput.pop();
+      switch(input.key || input.type) {
+        case "mousemove":
+          this.userInput.push(this.getMouseRay(input));
+          break;
+      }
+    }
+
+    // Update dependants.
     if(this.scene && this.camera) {
+      this.scene.userInput = this.userInput.slice();  // Copy array.
+      this.camera.userInput = this.userInput.slice();  // Copy array.
       this.scene.service(now);
       this.camera.service();
       this.render(this.scene, this.camera);
     }
 
-    // User input.
-    while (this.userInput.length) {
-      const input = this.userInput.pop();
-      switch(input.key || input.type) {
-        case "mousemove":
-          this.getFaceUnderMouse(input);
-          break;
-      }
-    }
+    // Empty the user input buffer.
+    this.userInput.splice(0, this.userInput.length);
   }
 
-  private getFaceUnderMouse(event) {
-    if(this.rateLimitMouse + 20 > Date.now()) {
-      return;
-    }
-    this.rateLimitMouse = Date.now();
-
+  private getMouseRay(event) {
     const raycaster = new THREE.Raycaster();
     const mouse = new THREE.Vector2();
     mouse.x = ( event.clientX / window.innerWidth ) * 2 - 1;
@@ -199,55 +212,24 @@ class Renderer extends THREE.WebGLRenderer {
     const direction = [raycaster.ray.direction.x,
                        raycaster.ray.direction.y,
                        raycaster.ray.direction.z];
-
-    const face = this.terrainGenerator.rayCrossesFace(origin, direction, 2);
-    if(face) {
-      const surfacePoint0 = new THREE.Vector3(face.points[0][0],
-                                              face.points[0][1],
-                                              face.points[0][2]);
-      const surfacePoint1 = new THREE.Vector3(face.points[1][0],
-                                              face.points[1][1],
-                                              face.points[1][2]);
-      const surfacePoint2 = new THREE.Vector3(face.points[2][0],
-                                              face.points[2][1],
-                                              face.points[2][2]);
-      this.scene.setCursor(surfacePoint0, 0);
-      this.scene.setCursor(surfacePoint1, 1);
-      this.scene.setCursor(surfacePoint2, 2);
-      face.delete();
-    } else {
-      this.scene.clearCursor(0);
-      this.scene.clearCursor(1);
-      this.scene.clearCursor(2);
-    }
-    /*
-    let surfacePoint;
-    for(const meshName in this.scene.meshes) {
-      if(this.scene.meshes.hasOwnProperty(meshName)) {
-        const intersects =
-          raycaster.intersectObject(this.scene.meshes[meshName]);
-        if(intersects.length) {
-          surfacePoint = intersects[0].point;
-          this.scene.setCursor(intersects[0].point);
-        }
-      }
-    }
-    if(!surfacePoint) {
-      this.scene.clearCursor();
-    }
-    */
+    return {type: "mouseray", origin: origin, direction: direction};
   }
 }
 
-class Scene extends THREE.Scene {
-  public meshes: {};
-  private lastUpdate: number;
+interface MeshesEntry {
+  mesh?: Mesh;
+  children: {};
+}
+
+abstract class Scene extends THREE.Scene {
+  public userInput: Array<KeyboardEvent | MouseRay> = [];
+  public meshes: MeshesEntry = {children: {}};
+  public activeMeshes: {} = {};
+  private lastUpdate: number = Date.now();
   private cursor: {} = {};
 
-  constructor() {
+  constructor(public label: string) {
     super();
-    this.meshes = {};
-    this.lastUpdate = Date.now();
 
     const light = new THREE.PointLight(0xffffff);
     light.position.set(0,0,20000);
@@ -268,14 +250,34 @@ class Scene extends THREE.Scene {
     this.add(axis);
   }
 
-  public setMesh(mesh: Mesh) {
-    this.meshes[mesh.label] = mesh;
+  public setMesh(mesh: Mesh, parentLabel?: string) {
+    // console.log("Scene.setMesh(", mesh, parentLabel, ")");
+    const findMesh = (label: string, meshes: MeshesEntry) => {
+      for(const l in meshes.children) {
+        if(meshes.children.hasOwnProperty(l)) {
+          if(l === label) {
+            return meshes.children[l];
+          }
+          meshes = findMesh(label, meshes);
+        }
+      }
+    };
+
+    let parentMeshes = this.meshes;
+    if(parentLabel) {
+      parentMeshes = findMesh(parentLabel, this.meshes);
+    }
+
+    parentMeshes.children[mesh.label] = {mesh: mesh, children: {}};
+    this.activeMeshes[mesh.label] = parentMeshes.children[mesh.label].mesh;
     this.add( mesh );
+
+    console.log(this.meshes);
   }
 
   public setCursor(point: THREE.Vector3, id: number = 0) {
     let cursor = this.cursor[id];
-    if(!cursor){
+    if(!cursor) {
       cursor = new Line(new THREE.Vector3(0, 0, 0),
                         new THREE.Vector3(0, 0, 0));
       this.cursor[id] = cursor;
@@ -288,7 +290,7 @@ class Scene extends THREE.Scene {
 
   public clearCursor(id: number = 0) {
     const cursor = this.cursor[id];
-    if(cursor){
+    if(cursor) {
       cursor.setEnd(new THREE.Vector3(0, 0, 0));
     }
   }
@@ -300,11 +302,112 @@ class Scene extends THREE.Scene {
     }
     while(this.lastUpdate < now - timeStep) {
       this.lastUpdate += timeStep;
-      for(const mesh in this.meshes) {
-        if(this.meshes.hasOwnProperty(mesh)) {
-          this.meshes[mesh].service();
+      for(const mesh in this.activeMeshes) {
+        if(this.activeMeshes.hasOwnProperty(mesh)) {
+          this.activeMeshes[mesh].userInput = this.userInput.slice();  // Copy.
+          this.activeMeshes[mesh].service();
         }
       }
+    }
+
+    // Copy this.userInput so inherited classes get the original.
+    const userInput = this.userInput.slice();
+
+    while (userInput.length) {
+      const input = userInput.pop();
+      switch(input.key || input.type) {
+        case "mouseray":
+          this.getFaceUnderMouse(input as MouseRay);
+          break;
+      }
+    }
+  }
+
+  protected abstract getFaceUnderMouse(input: MouseRay): void;
+}
+
+class World extends Scene {
+  constructor(public label: string, private terrainGenerator) {
+    super(label);
+
+    window.addEventListener("beforeunload", (event) => {
+      // Try to Enscripten cleanup memory allocation before page reload.
+      // TODO: Does this work?
+      console.log("Reloading page");
+      for(const mesh in this.meshes) {
+        if(this.meshes.hasOwnProperty(mesh)) {
+          this.meshes[mesh].dispose();
+          this.meshes[mesh] = null;
+        }
+      }
+      this.terrainGenerator.delete();
+      console.log("done cleanup");
+    });
+
+    this.terrainGenerator.MakeCache();
+
+    for(let section = 0; section < 8; section++) {
+      const rootFace = section * Math.pow(2, 29);
+      const mesh = new WorldTile("tile_" + rootFace + "_0_4",
+                                     this.terrainGenerator,
+                                     rootFace,
+                                     0,
+                                     0,
+                                     4);
+      this.setMesh(mesh);
+    }
+  }
+
+  public service(now: number) {
+    super.service(now);
+    while (this.userInput.length) {
+      const input = this.userInput.pop();
+      switch(input.key || input.type) {
+        case "mousedown":
+          // TESTING
+          console.log("mouseclick");
+          const faceId = 0;
+          const mesh = new WorldTile("tile_" + faceId + "_1_5",
+                                         this.terrainGenerator,
+                                         faceId,
+                                         0,
+                                         1,
+                                         5);
+          this.setMesh(mesh, "tile_0_0_4");
+          break;
+      }
+    }
+  }
+
+  public showTile(faceIndexHigh: number,
+                  faceIndexLow: number,
+                  recursionStart: number,
+                  requiredDepth: number) {
+
+  }
+
+  protected getFaceUnderMouse(mouseRay: MouseRay ) {
+    const face = this.terrainGenerator.rayCrossesFace(mouseRay.origin,
+                                                      mouseRay.direction,
+                                                      7);
+    if(face) {
+      const surfacePoint0 = new THREE.Vector3(face.points[0][0],
+                                              face.points[0][1],
+                                              face.points[0][2]);
+      const surfacePoint1 = new THREE.Vector3(face.points[1][0],
+                                              face.points[1][1],
+                                              face.points[1][2]);
+      const surfacePoint2 = new THREE.Vector3(face.points[2][0],
+                                              face.points[2][1],
+                                              face.points[2][2]);
+      this.setCursor(surfacePoint0, 0);
+      this.setCursor(surfacePoint1, 1);
+      this.setCursor(surfacePoint2, 2);
+      face.delete();
+    } else {
+      this.clearCursor(0);
+      this.clearCursor(1);
+      this.clearCursor(2);
     }
   }
 }
@@ -332,6 +435,8 @@ abstract class Mesh extends THREE.Mesh {
   // material types we are using.
   public material: any;
 
+  public userInput: Array<KeyboardEvent | MouseRay> = [];
+
   private materialIndex: number = -1;
   private materialIndexChanged: number = 0;
 
@@ -340,6 +445,15 @@ abstract class Mesh extends THREE.Mesh {
   }
 
   public abstract service(): void;
+
+  public dispose() {
+    if(this.geometry) {
+      this.geometry.dispose();
+    }
+    if(this.material) {
+      this.material.dispose();
+    }
+  }
 
   protected changeMaterial() {
     if(Date.now() - this.materialIndexChanged < 200) {
@@ -375,20 +489,16 @@ abstract class Mesh extends THREE.Mesh {
 }
 
 class Box extends Mesh {
-  private userInput: KeyboardEvent[] = [];
-
   constructor(public label: string) {
     super(label);
     this.geometry = new THREE.BoxGeometry( 1, 1, 1 );
     this.changeMaterial();
-
-    UIMaster.clientMessageQueues.push(this.userInput);
   }
 
   public service() {
     while (this.userInput.length) {
       const input = this.userInput.pop();
-      switch(input.key) {
+      switch(input.key || input.type) {
         case "c":
           this.changeMaterial();
           break;
@@ -397,49 +507,7 @@ class Box extends Mesh {
   }
 }
 
-declare var Module: {
-  DataSourceGenerate: () => void;
-};
-
-class World {
-  public meshes: Mesh[] = [];
-
-  constructor(public label: string,
-              private terrainGenerator) {
-    /*window.addEventListener("beforeunload", (event) => {
-      // Try to Enscripten cleanup memory allocation before page reload.
-      // TODO: Does this work?
-      console.log("Reloading page");
-      this.meshes.forEach((mesh) => {
-        // mesh.geometry.dispose();
-        // mesh = null;
-      });
-      // this.terrainGenerator.delete();
-      console.log("done cleanup");
-
-      const confirmationMessage = null;
-
-      event.returnValue = confirmationMessage;     // Gecko, Trident, Chrome 34+
-      return confirmationMessage;              // Gecko, WebKit, Chrome <34
-    });*/
-
-    this.terrainGenerator.MakeCache();
-
-    for(let section = 0; section < 8; section++) {
-      const rootFace = section * Math.pow(2, 29);
-      this.meshes.push(new WorldTile("tile_" + rootFace,
-                                     this.terrainGenerator,
-                                     rootFace,
-                                     0,
-                                     0,
-                                     7));
-    }
-  }
-}
-
 class WorldTile extends Mesh {
-  private userInput: KeyboardEvent[] = [];
-
   constructor(public label: string,
               private terrainGenerator,
               public faceIndexHigh: number,
@@ -449,9 +517,6 @@ class WorldTile extends Mesh {
     super(label);
 
     this.changeMaterial();
-
-    UIMaster.clientMessageQueues.push(this.userInput);
-
     this.generateTerrain();
   }
 

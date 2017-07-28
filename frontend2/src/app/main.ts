@@ -6,12 +6,8 @@ function init() {
   const terrainGenerator = new Module.DataSourceGenerate();
 
   const camera = new Camera("camera_1");
-  const scene = new Scene();
-  const renderer = new Renderer("renderer1", terrainGenerator);
-
-  // const mesh1 = new Box("mesh1");
-  const meshes = new World("mesh1", terrainGenerator);
-  meshes.meshes.forEach((mesh) => {scene.setMesh(mesh);});
+  const scene = new World("mesh1", terrainGenerator);
+  const renderer = new Renderer("renderer1");
 
   renderer.setScene(scene);
   renderer.setCamera(camera);

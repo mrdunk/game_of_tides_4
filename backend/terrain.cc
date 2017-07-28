@@ -462,11 +462,11 @@ DataSourceGenerate::rayCrossesSubFace(const Point ray_origin,
       Face root_face;
       IndexToRootFace(root_index, root_face);
       if(VectorCrossesFace(ray_origin, ray_direction, root_face)){
-        if(!(enclosing_face.status & Populated)){
+        //if(!(enclosing_face.status & Populated)){
           std::swap(enclosing_face, root_face);
           enclosing_face.status |= Populated;
           break;
-        }
+        //}
       }
     }
   }
@@ -486,7 +486,7 @@ DataSourceGenerate::rayCrossesSubFace(const Point ray_origin,
     }
     if(!sucess){
       // The target was not inside the suggested enclosing_face.
-      LOG("Failed to find face");
+      // LOG("Failed to find face");
       return nullptr;
     }
   }
