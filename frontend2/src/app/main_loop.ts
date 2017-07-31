@@ -18,34 +18,39 @@ class MainLoop {
 
   public static drawFrame() {
     if(MainLoop.lastDrawFrame < 0) {
+      console.log("Rendering stopped.");
       return;
     }
 
     const now = Date.now();
-    if(now - MainLoop.lastDrawFrame >= 1000 / maxFps) {
-      MainLoop.lastDrawFrame = now;
+    let diff = now - MainLoop.lastDrawFrame;
+    if(diff >= 1000 / maxFps) {
+      diff %= (1000 / maxFps);
+      MainLoop.lastDrawFrame = now - diff;
+
       for(const renderer in MainLoop.renderers) {
         if(MainLoop.renderers.hasOwnProperty(renderer)) {
           MainLoop.renderers[renderer].service(now);
-          UIMaster.service();
+          UIMaster.service(now);
+        }
+      }
+
+      MainLoop.framesInSecond += 1;
+      if(now - MainLoop.startSecond >= 1000) {
+        if(now - MainLoop.startSecond >= 2000) {
+          MainLoop.FPS = 0;
+          MainLoop.framesInSecond = 0;
+          MainLoop.startSecond = now;
+        } else {
+          MainLoop.FPS = (0.25 * MainLoop.FPS) +
+            (0.75 * MainLoop.framesInSecond);
+          MainLoop.startSecond += 1000;
+          MainLoop.framesInSecond = 0;
         }
       }
     }
-    MainLoop.frameId = requestAnimationFrame(MainLoop.drawFrame);
 
-    MainLoop.framesInSecond += 1;
-    if(now - MainLoop.startSecond >= 1000) {
-      if(now - MainLoop.startSecond >= 2000) {
-        MainLoop.FPS = 0;
-        MainLoop.framesInSecond = 0;
-        MainLoop.startSecond = now;
-        return;
-      }
-      MainLoop.FPS = (0.25 * MainLoop.FPS) + (0.75 * MainLoop.framesInSecond);
-      MainLoop.startSecond += 1000;
-      // console.log("FPS:", Math.round(MainLoop.FPS), MainLoop.framesInSecond);
-      MainLoop.framesInSecond = 0;
-    }
+    MainLoop.frameId = requestAnimationFrame(MainLoop.drawFrame);
   }
 
   public static stopRendering() {
@@ -54,6 +59,7 @@ class MainLoop {
       return;
     }
 
+    console.log("Stopping rendering.");
     MainLoop.lastDrawFrame = -1;
     cancelAnimationFrame(MainLoop.frameId);
   }

@@ -6,9 +6,10 @@ class UIMaster {
     UIMaster.listiners.push(listiner);
   }
 
-  public static service() {
+  public static service(now: number) {
     UIMaster.listiners.forEach((listiner) => {
-      listiner.service();
+      // console.log(listiner.newData);
+      listiner.service(now);
       UIMaster.clientMessageQueues.forEach((queue) => {
         const newData = listiner.newData.slice();  // Copy array.
         queue.push(...newData);
@@ -38,19 +39,22 @@ class UIMaster {
   }
 }
 
+
 abstract class UIBase {
-  public newData: KeyboardEvent[] = [];
+  public newData: Array<KeyboardEvent | IMouseRay> = [];
 
   constructor() {
     UIMaster.registerListiner(this);
   }
 
-  public abstract service(): void;
+  public abstract service(now: number): void;
   public abstract resetListinerKeys(): void;
 }
 
+
 class UIKeyboard extends UIBase {
   private currentlyDown: {} = {};
+  private lastUpdate: number = Date.now();
 
   constructor() {
     super();
@@ -58,10 +62,15 @@ class UIKeyboard extends UIBase {
     document.addEventListener("keyup", this.keyup.bind(this));
   }
 
-  public service() {
-    for(const key in this.currentlyDown) {
-      if(this.currentlyDown.hasOwnProperty(key)) {
-        this.newData.push(this.currentlyDown[key]);
+  public service(now: number) {
+    while(this.lastUpdate < now - timeStep) {
+      // Need to do normalize the number of key presses for the actual frame
+      // length.
+      this.lastUpdate += timeStep;
+      for(const key in this.currentlyDown) {
+        if(this.currentlyDown.hasOwnProperty(key)) {
+          this.newData.push(this.currentlyDown[key]);
+        }
       }
     }
   }
@@ -79,6 +88,7 @@ class UIKeyboard extends UIBase {
   }
 }
 
+
 class UIMouse extends UIBase {
   private currentlyDown: {} = {};
 
@@ -89,7 +99,7 @@ class UIMouse extends UIBase {
     document.addEventListener("mouseup", this.mouseUp.bind(this));
   }
 
-  public service() {
+  public service(now: number) {
     for(const key in this.currentlyDown) {
       if(this.currentlyDown.hasOwnProperty(key)) {
         this.newData.push(this.currentlyDown[key]);
@@ -104,7 +114,6 @@ class UIMouse extends UIBase {
   }
 
   private mouseMove(event) {
-    // TODO Limit this to one update per frame.
     this.currentlyDown["mousemove"] = event;
   }
 
@@ -114,5 +123,27 @@ class UIMouse extends UIBase {
 
   private mouseUp(event) {
     delete this.currentlyDown["mousedown"];
+  }
+}
+
+
+class UIMenu extends UIBase {
+  public changes: {} = {};
+
+  constructor() {
+    super();
+  }
+
+  public service(now: number) {
+    for(const key in this.changes) {
+      if(this.changes.hasOwnProperty(key)) {
+        this.newData.push(this.changes[key]);
+      }
+    }
+
+    this.changes = {};
+  }
+
+  public resetListinerKeys() {
   }
 }

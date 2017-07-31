@@ -79,7 +79,7 @@ gulp.task('serve', ['compile-ts', 'copy-html', 'watch'], function() {
   process.stdout.write('Starting browserSync and superstatic...\n');
   browserSync({
     port: 3000,
-    files: ['index.html', '**/*.js'],
+    files: ['index.html', 'style.css', '**/*.js', '../build/*.js'],
     injectChanges: true,
     //logFileChanges: false,
     //logLevel: 'silent',

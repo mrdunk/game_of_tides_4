@@ -9,29 +9,39 @@ declare var Module: {
   DataSourceGenerate: () => void;
 };
 
-interface MouseRay {
+interface IMouseRay {
   type: string;
-  origin: number[];
-  direction: number[];
+  origin?: number[];
+  direction?: number[];
   shiftKey?: number;
   ctrlKey?: number;
   altKey?: number;
   key?: string;
+  target?: HTMLElement;
+  value?: string | number | boolean;
 }
 
+interface IMeshesEntry {
+  mesh?: Mesh;
+  children: {};
+}
 
+const cameraInitialDistance = 20000;
 class Camera extends THREE.PerspectiveCamera {
   public lat: number = 0;
   public lon: number = 0;
   public pitch: number = 0;
   public yaw: number = 0;
-  public distance: number = 20000;
-  public userInput: Array<KeyboardEvent | MouseRay> = [];
+  public distance: number = cameraInitialDistance;
+  public userInput: Array<KeyboardEvent | IMouseRay> = [];
   private animate: boolean = true;
   private animateChanged: number = 0;
 
   constructor(public label: string) {
-    super( 75, window.innerWidth / window.innerHeight, 0.1, 100000 );
+    super( 75,
+           window.innerWidth / window.innerHeight,
+           100,
+           cameraInitialDistance * 2 );
     this.position.z = this.distance;
 
     this.updatePos();
@@ -142,7 +152,7 @@ class Camera extends THREE.PerspectiveCamera {
 
 class Renderer extends THREE.WebGLRenderer {
   public element: HTMLElement;
-  public userInput: Array<KeyboardEvent | MouseRay> = [];
+  public userInput: Array<KeyboardEvent | IMouseRay> = [];
   private scene: Scene;
   private camera: Camera;
 
@@ -176,6 +186,18 @@ class Renderer extends THREE.WebGLRenderer {
 
   public service(now: number) {
     // User input.
+    for(let i = this.userInput.length -1; i >=0; i--) {
+      // Remove mouse events destined for other HTML elements.
+      //
+      // If we use this.userInput.filter() here we cannot modify in place so
+      // would have to replace UIMaster's reference to this.userInput.
+      const target = this.userInput[i].target as HTMLElement;
+      if(target !== undefined && this.userInput[i] instanceof MouseEvent &&
+         target.parentElement.id !== this.label) {
+        this.userInput.splice(i, 1);
+      }
+    }
+
     const userInput = this.userInput.slice();  // Copy array.
     while (userInput.length) {
       const input = userInput.pop();
@@ -212,21 +234,16 @@ class Renderer extends THREE.WebGLRenderer {
     const direction = [raycaster.ray.direction.x,
                        raycaster.ray.direction.y,
                        raycaster.ray.direction.z];
-    return {type: "mouseray", origin: origin, direction: direction};
+    return {type: "mouseray", origin, direction};
   }
 }
 
-interface MeshesEntry {
-  mesh?: Mesh;
-  children: {};
-}
-
 abstract class Scene extends THREE.Scene {
-  public userInput: Array<KeyboardEvent | MouseRay> = [];
-  public meshes: MeshesEntry = {children: {}};
+  public userInput: Array<KeyboardEvent | IMouseRay> = [];
+  public meshes: IMeshesEntry = {children: {}};
   public activeMeshes: {} = {};
   private lastUpdate: number = Date.now();
-  private cursor: {} = {};
+  private cursor: Line[] = [];
 
   constructor(public label: string) {
     super();
@@ -252,47 +269,47 @@ abstract class Scene extends THREE.Scene {
 
   public setMesh(mesh: Mesh, parentLabel?: string) {
     // console.log("Scene.setMesh(", mesh, parentLabel, ")");
-    const findMesh = (label: string, meshes: MeshesEntry) => {
-      for(const l in meshes.children) {
-        if(meshes.children.hasOwnProperty(l)) {
-          if(l === label) {
-            return meshes.children[l];
-          }
-          meshes = findMesh(label, meshes);
-        }
-      }
-    };
 
     let parentMeshes = this.meshes;
     if(parentLabel) {
-      parentMeshes = findMesh(parentLabel, this.meshes);
+      parentMeshes = this.findMesh(parentLabel, this.meshes);
     }
 
-    parentMeshes.children[mesh.label] = {mesh: mesh, children: {}};
+    parentMeshes.children[mesh.label] = {mesh, children: {}};
     this.activeMeshes[mesh.label] = parentMeshes.children[mesh.label].mesh;
     this.add( mesh );
 
     console.log(this.meshes);
   }
 
-  public setCursor(point: THREE.Vector3, id: number = 0) {
-    let cursor = this.cursor[id];
-    if(!cursor) {
-      cursor = new Line(new THREE.Vector3(0, 0, 0),
-                        new THREE.Vector3(0, 0, 0));
-      this.cursor[id] = cursor;
-      this.add(cursor);
+  public setCursor(point0: THREE.Vector3,
+                   point1: THREE.Vector3,
+                   point2: THREE.Vector3) {
+    if(this.cursor.length === 0) {
+      for(let c = 0; c < 3; c += 1) {
+        const cursor = new Line(new THREE.Vector3(0, 0, 0),
+                                new THREE.Vector3(0, 0, 0));
+        cursor.renderOrder = 999;
+        cursor.material.depthTest = false;
+        this.cursor.push(cursor);
+        this.add(cursor);
+      }
     }
 
-    point.setLength(point.length() * 2);
-    cursor.setEnd(point);
+    this.cursor[0].setStart(point0);
+    this.cursor[0].setEnd(point1);
+    this.cursor[1].setStart(point1);
+    this.cursor[1].setEnd(point2);
+    this.cursor[2].setStart(point2);
+    this.cursor[2].setEnd(point0);
   }
 
-  public clearCursor(id: number = 0) {
-    const cursor = this.cursor[id];
-    if(cursor) {
-      cursor.setEnd(new THREE.Vector3(0, 0, 0));
-    }
+  public clearCursor() {
+    const origin = new THREE.Vector3(0, 0, 0);
+    this.cursor.forEach((line) => {
+      line.setStart(origin);
+      line.setEnd(origin);
+    });
   }
 
   public service(now: number) {
@@ -303,7 +320,7 @@ abstract class Scene extends THREE.Scene {
     while(this.lastUpdate < now - timeStep) {
       this.lastUpdate += timeStep;
       for(const mesh in this.activeMeshes) {
-        if(this.activeMeshes.hasOwnProperty(mesh)) {
+        if(this.activeMeshes.hasOwnProperty(mesh) && this.activeMeshes[mesh]) {
           this.activeMeshes[mesh].userInput = this.userInput.slice();  // Copy.
           this.activeMeshes[mesh].service();
         }
@@ -317,30 +334,50 @@ abstract class Scene extends THREE.Scene {
       const input = userInput.pop();
       switch(input.key || input.type) {
         case "mouseray":
-          this.getFaceUnderMouse(input as MouseRay);
+          this.getFaceUnderMouse(input as IMouseRay);
           break;
       }
     }
   }
 
-  protected abstract getFaceUnderMouse(input: MouseRay): void;
+  protected abstract getFaceUnderMouse(input: IMouseRay): void;
+
+  protected findMesh(label: string, meshes: IMeshesEntry) {
+    for(const l in meshes.children) {
+      if(meshes.children.hasOwnProperty(l)) {
+        if(l === label) {
+          return meshes.children[l];
+        }
+        const child = this.findMesh(label, meshes.children[l]);
+        if(child !== undefined) {
+          return child;
+        }
+      }
+    }
+  }
 }
 
 class World extends Scene {
+  private activeTileLevels: boolean[] = [];
+  private testCounter: number = 1;
+
   constructor(public label: string, private terrainGenerator) {
     super(label);
 
     window.addEventListener("beforeunload", (event) => {
-      // Try to Enscripten cleanup memory allocation before page reload.
+      // Try to cleanup memory allocation before page reload.
       // TODO: Does this work?
       console.log("Reloading page");
-      for(const mesh in this.meshes) {
-        if(this.meshes.hasOwnProperty(mesh)) {
-          this.meshes[mesh].dispose();
-          this.meshes[mesh] = null;
+      for(const mesh in this.activeMeshes) {
+        if(this.activeMeshes.hasOwnProperty(mesh) && this.activeMeshes[mesh]) {
+          this.activeMeshes[mesh].dispose();
+          this.activeMeshes[mesh] = null;
         }
       }
-      this.terrainGenerator.delete();
+      if(this.terrainGenerator) {
+        this.terrainGenerator.delete();
+        this.terrainGenerator = null;
+      }
       console.log("done cleanup");
     });
 
@@ -348,13 +385,7 @@ class World extends Scene {
 
     for(let section = 0; section < 8; section++) {
       const rootFace = section * Math.pow(2, 29);
-      const mesh = new WorldTile("tile_" + rootFace + "_0_4",
-                                     this.terrainGenerator,
-                                     rootFace,
-                                     0,
-                                     0,
-                                     4);
-      this.setMesh(mesh);
+      this.showTile(rootFace, 0, 0, 4);
     }
   }
 
@@ -365,15 +396,32 @@ class World extends Scene {
       switch(input.key || input.type) {
         case "mousedown":
           // TESTING
-          console.log("mouseclick");
-          const faceId = 0;
-          const mesh = new WorldTile("tile_" + faceId + "_1_5",
-                                         this.terrainGenerator,
-                                         faceId,
-                                         0,
-                                         1,
-                                         5);
-          this.setMesh(mesh, "tile_0_0_4");
+          console.log("mouseclick", input);
+          this.showTile(0,
+            0,
+            this.testCounter,
+            this.testCounter + 4,
+            "tile_0_0_0_4");
+          if(this.testCounter <= 9) {
+            this.testCounter++;
+          }
+          break;
+        case "0":
+        case "1":
+        case "2":
+        case "3":
+        case "4":
+        case "5":
+        case "6":
+        case "7":
+        case "8":
+        case "9":
+          if(input.type === "menuevent") {
+            this.activeTileLevels[parseInt(input.key, 10)] =
+              (input as IMouseRay).value as boolean;
+            this.setTileVisibility();
+          }
+          console.log(this.activeTileLevels);
           break;
       }
     }
@@ -382,15 +430,50 @@ class World extends Scene {
   public showTile(faceIndexHigh: number,
                   faceIndexLow: number,
                   recursionStart: number,
-                  requiredDepth: number) {
+                  requiredDepth: number,
+                  parentLabel?: string) {
 
+    const label = "tile_" + faceIndexHigh + "_" +
+                            faceIndexLow + "_" +
+                            recursionStart + "_" +
+                            requiredDepth;
+
+    if(this.findMesh(label, this.meshes)) {
+      console.log("Already created: ", label);
+      return;
+    }
+
+    if(this.activeTileLevels[recursionStart] === false) {
+      console.log("Tile level not visible: ", label);
+      return;
+    }
+
+    const mesh = new WorldTile(label,
+                                   this.terrainGenerator,
+                                   faceIndexHigh,
+                                   faceIndexLow,
+                                   recursionStart,
+                                   requiredDepth);
+    this.setMesh(mesh, parentLabel);
   }
 
-  protected getFaceUnderMouse(mouseRay: MouseRay ) {
+  protected setTileVisibility() {
+    for(const mesh in this.activeMeshes) {
+      if(this.activeMeshes.hasOwnProperty(mesh) && this.activeMeshes[mesh]) {
+        const recursionStart = mesh.split("_")[3];
+        this.activeMeshes[mesh].visible =
+          this.activeTileLevels[recursionStart] ||
+          this.activeTileLevels[recursionStart] === undefined;
+      }
+    }
+  }
+
+  protected getFaceUnderMouse(mouseRay: IMouseRay ) {
     const face = this.terrainGenerator.rayCrossesFace(mouseRay.origin,
                                                       mouseRay.direction,
-                                                      7);
+                                                      4);
     if(face) {
+      // console.log(face);
       const surfacePoint0 = new THREE.Vector3(face.points[0][0],
                                               face.points[0][1],
                                               face.points[0][2]);
@@ -400,14 +483,11 @@ class World extends Scene {
       const surfacePoint2 = new THREE.Vector3(face.points[2][0],
                                               face.points[2][1],
                                               face.points[2][2]);
-      this.setCursor(surfacePoint0, 0);
-      this.setCursor(surfacePoint1, 1);
-      this.setCursor(surfacePoint2, 2);
       face.delete();
+
+      this.setCursor(surfacePoint0, surfacePoint1, surfacePoint2);
     } else {
-      this.clearCursor(0);
-      this.clearCursor(1);
-      this.clearCursor(2);
+      this.clearCursor();
     }
   }
 }
@@ -424,6 +504,11 @@ class Line extends THREE.Line {
     this.geometry.vertices.push(end);
   }
 
+  public setStart(point: THREE.Vector3) {
+    this.geometry.vertices[0] = point;
+    this.geometry.verticesNeedUpdate = true;
+  }
+
   public setEnd(point: THREE.Vector3) {
     this.geometry.vertices[1] = point;
     this.geometry.verticesNeedUpdate = true;
@@ -435,7 +520,7 @@ abstract class Mesh extends THREE.Mesh {
   // material types we are using.
   public material: any;
 
-  public userInput: Array<KeyboardEvent | MouseRay> = [];
+  public userInput: Array<KeyboardEvent | IMouseRay> = [];
 
   private materialIndex: number = -1;
   private materialIndexChanged: number = 0;
@@ -469,7 +554,10 @@ abstract class Mesh extends THREE.Mesh {
       case 0:
         // this.material = new THREE.MeshLambertMaterial({color: 0x55B663});
         this.material = new THREE.MeshLambertMaterial({
-          vertexColors: THREE.VertexColors});
+          vertexColors: THREE.VertexColors,
+          // transparent: true,
+          // opacity: 1
+        });
         break;
       case 1:
         this.material.wireframe = true;
@@ -539,9 +627,6 @@ class WorldTile extends Mesh {
     const normals = new Float32Array(facesAndSkirt.size() * 3 * 3);
     const colors = new Uint8Array(facesAndSkirt.size() * 3 * 3);
 
-    let highest = 0;
-    let lowest = 255;
-
     const sealevel = 80;
 
     for(let i = 0; i < facesAndSkirt.size(); i++) {
@@ -550,12 +635,6 @@ class WorldTile extends Mesh {
         let height = face.heights[point] * 255 / 3;
         if(height < 0) {
           height = 0;
-        }
-        if(height > highest) {
-          highest = height;
-        }
-        if(height < lowest) {
-          lowest = height;
         }
         if(height >= sealevel) {
           colors[(i * 9) + (point * 3) + 0] = height /2;
@@ -597,9 +676,6 @@ class WorldTile extends Mesh {
       face.delete();
     }
 
-    console.log("highest: ", highest);
-    console.log("lowest: ", lowest);
-
     this.geometry = new THREE.BufferGeometry();
     this.geometry.addAttribute("position",
                                new THREE.BufferAttribute(vertices, 3));
@@ -607,6 +683,8 @@ class WorldTile extends Mesh {
                                new THREE.BufferAttribute(colors, 3, true));
     this.geometry.addAttribute("normal",
                                new THREE.BufferAttribute(normals, 3, true));
+    this.renderOrder = this.requiredDepth;  // TODO: Why not working?
+    this.material.depthTest = false;
 
     faces.delete();
     facesAndSkirt.delete();

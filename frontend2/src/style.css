@@ -15,6 +15,9 @@ body {
   padding: 8px 8px;
   border-radius: 5px;
   float: left;
+}
+
+.widget.centered {
   display: flex;
   align-items: center;
   justify-content: center;
@@ -36,4 +39,8 @@ body {
   width: 1px;
   background: red;
   height: 100%;
+}
+
+.widget .inline {
+  display: inline-block;
 }

@@ -20,10 +20,12 @@ function init() {
 
   const fpsWidget = new StatusWidget();
   const cameraWidget = new CameraPositionWidget(camera);
+  const menuWidget = new MenuWidget("world_tiles");
   const widgetContainer = document.createElement("div");
   widgetContainer.className = "widget-container";
   widgetContainer.appendChild(fpsWidget.element);
   widgetContainer.appendChild(cameraWidget.element);
+  widgetContainer.appendChild(menuWidget.element);
   renderer.element.appendChild(widgetContainer);
 }
 
