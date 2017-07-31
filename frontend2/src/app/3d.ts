@@ -6,6 +6,7 @@
 // http://davidscottlyons.com/threejs/presentations/frontporch14/#slide-16
 
 declare var Module: {
+  IndexAtRecursion: (iHigh: number, iLow: number, r: number) => number[];
   DataSourceGenerate: () => void;
 };
 
@@ -40,7 +41,7 @@ class Camera extends THREE.PerspectiveCamera {
   constructor(public label: string) {
     super( 75,
            window.innerWidth / window.innerHeight,
-           100,
+           10,
            cameraInitialDistance * 2 );
     this.position.z = this.distance;
 
@@ -243,7 +244,6 @@ abstract class Scene extends THREE.Scene {
   public meshes: IMeshesEntry = {children: {}};
   public activeMeshes: {} = {};
   private lastUpdate: number = Date.now();
-  private cursor: Line[] = [];
 
   constructor(public label: string) {
     super();
@@ -282,6 +282,109 @@ abstract class Scene extends THREE.Scene {
     console.log(this.meshes);
   }
 
+  public service(now: number) {
+    if(now - this.lastUpdate > 1000) {
+      console.log("ERROR: Scene last update more than 1 second ago.");
+      this.lastUpdate = now;
+    }
+    while(this.lastUpdate < now - timeStep) {
+      this.lastUpdate += timeStep;
+      for(const mesh in this.activeMeshes) {
+        if(this.activeMeshes.hasOwnProperty(mesh) && this.activeMeshes[mesh]) {
+          this.activeMeshes[mesh].userInput = this.userInput.slice();  // Copy.
+          this.activeMeshes[mesh].service();
+        }
+      }
+    }
+  }
+
+  protected findMesh(label: string, meshes: IMeshesEntry) {
+    for(const l in meshes.children) {
+      if(meshes.children.hasOwnProperty(l)) {
+        if(l === label) {
+          return meshes.children[l];
+        }
+        const child = this.findMesh(label, meshes.children[l]);
+        if(child !== undefined) {
+          return child;
+        }
+      }
+    }
+  }
+}
+
+class World extends Scene {
+  private activeTileLevels: boolean[] = [];
+  private cursor: Line[] = [];
+  private mouseRay: IMouseRay;
+
+  constructor(public label: string, private terrainGenerator) {
+    super(label);
+
+    window.addEventListener("beforeunload", (event) => {
+      // Try to cleanup memory allocation before page reload.
+      // TODO: Does this work?
+      console.log("Reloading page");
+      for(const mesh in this.activeMeshes) {
+        if(this.activeMeshes.hasOwnProperty(mesh) && this.activeMeshes[mesh]) {
+          this.activeMeshes[mesh].dispose();
+          this.activeMeshes[mesh] = null;
+        }
+      }
+      if(this.terrainGenerator) {
+        this.terrainGenerator.delete();
+        this.terrainGenerator = null;
+      }
+      console.log("done cleanup");
+    });
+
+    this.terrainGenerator.MakeCache();
+
+    for(let section = 0; section < 8; section++) {
+      const rootFace = section * Math.pow(2, 29);
+      this.showTile(rootFace, 0, 0);
+    }
+  }
+
+  public service(now: number) {
+    super.service(now);
+    while (this.userInput.length) {
+      const input = this.userInput.pop();
+      switch(input.key || input.type) {
+        case "mousedown":
+          // TESTING
+          console.log("mouseclick", input);
+          const clickedTile = this.getFaceUnderMouse(this.mouseRay, 8);
+          if(clickedTile){
+            this.showTile(clickedTile.indexHigh,
+              clickedTile.indexLow,
+              10);
+            }
+          break;
+        case "0":
+        case "1":
+        case "2":
+        case "3":
+        case "4":
+        case "5":
+        case "6":
+        case "7":
+        case "8":
+        case "9":
+          if(input.type === "menuevent") {
+            this.activeTileLevels[parseInt(input.key, 10)] =
+              (input as IMouseRay).value as boolean;
+            this.setTileVisibility();
+          }
+          break;
+        case "mouseray":
+          this.getFaceUnderMouse(input as IMouseRay, 6);
+          this.mouseRay = input as IMouseRay;
+          break;
+      }
+    }
+  }
+
   public setCursor(point0: THREE.Vector3,
                    point1: THREE.Vector3,
                    point2: THREE.Vector3) {
@@ -312,149 +415,33 @@ abstract class Scene extends THREE.Scene {
     });
   }
 
-  public service(now: number) {
-    if(now - this.lastUpdate > 1000) {
-      console.log("ERROR: Scene last update more than 1 second ago.");
-      this.lastUpdate = now;
-    }
-    while(this.lastUpdate < now - timeStep) {
-      this.lastUpdate += timeStep;
-      for(const mesh in this.activeMeshes) {
-        if(this.activeMeshes.hasOwnProperty(mesh) && this.activeMeshes[mesh]) {
-          this.activeMeshes[mesh].userInput = this.userInput.slice();  // Copy.
-          this.activeMeshes[mesh].service();
-        }
-      }
-    }
-
-    // Copy this.userInput so inherited classes get the original.
-    const userInput = this.userInput.slice();
-
-    while (userInput.length) {
-      const input = userInput.pop();
-      switch(input.key || input.type) {
-        case "mouseray":
-          this.getFaceUnderMouse(input as IMouseRay);
-          break;
-      }
-    }
-  }
-
-  protected abstract getFaceUnderMouse(input: IMouseRay): void;
-
-  protected findMesh(label: string, meshes: IMeshesEntry) {
-    for(const l in meshes.children) {
-      if(meshes.children.hasOwnProperty(l)) {
-        if(l === label) {
-          return meshes.children[l];
-        }
-        const child = this.findMesh(label, meshes.children[l]);
-        if(child !== undefined) {
-          return child;
-        }
-      }
-    }
-  }
-}
-
-class World extends Scene {
-  private activeTileLevels: boolean[] = [];
-  private testCounter: number = 1;
-
-  constructor(public label: string, private terrainGenerator) {
-    super(label);
-
-    window.addEventListener("beforeunload", (event) => {
-      // Try to cleanup memory allocation before page reload.
-      // TODO: Does this work?
-      console.log("Reloading page");
-      for(const mesh in this.activeMeshes) {
-        if(this.activeMeshes.hasOwnProperty(mesh) && this.activeMeshes[mesh]) {
-          this.activeMeshes[mesh].dispose();
-          this.activeMeshes[mesh] = null;
-        }
-      }
-      if(this.terrainGenerator) {
-        this.terrainGenerator.delete();
-        this.terrainGenerator = null;
-      }
-      console.log("done cleanup");
-    });
-
-    this.terrainGenerator.MakeCache();
-
-    for(let section = 0; section < 8; section++) {
-      const rootFace = section * Math.pow(2, 29);
-      this.showTile(rootFace, 0, 0, 4);
-    }
-  }
-
-  public service(now: number) {
-    super.service(now);
-    while (this.userInput.length) {
-      const input = this.userInput.pop();
-      switch(input.key || input.type) {
-        case "mousedown":
-          // TESTING
-          console.log("mouseclick", input);
-          this.showTile(0,
-            0,
-            this.testCounter,
-            this.testCounter + 4,
-            "tile_0_0_0_4");
-          if(this.testCounter <= 9) {
-            this.testCounter++;
-          }
-          break;
-        case "0":
-        case "1":
-        case "2":
-        case "3":
-        case "4":
-        case "5":
-        case "6":
-        case "7":
-        case "8":
-        case "9":
-          if(input.type === "menuevent") {
-            this.activeTileLevels[parseInt(input.key, 10)] =
-              (input as IMouseRay).value as boolean;
-            this.setTileVisibility();
-          }
-          console.log(this.activeTileLevels);
-          break;
-      }
-    }
-  }
-
   public showTile(faceIndexHigh: number,
                   faceIndexLow: number,
-                  recursionStart: number,
-                  requiredDepth: number,
-                  parentLabel?: string) {
+                  recursion: number) {
+    let parentLabel;
+    for(let r = 0; r <= recursion; r++){
+      let iHigh = faceIndexHigh;
+      let iLow = faceIndexLow;
+      [iHigh, iLow] = Module.IndexAtRecursion(iHigh, iLow, r);
 
-    const label = "tile_" + faceIndexHigh + "_" +
-                            faceIndexLow + "_" +
-                            recursionStart + "_" +
-                            requiredDepth;
+      const label = "tile_" + iHigh + "_" +
+                              iLow + "_" +
+                              r;
 
-    if(this.findMesh(label, this.meshes)) {
-      console.log("Already created: ", label);
-      return;
-    }
-
-    if(this.activeTileLevels[recursionStart] === false) {
-      console.log("Tile level not visible: ", label);
-      return;
-    }
-
-    const mesh = new WorldTile(label,
+      if(this.findMesh(label, this.meshes)) {
+        console.log("Already created: ", label);
+      } else {
+        const mesh = new WorldTile(label,
                                    this.terrainGenerator,
                                    faceIndexHigh,
                                    faceIndexLow,
-                                   recursionStart,
-                                   requiredDepth);
-    this.setMesh(mesh, parentLabel);
+                                   r,
+                                   r + 4);
+        mesh.visible = this.activeTileLevels[r];
+        this.setMesh(mesh, parentLabel);
+      }
+      parentLabel = label;
+    }
   }
 
   protected setTileVisibility() {
@@ -468,12 +455,16 @@ class World extends Scene {
     }
   }
 
-  protected getFaceUnderMouse(mouseRay: IMouseRay ) {
+  protected getFaceUnderMouse(mouseRay: IMouseRay, recursion: number) {
+    if(!mouseRay){
+      this.clearCursor();
+      return;
+    }
+
     const face = this.terrainGenerator.rayCrossesFace(mouseRay.origin,
                                                       mouseRay.direction,
-                                                      4);
+                                                      recursion);
     if(face) {
-      // console.log(face);
       const surfacePoint0 = new THREE.Vector3(face.points[0][0],
                                               face.points[0][1],
                                               face.points[0][2]);
@@ -483,9 +474,16 @@ class World extends Scene {
       const surfacePoint2 = new THREE.Vector3(face.points[2][0],
                                               face.points[2][1],
                                               face.points[2][2]);
+      const returnVal = {indexHigh:face.index_high,
+                         indexLow: face.index_low,
+                         height: face.height,
+                         points: [surfacePoint0, surfacePoint1, surfacePoint2],
+                        };
+      //console.log(face);
       face.delete();
 
       this.setCursor(surfacePoint0, surfacePoint1, surfacePoint2);
+      return returnVal;
     } else {
       this.clearCursor();
     }

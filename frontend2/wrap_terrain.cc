@@ -22,6 +22,15 @@ bool IsChildSplit(const uint32_t parent_index_high, const uint32_t parent_index_
   return IsChildIndex(parent_index, parent_recursion, child_index, child_recursion);
 }
 
+IndexSplit IndexSplitAtRecursion(const uint32_t index_high,
+    const uint32_t index_low, const int8_t depth)
+{
+  uint64_t index = (static_cast<uint64_t>(index_high) << 32) + index_low;
+  uint64_t return_index = IndexAtRecursion(index, depth);
+  return {static_cast<uint32_t>(return_index >> 32), static_cast<uint32_t>(return_index)};
+}
+
+
 // TODO: Profile if it is quicker to make multiple calls for single faces rather
 // than copying everything into vector before making the geometry.
 std::vector<std::shared_ptr<Face>> getFaces(DataSourceGenerate& that,
@@ -100,6 +109,7 @@ EMSCRIPTEN_BINDINGS(DataSourceGenerate) {
     .function("rayCrossesSubFace", &DataSourceGenerate::rayCrossesSubFace)
     ;
 
+  function("IndexAtRecursion", &IndexSplitAtRecursion);
   function("IndexOfChild", &IndexSplitOfChild);
   function("IsChild", &IsChildSplit);
 }

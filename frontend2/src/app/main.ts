@@ -1,6 +1,6 @@
 // Copyright 2017 duncan law (mrdunk@gmail.com)
 const timeStep = 1000 / 60;
-const maxFps = 60;
+const maxFps = 30;
 
 function init() {
   const terrainGenerator = new Module.DataSourceGenerate();

@@ -1,6 +1,7 @@
 
 class MainLoop {
   public static FPS = 0;
+  public static averageFPS = 0;
   public static lastDrawFrame = -1;
   public static renderers = [];
 
@@ -10,6 +11,7 @@ class MainLoop {
       return;
     }
 
+    this.averageFPS = maxFps;
     MainLoop.lastDrawFrame = Date.now();
     MainLoop.startSecond = MainLoop.lastDrawFrame;
     MainLoop.framesInSecond = 0;
@@ -22,9 +24,11 @@ class MainLoop {
       return;
     }
 
+    MainLoop.frameId = requestAnimationFrame(MainLoop.drawFrame);
+
     const now = Date.now();
     let diff = now - MainLoop.lastDrawFrame;
-    if(diff >= 1000 / maxFps) {
+    if(diff >= 1000 / maxFps || MainLoop.averageFPS < maxFps * 0.97) {
       diff %= (1000 / maxFps);
       MainLoop.lastDrawFrame = now - diff;
 
@@ -42,15 +46,16 @@ class MainLoop {
           MainLoop.framesInSecond = 0;
           MainLoop.startSecond = now;
         } else {
-          MainLoop.FPS = (0.25 * MainLoop.FPS) +
-            (0.75 * MainLoop.framesInSecond);
+          MainLoop.FPS = MainLoop.framesInSecond;
+          // MainLoop.FPS = (0.25 * MainLoop.FPS) +
+          //  (0.75 * MainLoop.framesInSecond);
+          MainLoop.averageFPS = (0.90 * MainLoop.averageFPS) +
+            (0.10 * MainLoop.framesInSecond);
           MainLoop.startSecond += 1000;
           MainLoop.framesInSecond = 0;
         }
       }
     }
-
-    MainLoop.frameId = requestAnimationFrame(MainLoop.drawFrame);
   }
 
   public static stopRendering() {
