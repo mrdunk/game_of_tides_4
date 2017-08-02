@@ -54,7 +54,7 @@ struct IndexSplit{
   unsigned long low;
 };
 
-class Face {
+struct Face {
  public:
   Face() : status(0x00), height(0), heights({{0,0,0}}), last_used(0) {}
 

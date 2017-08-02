@@ -80,7 +80,7 @@ class CameraPositionWidget extends WidgetBase {
 }
 
 class MenuWidget extends WidgetBase {
-  public userInput: Array<KeyboardEvent | IMouseRay> = [];
+  public userInput: Array<KeyboardEvent | ICustomInputEvent> = [];
   private uiMenu = new UIMenu();
 
   constructor(public label: string) {
@@ -208,7 +208,7 @@ class MenuWidget extends WidgetBase {
 
   private onClick(event: MouseEvent) {
     const target = event.target as HTMLInputElement;
-    const menuEvent: IMouseRay = {type: "menuevent",
+    const menuEvent: ICustomInputEvent = {type: "menuevent",
                                   key: target.value,
                                   value: target.checked};
     this.uiMenu.changes[target.value] = menuEvent;

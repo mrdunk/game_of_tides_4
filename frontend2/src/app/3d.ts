@@ -12,7 +12,7 @@ declare var Module: {
   DataSourceGenerate: () => void;
 };
 
-interface IMouseRay {
+interface ICustomInputEvent {
   type: string;
   origin?: number[];
   direction?: number[];
@@ -29,21 +29,23 @@ interface IMeshesEntry {
   children: {};
 }
 
-const cameraInitialDistance = 20000;
+const earthRadius = 6371;  // km.
+const cameraInitialDistance = 10000 + earthRadius;
 class Camera extends THREE.PerspectiveCamera {
   public lat: number = 0;
   public lon: number = 0;
   public pitch: number = 0;
   public yaw: number = 0;
   public distance: number = cameraInitialDistance;
-  public userInput: Array<KeyboardEvent | IMouseRay> = [];
+  public userInput: Array<KeyboardEvent | ICustomInputEvent> = [];
   private animate: boolean = true;
   private animateChanged: number = 0;
+  private surfaceHeight: number = earthRadius;
 
   constructor(public label: string) {
     super( 75,
            window.innerWidth / window.innerHeight,
-           10,
+           0.01,
            cameraInitialDistance * 2 );
     this.position.z = this.distance;
 
@@ -93,7 +95,10 @@ class Camera extends THREE.PerspectiveCamera {
               this.pitch += 0.01;
               this.updatePos();
             }else if(input.ctrlKey) {
-              this.distance -= 100;
+              // this.distance -= 100;
+              this.distance =
+                ((this.distance - this.surfaceHeight) / 1.1) + this.surfaceHeight;
+              console.log(this.distance);
               this.updatePos();
             } else {
               this.lat += 1;
@@ -108,7 +113,10 @@ class Camera extends THREE.PerspectiveCamera {
               this.pitch -= 0.01;
               this.updatePos();
             }else if(input.ctrlKey) {
-              this.distance += 100;
+              // this.distance += 100;
+              this.distance =
+                ((this.distance - this.surfaceHeight) * 1.1) + this.surfaceHeight;
+              console.log(this.distance);
               this.updatePos();
             } else {
               this.lat -= 1;
@@ -123,6 +131,14 @@ class Camera extends THREE.PerspectiveCamera {
             this.updatePos();
           }
           break;
+        case "cameraabove":
+          console.log(input);
+          let point = new THREE.Vector3();
+          // TODO Factor in land heights.
+          point.fromArray(input.origin);
+          this.surfaceHeight = point.length();
+          console.log(this.surfaceHeight);
+          break;
       }
     }
   }
@@ -132,6 +148,9 @@ class Camera extends THREE.PerspectiveCamera {
     if(this.lat < -90) { this.lat = -90; }
     if(this.lon > 180) { this.lon -= 360; }
     if(this.lon < -180) { this.lon += 360; }
+    if(this.distance <= this.surfaceHeight) {
+      this.distance = this.surfaceHeight + 0.01;
+    }
 
     const lat = 90 - this.lat;
     const lon = this.lon + 90;
@@ -155,7 +174,7 @@ class Camera extends THREE.PerspectiveCamera {
 
 class Renderer extends THREE.WebGLRenderer {
   public element: HTMLElement;
-  public userInput: Array<KeyboardEvent | IMouseRay> = [];
+  public userInput: Array<KeyboardEvent | ICustomInputEvent> = [];
   private scene: Scene;
   private camera: Camera;
 
@@ -208,6 +227,9 @@ class Renderer extends THREE.WebGLRenderer {
         case "mousemove":
           this.userInput.push(this.getMouseRay(input));
           break;
+        case "f":
+          this.userInput.push(this.getCameraAbovePoint());
+          break;
       }
     }
 
@@ -239,10 +261,16 @@ class Renderer extends THREE.WebGLRenderer {
                        raycaster.ray.direction.z];
     return {type: "mouseray", origin, direction};
   }
+
+  private getCameraAbovePoint() {
+    const origin =
+      this.scene.getFaceUnderPoint(this.camera.position, 9).toArray();
+    return {type: "cameraabove", origin};
+  }
 }
 
 abstract class Scene extends THREE.Scene {
-  public userInput: Array<KeyboardEvent | IMouseRay> = [];
+  public userInput: Array<KeyboardEvent | ICustomInputEvent> = [];
   public meshes: IMeshesEntry = {children: {}};
   public activeMeshes: {} = {};
   private lastUpdate: number = Date.now();
@@ -300,6 +328,9 @@ abstract class Scene extends THREE.Scene {
     }
   }
 
+  public abstract getFaceUnderPoint(point: THREE.Vector3,
+                                    recursion: number): THREE.Vector3;
+
   protected findMesh(label: string, meshes: IMeshesEntry) {
     for(const l in meshes.children) {
       if(meshes.children.hasOwnProperty(l)) {
@@ -318,7 +349,7 @@ abstract class Scene extends THREE.Scene {
 class World extends Scene {
   private activeTileLevels: boolean[] = [];
   private cursor: Line[] = [];
-  private mouseRay: IMouseRay;
+  private mouseRay: ICustomInputEvent;
 
   constructor(public label: string, private terrainGenerator) {
     super(label);
@@ -375,13 +406,13 @@ class World extends Scene {
         case "9":
           if(input.type === "menuevent") {
             this.activeTileLevels[parseInt(input.key, 10)] =
-              (input as IMouseRay).value as boolean;
+              (input as ICustomInputEvent).value as boolean;
             this.setTileVisibility();
           }
           break;
         case "mouseray":
-          this.getFaceUnderMouse(input as IMouseRay, 6);
-          this.mouseRay = input as IMouseRay;
+          this.getFaceUnderMouse(input as ICustomInputEvent, 6);
+          this.mouseRay = input as ICustomInputEvent;
           break;
       }
     }
@@ -423,6 +454,26 @@ class World extends Scene {
     return "tile_" + faceIndexHigh + "_" + faceIndexLow + "_" + recursion;
   }
 
+  /* Get a point on surface directly below the specified one. */
+  public getFaceUnderPoint(point: THREE.Vector3, recursion: number) {
+    const direction = new THREE.Vector3();
+    direction.copy(point);
+    direction.normalize();
+    direction.negate();
+    const face = this.terrainGenerator.rayCrossesFace(point.toArray(),
+                                                      direction.toArray(),
+                                                      recursion);
+    if(face) {
+      const surfacePoint = new THREE.Vector3(
+        (face.points[0][0] + face.points[1][0] + face.points[2][0]) / 3,
+        (face.points[0][1] + face.points[1][1] + face.points[2][1]) / 3,
+        (face.points[0][2] + face.points[1][2] + face.points[2][2]) / 3 );
+      face.delete();
+      return surfacePoint;
+    }
+    console.log("Face not found beneath:", point);
+  }
+
   protected setTileVisibility() {
     for(const mesh in this.activeMeshes) {
       if(this.activeMeshes.hasOwnProperty(mesh) && this.activeMeshes[mesh]) {
@@ -434,7 +485,7 @@ class World extends Scene {
     }
   }
 
-  protected getFaceUnderMouse(mouseRay: IMouseRay, recursion: number) {
+  protected getFaceUnderMouse(mouseRay: ICustomInputEvent, recursion: number) {
     if(!mouseRay) {
       this.clearCursor();
       return;
@@ -444,23 +495,14 @@ class World extends Scene {
                                                       mouseRay.direction,
                                                       recursion);
     if(face) {
-      const surfacePoint0 = new THREE.Vector3(face.points[0][0],
-                                              face.points[0][1],
-                                              face.points[0][2]);
-      const surfacePoint1 = new THREE.Vector3(face.points[1][0],
-                                              face.points[1][1],
-                                              face.points[1][2]);
-      const surfacePoint2 = new THREE.Vector3(face.points[2][0],
-                                              face.points[2][1],
-                                              face.points[2][2]);
+      const surfacePoint0 = new THREE.Vector3().fromArray(face.points[0]);
+      const surfacePoint1 = new THREE.Vector3().fromArray(face.points[1]);
+      const surfacePoint2 = new THREE.Vector3().fromArray(face.points[2]);
       const returnVal = {indexHigh:face.index_high,
                          indexLow: face.index_low,
                          height: face.height,
                          points: [surfacePoint0, surfacePoint1, surfacePoint2],
                         };
-      // console.log(face);
-      // let f = face.neighbours;
-      // console.log(f.size());
       face.delete();
 
       this.setCursor(surfacePoint0, surfacePoint1, surfacePoint2);
@@ -563,7 +605,7 @@ abstract class Mesh extends THREE.Mesh {
   // material types we are using.
   public material: any;
 
-  public userInput: Array<KeyboardEvent | IMouseRay> = [];
+  public userInput: Array<KeyboardEvent | ICustomInputEvent> = [];
 
   private materialIndex: number = -1;
   private materialIndexChanged: number = 0;

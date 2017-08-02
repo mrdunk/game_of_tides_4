@@ -41,7 +41,7 @@ class UIMaster {
 
 
 abstract class UIBase {
-  public newData: Array<KeyboardEvent | IMouseRay> = [];
+  public newData: Array<KeyboardEvent | ICustomInputEvent> = [];
 
   constructor() {
     UIMaster.registerListiner(this);

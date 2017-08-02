@@ -446,7 +446,10 @@ DataSourceGenerate::rayCrossesFace(const Point ray_origin,
                                    const uint8_t max_recursion)
 {
   Face start_face;
+  start_face.index = 0;
   start_face.status = 0;
+  start_face.heights = {{0}};
+  start_face.last_used = 0;
   return rayCrossesSubFace(ray_origin, ray_direction, max_recursion, start_face);
 }
 
@@ -456,6 +459,9 @@ DataSourceGenerate::rayCrossesSubFace(const Point ray_origin,
                                       const uint8_t max_recursion,
                                       Face& enclosing_face)
 {
+  // LOG(ray_origin.x << ", " << ray_origin.y << ", " << ray_origin.z);
+  // LOG(ray_direction.x << ", " << ray_direction.y << ", " << ray_direction.z);
+
   if(!(enclosing_face.status & Populated) || (enclosing_face.recursion == 0)){
     // Even if we have a starting enclosing_face but recursion == 0 
     for(uint64_t root_index : k_root_node_indexes){
