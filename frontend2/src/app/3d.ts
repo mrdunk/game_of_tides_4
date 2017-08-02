@@ -7,6 +7,8 @@
 
 declare var Module: {
   IndexAtRecursion: (iHigh: number, iLow: number, r: number) => number[];
+  IndexOfChild:
+    (iHigh: number, iLow: number, recursion: number, child: number) => number[];
   DataSourceGenerate: () => void;
 };
 
@@ -342,7 +344,7 @@ class World extends Scene {
 
     for(let section = 0; section < 8; section++) {
       const rootFace = section * Math.pow(2, 29);
-      this.showTile(rootFace, 0, 0);
+      this.generateTile("", rootFace, 0, 0);
     }
   }
 
@@ -355,10 +357,10 @@ class World extends Scene {
           // TESTING
           console.log("mouseclick", input);
           const clickedTile = this.getFaceUnderMouse(this.mouseRay, 8);
-          if(clickedTile){
-            this.showTile(clickedTile.indexHigh,
+          if(clickedTile) {
+            this.generateTiles(clickedTile.indexHigh,
               clickedTile.indexLow,
-              10);
+              9);
             }
           break;
         case "0":
@@ -415,33 +417,10 @@ class World extends Scene {
     });
   }
 
-  public showTile(faceIndexHigh: number,
-                  faceIndexLow: number,
-                  recursion: number) {
-    let parentLabel;
-    for(let r = 0; r <= recursion; r++){
-      let iHigh = faceIndexHigh;
-      let iLow = faceIndexLow;
-      [iHigh, iLow] = Module.IndexAtRecursion(iHigh, iLow, r);
-
-      const label = "tile_" + iHigh + "_" +
-                              iLow + "_" +
-                              r;
-
-      if(this.findMesh(label, this.meshes)) {
-        console.log("Already created: ", label);
-      } else {
-        const mesh = new WorldTile(label,
-                                   this.terrainGenerator,
-                                   faceIndexHigh,
-                                   faceIndexLow,
-                                   r,
-                                   r + 4);
-        mesh.visible = this.activeTileLevels[r];
-        this.setMesh(mesh, parentLabel);
-      }
-      parentLabel = label;
-    }
+  public makeTileLabel(faceIndexHigh: number,
+                       faceIndexLow: number,
+                       recursion: number) {
+    return "tile_" + faceIndexHigh + "_" + faceIndexLow + "_" + recursion;
   }
 
   protected setTileVisibility() {
@@ -456,7 +435,7 @@ class World extends Scene {
   }
 
   protected getFaceUnderMouse(mouseRay: IMouseRay, recursion: number) {
-    if(!mouseRay){
+    if(!mouseRay) {
       this.clearCursor();
       return;
     }
@@ -479,7 +458,9 @@ class World extends Scene {
                          height: face.height,
                          points: [surfacePoint0, surfacePoint1, surfacePoint2],
                         };
-      //console.log(face);
+      // console.log(face);
+      // let f = face.neighbours;
+      // console.log(f.size());
       face.delete();
 
       this.setCursor(surfacePoint0, surfacePoint1, surfacePoint2);
@@ -488,6 +469,70 @@ class World extends Scene {
       this.clearCursor();
     }
   }
+
+  private generateChildTiles(faceIndexHigh: number,
+                             faceIndexLow: number,
+                             recursion: number) {
+    const parentLabel =
+      this.makeTileLabel(faceIndexHigh, faceIndexLow, recursion);
+    for(let c = 0; c < 4; c++) {
+      const child =
+        Module.IndexOfChild(faceIndexHigh, faceIndexLow, recursion, c);
+      this.generateTile(parentLabel, child[0], child[1], recursion +1);
+    }
+  }
+
+  private generateTile(parentLabel: string,
+                       faceIndexHigh: number,
+                       faceIndexLow: number,
+                       recursion: number) {
+    let iHigh = faceIndexHigh;
+    let iLow = faceIndexLow;
+    [iHigh, iLow] = Module.IndexAtRecursion(iHigh, iLow, recursion);
+
+    const label = this.makeTileLabel(iHigh, iLow, recursion);
+    if(this.findMesh(label, this.meshes)) {
+      console.log("Already created: ", label);
+      return;
+    }
+
+    const mesh = new WorldTile(label,
+                               this.terrainGenerator,
+                               faceIndexHigh,
+                               faceIndexLow,
+                               recursion,
+                               recursion + 4);
+    mesh.visible = this.activeTileLevels[recursion];
+    this.setMesh(mesh, parentLabel);
+  }
+
+  private generateTiles(faceIndexHigh: number,
+                        faceIndexLow: number,
+                        recursion: number) {
+    for(let r = 1; r <= recursion; r++) {
+      let parentHigh = faceIndexHigh;
+      let parentLow = faceIndexLow;
+      [parentHigh, parentLow] =
+        Module.IndexAtRecursion(parentHigh, parentLow, r -1);
+
+      this.generateChildTiles(parentHigh, parentLow, r -1);
+
+      const parentLabel = this.makeTileLabel(parentHigh, parentLow, r -1);
+      const parentTile = this.findMesh(parentLabel, this.meshes).mesh;
+
+      if(parentTile === undefined) {
+        console.log("Couldn't find ", parentLabel);
+      }else if(parentTile.neighbours === undefined) {
+        console.log(parentLabel + " did not have neighbours.", parentTile);
+      } else {
+        for(let n = 0; n < parentTile.neighbours.length; n++) {
+          const neighbour = parentTile.neighbours[n];
+          this.generateChildTiles(neighbour[0], neighbour[1], r -1);
+        }
+      }
+    }
+  }
+
 }
 
 class Line extends THREE.Line {
@@ -538,16 +583,51 @@ abstract class Mesh extends THREE.Mesh {
     }
   }
 
-  protected changeMaterial() {
+  protected changeMaterial(colorHint: number=0) {
     if(Date.now() - this.materialIndexChanged < 200) {
       // Debounce input.
       return;
     }
     this.materialIndexChanged = Date.now();
 
-    if(++this.materialIndex >= 5) {
+    if(++this.materialIndex >= 6) {
       this.materialIndex = 0;
     }
+
+    let color = 0x000000;
+    switch(colorHint) {
+      case 0:
+        color = 0x433F81;
+        break;
+      case 1:
+        color = 0xAA2222;
+        break;
+      case 2:
+        color = 0x22AA22;
+        break;
+      case 3:
+        color = 0x2222AA;
+        break;
+      case 4:
+        color = 0x888822;
+        break;
+      case 5:
+        color = 0x882288;
+        break;
+      case 6:
+        color = 0x228888;
+        break;
+      case 7:
+        color = 0x777777;
+        break;
+      case 8:
+        color = 0xAA2222;
+        break;
+      case 9:
+        color = 0x22AA22;
+        break;
+    }
+
     switch(this.materialIndex) {
       case 0:
         // this.material = new THREE.MeshLambertMaterial({color: 0x55B663});
@@ -561,13 +641,16 @@ abstract class Mesh extends THREE.Mesh {
         this.material.wireframe = true;
         break;
       case 2:
-        this.material = new THREE.MeshBasicMaterial({color: 0x433F81});
+        this.material = new THREE.MeshBasicMaterial({color});
         break;
       case 3:
+        this.material.wireframe = true;
+        break;
+      case 4:
         this.material = new THREE.MeshNormalMaterial({side : THREE.DoubleSide,
                                                       wireframeLinewidth: 1});
         break;
-      case 4:
+      case 5:
         this.material.wireframe = true;
         break;
     }
@@ -594,6 +677,8 @@ class Box extends Mesh {
 }
 
 class WorldTile extends Mesh {
+  public neighbours = [];  // TODO: Type.
+
   constructor(public label: string,
               private terrainGenerator,
               public faceIndexHigh: number,
@@ -612,6 +697,18 @@ class WorldTile extends Mesh {
       this.recursionStart,
       this.requiredDepth);
 
+    const thisFace = this.terrainGenerator.getFaces(this.faceIndexHigh,
+                                                    this.faceIndexLow,
+                                                    this.recursionStart,
+                                                    this.recursionStart);
+    const face = thisFace.get(0);
+    for(let n = 0; n < face.neighbours.size(); n++) {
+      const neighbour = face.neighbours.get(n);
+      this.neighbours.push([neighbour[0], neighbour[1]]);
+    }
+    face.delete();
+    thisFace.delete();
+
     const faces = this.terrainGenerator.getFaces(this.faceIndexHigh,
                                                  this.faceIndexLow,
                                                  this.recursionStart,
@@ -628,9 +725,9 @@ class WorldTile extends Mesh {
     const sealevel = 80;
 
     for(let i = 0; i < facesAndSkirt.size(); i++) {
-      const face = facesAndSkirt.get(i);
+      const componentFace = facesAndSkirt.get(i);
       for(let point=0; point<3; point++) {
-        let height = face.heights[point] * 255 / 3;
+        let height = componentFace.heights[point] * 255 / 3;
         if(height < 0) {
           height = 0;
         }
@@ -649,7 +746,7 @@ class WorldTile extends Mesh {
         }
         for(let coord=0; coord<3; coord++) {
           vertices[(i * 9) + (point * 3) + coord] =
-            face.points[point][coord] * (1 + (height * 0.0001));
+            componentFace.points[point][coord] * (1 + (height * 0.0001));
           // colors[(i * 9) + (point * 3) + coord] = Math.random() * 255;
         }
       }
@@ -659,9 +756,9 @@ class WorldTile extends Mesh {
       const vA = new THREE.Vector3();
       const vB = new THREE.Vector3();
       const vC = new THREE.Vector3();
-      vA.fromArray(face.points[0]);
-      vB.fromArray(face.points[1]);
-      vC.fromArray(face.points[2]);
+      vA.fromArray(componentFace.points[0]);
+      vB.fromArray(componentFace.points[1]);
+      vC.fromArray(componentFace.points[2]);
       vB.sub(vA);
       vC.sub(vA);
       vB.cross(vC);
@@ -671,7 +768,8 @@ class WorldTile extends Mesh {
         normals[(i * 9) + (point * 3) + 1] = vB.y;
         normals[(i * 9) + (point * 3) + 2] = vB.z;
       }
-      face.delete();
+
+      componentFace.delete();
     }
 
     this.geometry = new THREE.BufferGeometry();
@@ -695,7 +793,7 @@ class WorldTile extends Mesh {
       // console.log(input.type, input.key);
       switch(input.key || input.type) {
         case "c":
-          this.changeMaterial();
+          this.changeMaterial(this.recursionStart);
           break;
       }
     }
