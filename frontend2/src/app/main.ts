@@ -2,8 +2,21 @@
 const timeStep = 1000 / 60;
 const maxFps = 30;
 
+function reloadWrapper() {
+  location.reload();
+}
+
 function init() {
-  const terrainGenerator = new Module.DataSourceGenerate();
+  let terrainGenerator;
+  try {
+    terrainGenerator = new Module.DataSourceGenerate();
+  } catch(err) {
+    // Memory still in use from previous page load.
+    // Wait a 5 seconds and re-load again.
+    console.log(err);
+    window.setTimeout(reloadWrapper, 5000);
+    return;
+  }
 
   const camera = new Camera("camera_1");
   const scene = new World("mesh1", terrainGenerator);
