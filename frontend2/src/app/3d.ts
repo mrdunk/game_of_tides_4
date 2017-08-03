@@ -5,6 +5,10 @@
 // Diagram showing how Threejs components fits together:
 // http://davidscottlyons.com/threejs/presentations/frontporch14/#slide-16
 
+const heightMultiplier = 0.01
+const sealevel = 0.8;
+
+
 declare var Module: {
   IndexAtRecursion: (iHigh: number, iLow: number, r: number) => number[];
   IndexOfChild:
@@ -27,6 +31,11 @@ interface ICustomInputEvent {
 interface IMeshesEntry {
   mesh?: Mesh;
   children: {};
+}
+
+interface ISurfacePoint {
+  point: THREE.Vector3;
+  height: number;
 }
 
 const earthRadius = 6371;  // km.
@@ -132,11 +141,21 @@ class Camera extends THREE.PerspectiveCamera {
           }
           break;
         case "cameraabove":
-          console.log(input);
           let point = new THREE.Vector3();
-          // TODO Factor in land heights.
-          point.fromArray(input.origin);
-          this.surfaceHeight = point.length();
+          point.fromArray((input as ICustomInputEvent).origin);
+          let height = (input as ICustomInputEvent).value as number;
+          if(height < sealevel) {
+            height = sealevel;
+          }
+          const multiplier = 1 + (height * heightMultiplier);
+          // point.multiplyScalar(multiplier);
+          //point.x = point.x * multiplier;
+          //point.y = point.y * multiplier;
+          //point.z = point.z * multiplier;
+          this.surfaceHeight = point.length() * multiplier;
+          
+          console.log(input);
+          console.log(height, multiplier);
           console.log(this.surfaceHeight);
           break;
       }
@@ -263,9 +282,12 @@ class Renderer extends THREE.WebGLRenderer {
   }
 
   private getCameraAbovePoint() {
-    const origin =
-      this.scene.getFaceUnderPoint(this.camera.position, 9).toArray();
-    return {type: "cameraabove", origin};
+    const point =
+      this.scene.getFaceUnderPoint(this.camera.position, 6);
+    return {type: "cameraabove",
+            origin: point.point.toArray(),
+            value: point.height};
+    // return {type: "cameraabove", origin: point, value: 2};
   }
 }
 
@@ -329,7 +351,7 @@ abstract class Scene extends THREE.Scene {
   }
 
   public abstract getFaceUnderPoint(point: THREE.Vector3,
-                                    recursion: number): THREE.Vector3;
+                                    recursion: number): ISurfacePoint;
 
   protected findMesh(label: string, meshes: IMeshesEntry) {
     for(const l in meshes.children) {
@@ -438,6 +460,8 @@ class World extends Scene {
     this.cursor[1].setEnd(point2);
     this.cursor[2].setStart(point2);
     this.cursor[2].setEnd(point0);
+          
+    console.log(this.getFaceUnderPoint(point0, 6));
   }
 
   public clearCursor() {
@@ -468,8 +492,9 @@ class World extends Scene {
         (face.points[0][0] + face.points[1][0] + face.points[2][0]) / 3,
         (face.points[0][1] + face.points[1][1] + face.points[2][1]) / 3,
         (face.points[0][2] + face.points[1][2] + face.points[2][2]) / 3 );
+      const height = (face.heights[0] + face.heights[1] + face.heights[2] ) / 3;
       face.delete();
-      return surfacePoint;
+      return {point: surfacePoint, height: height};
     }
     console.log("Face not found beneath:", point);
   }
@@ -764,23 +789,22 @@ class WorldTile extends Mesh {
     const normals = new Float32Array(facesAndSkirt.size() * 3 * 3);
     const colors = new Uint8Array(facesAndSkirt.size() * 3 * 3);
 
-    const sealevel = 80;
-
     for(let i = 0; i < facesAndSkirt.size(); i++) {
       const componentFace = facesAndSkirt.get(i);
       for(let point=0; point<3; point++) {
-        let height = componentFace.heights[point] * 255 / 3;
+        let height = componentFace.heights[point];
         if(height < 0) {
           height = 0;
         }
+        const heightColor = height * 255 / 3;
         if(height >= sealevel) {
-          colors[(i * 9) + (point * 3) + 0] = height /2;
-          colors[(i * 9) + (point * 3) + 1] = height;
-          colors[(i * 9) + (point * 3) + 2] = height /2;
+          colors[(i * 9) + (point * 3) + 0] = heightColor /2;
+          colors[(i * 9) + (point * 3) + 1] = heightColor;
+          colors[(i * 9) + (point * 3) + 2] = heightColor /2;
         } else {
-          colors[(i * 9) + (point * 3) + 0] = height /2;
-          colors[(i * 9) + (point * 3) + 1] = height /2;
-          colors[(i * 9) + (point * 3) + 2] = height;
+          colors[(i * 9) + (point * 3) + 0] = heightColor /2;
+          colors[(i * 9) + (point * 3) + 1] = heightColor /2;
+          colors[(i * 9) + (point * 3) + 2] = heightColor;
         }
 
         if(height < sealevel) {
@@ -788,7 +812,8 @@ class WorldTile extends Mesh {
         }
         for(let coord=0; coord<3; coord++) {
           vertices[(i * 9) + (point * 3) + coord] =
-            componentFace.points[point][coord] * (1 + (height * 0.0001));
+            componentFace.points[point][coord] *
+            (1 + (height * heightMultiplier));
           // colors[(i * 9) + (point * 3) + coord] = Math.random() * 255;
         }
       }
