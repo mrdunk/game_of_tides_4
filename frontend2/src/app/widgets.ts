@@ -72,9 +72,15 @@ class CameraPositionWidget extends WidgetBase {
       yawString = "" + yaw + "\xB0W";
     }
 
+    const degLat = Math.floor(this.camera.lat);
+    const minLat = Math.floor((this.camera.lat - degLat) * 60);
+    const degLon = Math.floor(this.camera.lon);
+    const minLon = Math.floor((this.camera.lon - degLon) * 60);
     this.element.innerHTML =
-      "lat: " + this.camera.lat +
-      "\xB0&nbsp;&nbsp;&nbsp;lon: " + this.camera.lon + "\xB0<br/>" +
+      "lat: " + degLat + "\xB0&nbsp;" + minLat + "'" +
+      "&nbsp;&nbsp;&nbsp;" +
+      "lon: " + degLon + "\xB0&nbsp;" + minLon + "'" + 
+      "<br>" +
       "pitch: " + pitchString + "&nbsp;&nbsp;&nbsp;yaw: " + yawString;
   }
 }

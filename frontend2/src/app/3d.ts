@@ -2,7 +2,7 @@
 /// <reference path='../../node_modules/@types/three/index.d.ts' />
 /// <reference path='../../build/wrap_terrain.js' />
 
-// Diagram showing how Threejs components fits together:
+// Helpful diagram showing how Threejs components fits together:
 // http://davidscottlyons.com/threejs/presentations/frontporch14/#slide-16
 
 const heightMultiplier = 0.01
@@ -39,7 +39,7 @@ interface ISurfacePoint {
 }
 
 const earthRadius = 6371;  // km.
-const cameraInitialDistance = 10000 + earthRadius;
+const cameraInitialDistance = 10000;
 class Camera extends THREE.PerspectiveCamera {
   public lat: number = 0;
   public lon: number = 0;
@@ -56,7 +56,7 @@ class Camera extends THREE.PerspectiveCamera {
            window.innerWidth / window.innerHeight,
            0.01,
            cameraInitialDistance * 2 );
-    this.position.z = this.distance;
+    this.position.z = this.distance + this.surfaceHeight;
 
     this.updatePos();
   }
@@ -76,11 +76,10 @@ class Camera extends THREE.PerspectiveCamera {
         case "ArrowRight":
           if(this.animate) {
             if(input.shiftKey) {
-              // this.rotation.y -= 0.01;
               this.yaw -= 0.01;
               this.updatePos();
             } else {
-              this.lon += 1;
+              this.lon += this.distance / 10000;
               this.updatePos();
             }
           }
@@ -88,11 +87,10 @@ class Camera extends THREE.PerspectiveCamera {
         case "ArrowLeft":
           if(this.animate) {
             if(input.shiftKey) {
-              // this.rotation.y += 0.01;
               this.yaw += 0.01;
               this.updatePos();
             } else {
-              this.lon -= 1;
+              this.lon -= this.distance / 10000;
               this.updatePos();
             }
           }
@@ -100,17 +98,14 @@ class Camera extends THREE.PerspectiveCamera {
         case "ArrowUp":
           if(this.animate) {
             if(input.shiftKey) {
-              // this.rotation.x += 0.01;
               this.pitch += 0.01;
               this.updatePos();
             }else if(input.ctrlKey) {
-              // this.distance -= 100;
-              this.distance =
-                ((this.distance - this.surfaceHeight) / 1.1) + this.surfaceHeight;
+              this.distance /= 1.1;
               console.log(this.distance);
               this.updatePos();
             } else {
-              this.lat += 1;
+              this.lat += this.distance / 10000;
               this.updatePos();
             }
           }
@@ -118,17 +113,14 @@ class Camera extends THREE.PerspectiveCamera {
         case "ArrowDown":
           if(this.animate) {
             if(input.shiftKey) {
-              // this.rotation.x -= 0.01;
               this.pitch -= 0.01;
               this.updatePos();
             }else if(input.ctrlKey) {
-              // this.distance += 100;
-              this.distance =
-                ((this.distance - this.surfaceHeight) * 1.1) + this.surfaceHeight;
+              this.distance *= 1.1;
               console.log(this.distance);
               this.updatePos();
             } else {
-              this.lat -= 1;
+              this.lat -= this.distance / 10000;
               this.updatePos();
             }
           }
@@ -148,15 +140,8 @@ class Camera extends THREE.PerspectiveCamera {
             height = sealevel;
           }
           const multiplier = 1 + (height * heightMultiplier);
-          // point.multiplyScalar(multiplier);
-          //point.x = point.x * multiplier;
-          //point.y = point.y * multiplier;
-          //point.z = point.z * multiplier;
           this.surfaceHeight = point.length() * multiplier;
-          
-          console.log(input);
-          console.log(height, multiplier);
-          console.log(this.surfaceHeight);
+          this.updatePos();
           break;
       }
     }
@@ -167,8 +152,8 @@ class Camera extends THREE.PerspectiveCamera {
     if(this.lat < -90) { this.lat = -90; }
     if(this.lon > 180) { this.lon -= 360; }
     if(this.lon < -180) { this.lon += 360; }
-    if(this.distance <= this.surfaceHeight) {
-      this.distance = this.surfaceHeight + 0.01;
+    if(this.distance < 0.01) {
+      this.distance = 0.01;
     }
 
     const lat = 90 - this.lat;
@@ -176,13 +161,13 @@ class Camera extends THREE.PerspectiveCamera {
     const origin = new THREE.Vector3(0,0,0);
 
     this.position.x =
-      -((this.distance) * Math.sin(THREE.Math.degToRad(lat)) *
+      -((this.distance + this.surfaceHeight) * Math.sin(THREE.Math.degToRad(lat)) *
                           Math.cos(THREE.Math.degToRad(lon)));
     this.position.z =
-      ((this.distance) * Math.sin(THREE.Math.degToRad(lat)) *
+      ((this.distance + this.surfaceHeight) * Math.sin(THREE.Math.degToRad(lat)) *
                          Math.sin(THREE.Math.degToRad(lon)));
     this.position.y =
-      ((this.distance) * Math.cos(THREE.Math.degToRad(lat)));
+      ((this.distance + this.surfaceHeight) * Math.cos(THREE.Math.degToRad(lat)));
 
     this.lookAt(origin);
     this.rotateZ(this.yaw);
@@ -196,6 +181,7 @@ class Renderer extends THREE.WebGLRenderer {
   public userInput: Array<KeyboardEvent | ICustomInputEvent> = [];
   private scene: Scene;
   private camera: Camera;
+  private lastCameraPos: THREE.Vector3 = new THREE.Vector3(0, 0, 0);
 
   constructor(public label: string,
               public width?: number,
@@ -246,10 +232,12 @@ class Renderer extends THREE.WebGLRenderer {
         case "mousemove":
           this.userInput.push(this.getMouseRay(input));
           break;
-        case "f":
-          this.userInput.push(this.getCameraAbovePoint());
-          break;
       }
+    }
+
+    const cameraAbove = this.getCameraAbovePoint();
+    if(cameraAbove) {
+      this.userInput.push(cameraAbove);
     }
 
     // Update dependants.
@@ -282,12 +270,22 @@ class Renderer extends THREE.WebGLRenderer {
   }
 
   private getCameraAbovePoint() {
+    if(this.camera === undefined) {
+      return;
+    }
+    if(this.lastCameraPos.equals(this.camera.position)) {
+      return;
+    }
+    this.lastCameraPos.copy(this.camera.position);
     const point =
-      this.scene.getFaceUnderPoint(this.camera.position, 6);
+      this.scene.getFaceUnderPoint(this.camera.position, 9);
+    if(point === undefined) {
+      return;
+    }
+    console.log("getCameraAbovePoint", point.height);
     return {type: "cameraabove",
             origin: point.point.toArray(),
             value: point.height};
-    // return {type: "cameraabove", origin: point, value: 2};
   }
 }
 
@@ -461,7 +459,7 @@ class World extends Scene {
     this.cursor[2].setStart(point2);
     this.cursor[2].setEnd(point0);
           
-    console.log(this.getFaceUnderPoint(point0, 6));
+    // console.log(this.getFaceUnderPoint(point0, 6));
   }
 
   public clearCursor() {
@@ -500,14 +498,22 @@ class World extends Scene {
   }
 
   protected setTileVisibility() {
-    for(const mesh in this.activeMeshes) {
-      if(this.activeMeshes.hasOwnProperty(mesh) && this.activeMeshes[mesh]) {
-        const recursionStart = mesh.split("_")[3];
-        this.activeMeshes[mesh].visible =
-          this.activeTileLevels[recursionStart] ||
-          this.activeTileLevels[recursionStart] === undefined;
+    for(const meshLabel in this.activeMeshes) {
+      if(this.activeMeshes.hasOwnProperty(meshLabel) &&
+        this.activeMeshes[meshLabel]) {
+        const meshContainer = this.findMesh(meshLabel, this.meshes);
+
+        console.log(meshLabel, Object.keys(meshContainer.children));
+
+        const recursionStart = meshLabel.split("_")[3];
+
+        this.activeMeshes[meshLabel].visible =
+          (this.activeTileLevels[recursionStart] ||
+           this.activeTileLevels[recursionStart] === undefined) &&
+          !(Object.keys(meshContainer.children).length > 3);
       }
     }
+    console.log(this.activeMeshes);
   }
 
   protected getFaceUnderMouse(mouseRay: ICustomInputEvent, recursion: number) {
@@ -598,6 +604,7 @@ class World extends Scene {
         }
       }
     }
+    this.setTileVisibility();
   }
 
 }
@@ -846,8 +853,8 @@ class WorldTile extends Mesh {
                                new THREE.BufferAttribute(colors, 3, true));
     this.geometry.addAttribute("normal",
                                new THREE.BufferAttribute(normals, 3, true));
-    this.renderOrder = this.requiredDepth;  // TODO: Why not working?
-    this.material.depthTest = false;
+    // this.renderOrder = this.requiredDepth;
+    // this.material.depthTest = false;
 
     faces.delete();
     facesAndSkirt.delete();
