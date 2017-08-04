@@ -79,7 +79,7 @@ class CameraPositionWidget extends WidgetBase {
     this.element.innerHTML =
       "lat: " + degLat + "\xB0&nbsp;" + minLat + "'" +
       "&nbsp;&nbsp;&nbsp;" +
-      "lon: " + degLon + "\xB0&nbsp;" + minLon + "'" + 
+      "lon: " + degLon + "\xB0&nbsp;" + minLon + "'" +
       "<br>" +
       "pitch: " + pitchString + "&nbsp;&nbsp;&nbsp;yaw: " + yawString;
   }

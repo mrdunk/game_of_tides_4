@@ -5,7 +5,7 @@
 // Helpful diagram showing how Threejs components fits together:
 // http://davidscottlyons.com/threejs/presentations/frontporch14/#slide-16
 
-const heightMultiplier = 0.01
+const heightMultiplier = 0.01;
 const sealevel = 0.8;
 
 
@@ -133,7 +133,7 @@ class Camera extends THREE.PerspectiveCamera {
           }
           break;
         case "cameraabove":
-          let point = new THREE.Vector3();
+          const point = new THREE.Vector3();
           point.fromArray((input as ICustomInputEvent).origin);
           let height = (input as ICustomInputEvent).value as number;
           if(height < sealevel) {
@@ -161,13 +161,16 @@ class Camera extends THREE.PerspectiveCamera {
     const origin = new THREE.Vector3(0,0,0);
 
     this.position.x =
-      -((this.distance + this.surfaceHeight) * Math.sin(THREE.Math.degToRad(lat)) *
+      -((this.distance + this.surfaceHeight) *
+        Math.sin(THREE.Math.degToRad(lat)) *
                           Math.cos(THREE.Math.degToRad(lon)));
     this.position.z =
-      ((this.distance + this.surfaceHeight) * Math.sin(THREE.Math.degToRad(lat)) *
+      ((this.distance + this.surfaceHeight) *
+        Math.sin(THREE.Math.degToRad(lat)) *
                          Math.sin(THREE.Math.degToRad(lon)));
     this.position.y =
-      ((this.distance + this.surfaceHeight) * Math.cos(THREE.Math.degToRad(lat)));
+      ((this.distance + this.surfaceHeight) *
+        Math.cos(THREE.Math.degToRad(lat)));
 
     this.lookAt(origin);
     this.rotateZ(this.yaw);
@@ -317,16 +320,19 @@ abstract class Scene extends THREE.Scene {
     this.add(axis);
   }
 
-  public setMesh(mesh: Mesh, parentLabel?: string) {
-    // console.log("Scene.setMesh(", mesh, parentLabel, ")");
-
+  /* Save meshes in this.meshes tree. */
+  public setMesh(mesh: Mesh) {
     let parentMeshes = this.meshes;
-    if(parentLabel) {
-      parentMeshes = this.findMesh(parentLabel, this.meshes);
+    if(mesh.userData.parentLabel) {
+      parentMeshes = this.findMesh(mesh.userData.parentLabel, this.meshes);
+      if(!parentMeshes.mesh.userData.children.includes(mesh.userData.label)) {
+        parentMeshes.mesh.userData.children.push(mesh.userData.label);
+      }
     }
 
-    parentMeshes.children[mesh.label] = {mesh, children: {}};
-    this.activeMeshes[mesh.label] = parentMeshes.children[mesh.label].mesh;
+    parentMeshes.children[mesh.userData.label] = {mesh, children: {}};
+    this.activeMeshes[mesh.userData.label] =
+      parentMeshes.children[mesh.userData.label].mesh;
     this.add( mesh );
 
     console.log(this.meshes);
@@ -427,7 +433,7 @@ class World extends Scene {
           if(input.type === "menuevent") {
             this.activeTileLevels[parseInt(input.key, 10)] =
               (input as ICustomInputEvent).value as boolean;
-            this.setTileVisibility();
+            this.setAllTileVisibility();
           }
           break;
         case "mouseray":
@@ -458,7 +464,7 @@ class World extends Scene {
     this.cursor[1].setEnd(point2);
     this.cursor[2].setStart(point2);
     this.cursor[2].setEnd(point0);
-          
+
     // console.log(this.getFaceUnderPoint(point0, 6));
   }
 
@@ -492,28 +498,45 @@ class World extends Scene {
         (face.points[0][2] + face.points[1][2] + face.points[2][2]) / 3 );
       const height = (face.heights[0] + face.heights[1] + face.heights[2] ) / 3;
       face.delete();
-      return {point: surfacePoint, height: height};
+      return {point: surfacePoint, height};
     }
     console.log("Face not found beneath:", point);
   }
 
-  protected setTileVisibility() {
+  public tileFinishedCallback(mesh: Mesh) {
+    this.setParentTileVisibility(mesh.userData.label);
+  }
+
+  protected setAllTileVisibility() {
     for(const meshLabel in this.activeMeshes) {
-      if(this.activeMeshes.hasOwnProperty(meshLabel) &&
-        this.activeMeshes[meshLabel]) {
-        const meshContainer = this.findMesh(meshLabel, this.meshes);
-
-        console.log(meshLabel, Object.keys(meshContainer.children));
-
-        const recursionStart = meshLabel.split("_")[3];
-
-        this.activeMeshes[meshLabel].visible =
-          (this.activeTileLevels[recursionStart] ||
-           this.activeTileLevels[recursionStart] === undefined) &&
-          !(Object.keys(meshContainer.children).length > 3);
+      if(this.activeMeshes.hasOwnProperty(meshLabel)) {
+        this.setTileVisibility(meshLabel);
       }
     }
-    console.log(this.activeMeshes);
+  }
+
+  protected setParentTileVisibility(meshLabel: string) {
+    const mesh = this.activeMeshes[meshLabel];
+    this.setTileVisibility(mesh.userData.parentLabel);
+  }
+
+  protected setTileVisibility(meshLabel: string) {
+    if(this.activeMeshes[meshLabel]) {
+      const mesh = this.activeMeshes[meshLabel];
+      const recursion = mesh.userData.recursion;
+
+      let childrenComplete = (mesh.userData.children.length > 3);
+      mesh.userData.children.forEach((childLabel) => {
+        childrenComplete =
+          childrenComplete &&
+          this.activeMeshes[childLabel].userData.complete === true;
+      });
+
+      this.activeMeshes[meshLabel].visible =
+        (this.activeTileLevels[recursion] ||
+         this.activeTileLevels[recursion] === undefined) &&
+        !childrenComplete;
+    }
   }
 
   protected getFaceUnderMouse(mouseRay: ICustomInputEvent, recursion: number) {
@@ -543,18 +566,6 @@ class World extends Scene {
     }
   }
 
-  private generateChildTiles(faceIndexHigh: number,
-                             faceIndexLow: number,
-                             recursion: number) {
-    const parentLabel =
-      this.makeTileLabel(faceIndexHigh, faceIndexLow, recursion);
-    for(let c = 0; c < 4; c++) {
-      const child =
-        Module.IndexOfChild(faceIndexHigh, faceIndexLow, recursion, c);
-      this.generateTile(parentLabel, child[0], child[1], recursion +1);
-    }
-  }
-
   private generateTile(parentLabel: string,
                        faceIndexHigh: number,
                        faceIndexLow: number,
@@ -574,9 +585,23 @@ class World extends Scene {
                                faceIndexHigh,
                                faceIndexLow,
                                recursion,
-                               recursion + 4);
-    mesh.visible = this.activeTileLevels[recursion];
-    this.setMesh(mesh, parentLabel);
+                               recursion + 4,
+                               parentLabel,
+                               this.tileFinishedCallback.bind(this));
+    this.setMesh(mesh);
+    mesh.visible = this.activeTileLevels[mesh.userData.recursion];
+  }
+
+  private generateChildTiles(faceIndexHigh: number,
+                             faceIndexLow: number,
+                             recursion: number) {
+    const parentLabel =
+      this.makeTileLabel(faceIndexHigh, faceIndexLow, recursion);
+    for(let c = 0; c < 4; c++) {
+      const child =
+        Module.IndexOfChild(faceIndexHigh, faceIndexLow, recursion, c);
+      this.generateTile(parentLabel, child[0], child[1], recursion +1);
+    }
   }
 
   private generateTiles(faceIndexHigh: number,
@@ -595,18 +620,16 @@ class World extends Scene {
 
       if(parentTile === undefined) {
         console.log("Couldn't find ", parentLabel);
-      }else if(parentTile.neighbours === undefined) {
+      }else if(parentTile.userData.neighbours === undefined) {
         console.log(parentLabel + " did not have neighbours.", parentTile);
       } else {
-        for(let n = 0; n < parentTile.neighbours.length; n++) {
-          const neighbour = parentTile.neighbours[n];
+        console.log(parentTile);
+        for(const neighbour of parentTile.userData.neighbours) {
           this.generateChildTiles(neighbour[0], neighbour[1], r -1);
         }
       }
     }
-    this.setTileVisibility();
   }
-
 }
 
 class Line extends THREE.Line {
@@ -642,8 +665,9 @@ abstract class Mesh extends THREE.Mesh {
   private materialIndex: number = -1;
   private materialIndexChanged: number = 0;
 
-  constructor(public label: string) {
+  constructor(label: string) {
     super();
+    this.userData.label = label;
   }
 
   public abstract service(): void;
@@ -732,7 +756,7 @@ abstract class Mesh extends THREE.Mesh {
 }
 
 class Box extends Mesh {
-  constructor(public label: string) {
+  constructor(label: string) {
     super(label);
     this.geometry = new THREE.BoxGeometry( 1, 1, 1 );
     this.changeMaterial();
@@ -751,41 +775,56 @@ class Box extends Mesh {
 }
 
 class WorldTile extends Mesh {
-  public neighbours = [];  // TODO: Type.
-
-  constructor(public label: string,
+  constructor(private label: string,
               private terrainGenerator,
-              public faceIndexHigh: number,
-              public faceIndexLow: number,
-              public recursionStart: number,
-              public requiredDepth: number) {
+              private faceIndexHigh: number,
+              private faceIndexLow: number,
+              private recursion: number,
+              private requiredDepth: number,
+              private parentLabel: string,
+              private tileFinishedCallback: (mesh: Mesh) => void) {
     super(label);
+    this.userData.faceIndexHigh = faceIndexHigh;
+    this.userData.faceIndexLow = faceIndexLow;
+    this.userData.recursion = recursion;
+    this.userData.requiredDepth = requiredDepth;
+    this.userData.parentLabel = parentLabel;
+    this.userData.neighbours = [];  // TODO: Type.
+    this.userData.children = [];
 
     this.changeMaterial();
-    this.generateTerrain();
+    this.getNeighbours();
+    // this.generateTerrain();
+
+    window.setTimeout(function(){
+      this.generateTerrain();
+      tileFinishedCallback(this);
+    }.bind(this), 1);
+  }
+
+  public getNeighbours() {
+    const thisFace = this.terrainGenerator.getFaces(this.faceIndexHigh,
+                                                    this.faceIndexLow,
+                                                    this.recursion,
+                                                    this.recursion);
+    const face = thisFace.get(0);
+    for(let n = 0; n < face.neighbours.size(); n++) {
+      const neighbour = face.neighbours.get(n);
+      this.userData.neighbours.push([neighbour[0], neighbour[1]]);
+    }
+    face.delete();
+    thisFace.delete();
   }
 
   public generateTerrain() {
     console.log(this.faceIndexHigh,
       this.faceIndexLow,
-      this.recursionStart,
+      this.recursion,
       this.requiredDepth);
-
-    const thisFace = this.terrainGenerator.getFaces(this.faceIndexHigh,
-                                                    this.faceIndexLow,
-                                                    this.recursionStart,
-                                                    this.recursionStart);
-    const face = thisFace.get(0);
-    for(let n = 0; n < face.neighbours.size(); n++) {
-      const neighbour = face.neighbours.get(n);
-      this.neighbours.push([neighbour[0], neighbour[1]]);
-    }
-    face.delete();
-    thisFace.delete();
 
     const faces = this.terrainGenerator.getFaces(this.faceIndexHigh,
                                                  this.faceIndexLow,
-                                                 this.recursionStart,
+                                                 this.recursion,
                                                  this.requiredDepth);
     const facesAndSkirt = this.terrainGenerator.getFacesAndSkirt(faces);
 
@@ -858,6 +897,8 @@ class WorldTile extends Mesh {
 
     faces.delete();
     facesAndSkirt.delete();
+
+    this.userData.complete = true;
   }
 
   public service() {
@@ -867,7 +908,7 @@ class WorldTile extends Mesh {
       // console.log(input.type, input.key);
       switch(input.key || input.type) {
         case "c":
-          this.changeMaterial(this.recursionStart);
+          this.changeMaterial(this.recursion);
           break;
       }
     }
