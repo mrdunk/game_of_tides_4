@@ -285,7 +285,6 @@ class Renderer extends THREE.WebGLRenderer {
     if(point === undefined) {
       return;
     }
-    console.log("getCameraAbovePoint", point.height);
     return {type: "cameraabove",
             origin: point.point.toArray(),
             value: point.height};
@@ -377,12 +376,11 @@ class World extends Scene {
   private cursor: Line[] = [];
   private mouseRay: ICustomInputEvent;
 
-  constructor(public label: string, private terrainGenerator) {
+  constructor(public label: string, private terrainGenerator, private worker) {
     super(label);
 
-    window.addEventListener("beforeunload", (event) => {
+    /*window.addEventListener("beforeunload", (event) => {
       // Try to cleanup memory allocation before page reload.
-      // TODO: Does this work?
       console.log("Reloading page");
       for(const mesh in this.activeMeshes) {
         if(this.activeMeshes.hasOwnProperty(mesh) && this.activeMeshes[mesh]) {
@@ -395,7 +393,7 @@ class World extends Scene {
         this.terrainGenerator = null;
       }
       console.log("done cleanup");
-    });
+    });*/
 
     this.terrainGenerator.MakeCache();
 
@@ -403,6 +401,8 @@ class World extends Scene {
       const rootFace = section * Math.pow(2, 29);
       this.generateTile("", rootFace, 0, 0);
     }
+
+    this.initWorker();
   }
 
   public service(now: number) {
@@ -503,10 +503,6 @@ class World extends Scene {
     console.log("Face not found beneath:", point);
   }
 
-  public tileFinishedCallback(mesh: Mesh) {
-    this.setParentTileVisibility(mesh.userData.label);
-  }
-
   protected setAllTileVisibility() {
     for(const meshLabel in this.activeMeshes) {
       if(this.activeMeshes.hasOwnProperty(meshLabel)) {
@@ -576,20 +572,37 @@ class World extends Scene {
 
     const label = this.makeTileLabel(iHigh, iLow, recursion);
     if(this.findMesh(label, this.meshes)) {
-      console.log("Already created: ", label);
+      // console.log("Already created: ", label);
       return;
     }
 
     const mesh = new WorldTile(label,
                                this.terrainGenerator,
+                               this.worker,
                                faceIndexHigh,
                                faceIndexLow,
                                recursion,
                                recursion + 4,
-                               parentLabel,
-                               this.tileFinishedCallback.bind(this));
+                               parentLabel);
     this.setMesh(mesh);
     mesh.visible = this.activeTileLevels[mesh.userData.recursion];
+  }
+
+  private initWorker() {
+    this.worker.port.onmessage = function(e) {
+      const tileLabel = this.makeTileLabel(e.data[0], e.data[1], e.data[2]);
+      const tileMesh = this.findMesh(tileLabel, this.meshes).mesh;
+
+      tileMesh.geometry = new THREE.BufferGeometry();
+      tileMesh.geometry.addAttribute("position",
+                                 new THREE.BufferAttribute(e.data[4], 3));
+      tileMesh.geometry.addAttribute("color",
+                                 new THREE.BufferAttribute(e.data[5], 3, true));
+      tileMesh.geometry.addAttribute("normal",
+                                 new THREE.BufferAttribute(e.data[6], 3, true));
+      tileMesh.userData.complete = true;
+      this.setParentTileVisibility(tileLabel);
+    }.bind(this);
   }
 
   private generateChildTiles(faceIndexHigh: number,
@@ -777,12 +790,12 @@ class Box extends Mesh {
 class WorldTile extends Mesh {
   constructor(private label: string,
               private terrainGenerator,
+              private worker,
               private faceIndexHigh: number,
               private faceIndexLow: number,
               private recursion: number,
               private requiredDepth: number,
-              private parentLabel: string,
-              private tileFinishedCallback: (mesh: Mesh) => void) {
+              private parentLabel: string) {
     super(label);
     this.userData.faceIndexHigh = faceIndexHigh;
     this.userData.faceIndexLow = faceIndexLow;
@@ -796,10 +809,11 @@ class WorldTile extends Mesh {
     this.getNeighbours();
     // this.generateTerrain();
 
-    window.setTimeout(function(){
-      this.generateTerrain();
-      tileFinishedCallback(this);
-    }.bind(this), 1);
+    worker.port.postMessage(["generateTerrain",
+                             faceIndexHigh,
+                             faceIndexLow,
+                             recursion,
+                             requiredDepth]);
   }
 
   public getNeighbours() {

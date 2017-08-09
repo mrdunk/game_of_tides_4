@@ -1,4 +1,7 @@
 // Copyright 2017 duncan law (mrdunk@gmail.com)
+
+declare function SharedWorker(url: string): void;
+
 const timeStep = 1000 / 60;
 const maxFps = 30;
 
@@ -17,9 +20,10 @@ function init() {
     window.setTimeout(reloadWrapper, 5000);
     return;
   }
+  const worker = new SharedWorker("worker.js");
 
   const camera = new Camera("camera_1");
-  const scene = new World("mesh1", terrainGenerator);
+  const scene = new World("mesh1", terrainGenerator, worker);
   const renderer = new Renderer("renderer1");
 
   renderer.setScene(scene);
