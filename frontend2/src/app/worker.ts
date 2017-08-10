@@ -154,13 +154,21 @@ let onconnect = (event) => {
                                                          e.data[2],
                                                          e.data[3],
                                                          e.data[4]);
+        const neighbours = worldTileWorker.getNeighbours(e.data[1],
+                                                         e.data[2],
+                                                         e.data[3]);
+
         port.postMessage([e.data[1],
                          e.data[2],
                          e.data[3],
                          e.data[4],
-                         geometry[0],
-                         geometry[1],
-                         geometry[2]]);
+                         geometry[0].buffer,
+                         geometry[1].buffer,
+                         geometry[2].buffer,
+                         neighbours],
+                         [geometry[0].buffer,
+                          geometry[1].buffer,
+                          geometry[2].buffer]);
         break;
     }
   };
