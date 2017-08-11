@@ -17,7 +17,7 @@ class WorldTileWorker {
   public getNeighbours(faceIndexHigh: number,
                        faceIndexLow: number,
                        recursion: number) {
-    const neighbours = [];
+    const neighbours: IGenerateTileTask[] = [];
     const thisFace = this.terrainGenerator.getFaces(faceIndexHigh,
                                                     faceIndexLow,
                                                     recursion,
@@ -25,7 +25,9 @@ class WorldTileWorker {
     const face = thisFace.get(0);
     for(let n = 0; n < face.neighbours.size(); n++) {
       const neighbour = face.neighbours.get(n);
-      neighbours.push([neighbour[0], neighbour[1]]);
+      neighbours.push({indexHigh: neighbour[0],
+                       indexLow: neighbour[1],
+                       recursion});
     }
     face.delete();
     thisFace.delete();

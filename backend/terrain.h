@@ -32,13 +32,13 @@ const uint64_t k_root_node_indexes[] = {
 // type by changing glm::defaultp for another type.
 //typedef glm::tvec3< glm::u64, glm::defaultp > Point;
 //typedef glm::tvec3< uint32_t, glm::defaultp > Point;
-typedef glm::tvec3< glm::f64, glm::defaultp > Point;
-//typedef glm::tvec3< glm::f32, glm::defaultp > Point;
+//typedef glm::tvec3< glm::f64, glm::defaultp > Point;
+typedef glm::tvec3< glm::f32, glm::defaultp > Point;
 
 //const uint32_t planet_diam = 12742000;  // Diameter of Earth in meters.
 const int64_t planet_radius = 12742 /2;
 
-const double k_scale = planet_radius;
+const float k_scale = planet_radius * 1;
 
 typedef std::pair<uint64_t /*index*/, int8_t /*recursion*/> CacheKey;
 
