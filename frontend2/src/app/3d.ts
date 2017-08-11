@@ -5,7 +5,7 @@
 // Helpful diagram showing how Threejs components fits together:
 // http://davidscottlyons.com/threejs/presentations/frontporch14/#slide-16
 
-const heightMultiplier = 0.02;
+const heightMultiplier = 0.01;
 const sealevel = 0.8;
 
 
@@ -183,8 +183,8 @@ class Camera extends THREE.PerspectiveCamera {
     this.rotateZ(this.yaw);
     this.rotateX(this.pitch);
 
-    this.near = this.distance / 2;
-    this.far = Math.max(this.distance * 2, 1000);
+    this.near = this.distance / 4;
+    this.far = Math.max(this.distance * 2, 2000);
     this.updateProjectionMatrix();
   }
 }

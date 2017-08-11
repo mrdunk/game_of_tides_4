@@ -72,6 +72,8 @@ class CameraPositionWidget extends WidgetBase {
       yawString = "" + yaw + "\xB0W";
     }
 
+    const height = Math.round(this.camera.distance * 1000);
+
     const degLat = Math.floor(this.camera.lat);
     const minLat = Math.floor((this.camera.lat - degLat) * 60);
     const degLon = Math.floor(this.camera.lon);
@@ -81,7 +83,9 @@ class CameraPositionWidget extends WidgetBase {
       "&nbsp;&nbsp;&nbsp;" +
       "lon: " + degLon + "\xB0&nbsp;" + minLon + "'" +
       "<br>" +
-      "pitch: " + pitchString + "&nbsp;&nbsp;&nbsp;yaw: " + yawString;
+      "pitch: " + pitchString + "&nbsp;&nbsp;&nbsp;yaw: " + yawString +
+      "<br>" +
+      "height: " + height + "m";
   }
 }
 
