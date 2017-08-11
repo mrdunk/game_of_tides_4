@@ -50,7 +50,7 @@ class WorldTileWorker {
     const facesAndSkirt = this.terrainGenerator.getFacesAndSkirt(faces);
 
     // Finished generating faces so clear some memory.
-    this.terrainGenerator.cleanCache(20000000);
+    this.terrainGenerator.cleanCache(40000000);
 
     const vertices = new Float32Array(facesAndSkirt.size() * 3 * 3);
     const normals = new Float32Array(facesAndSkirt.size() * 3 * 3);
