@@ -42,9 +42,16 @@ interface IMeshesEntry {
   children: {};
 }
 
-interface ISurfacePoint {
+interface IPoint {
   point: THREE.Vector3;
+  height?: number;
+}
+
+interface IFace {
+  indexHigh: number;
+  indexLow: number;
   height: number;
+  points: IPoint[];
 }
 
 const earthRadius = 6371 * 1;  // km.
@@ -217,6 +224,8 @@ class Renderer extends THREE.WebGLRenderer {
   public setScene(scene: Scene) {
     this.scene = scene;
     this.service(Date.now());
+
+    this.initWorker();
   }
 
   public setCamera(camera: Camera) {
@@ -248,10 +257,7 @@ class Renderer extends THREE.WebGLRenderer {
       }
     }
 
-    const cameraAbove = this.getCameraAbovePoint();
-    if(cameraAbove) {
-      this.userInput.push(cameraAbove);
-    }
+    this.getCameraAbovePoint();
 
     // Update dependants.
     if(this.scene && this.camera) {
@@ -290,14 +296,26 @@ class Renderer extends THREE.WebGLRenderer {
       return;
     }
     this.lastCameraPos.copy(this.camera.position);
-    const point =
-      this.scene.getFaceUnderPoint(this.camera.position, 9);
-    if(point === undefined) {
-      return;
+    this.scene.getSurfaceUnderPoint("cameraabove", this.camera.position, 9);
+  }
+
+  private initWorker() {
+    // this.scene.worker.port.onmessage = this.workerCallback.bind(this);
+    this.scene.worker.port.addEventListener("message",
+                                            this.workerCallback.bind(this));
+  }
+
+  private workerCallback(event) {  // TODO: event type.
+    switch(event.data[0]) {
+      case "getSurfaceUnderPoint":
+        // console.log("callback: getSurfaceUnderPoint", event.data);
+        this.userInput.push({type: event.data[1],
+                             origin: [event.data[4].point.x,
+                                      event.data[4].point.y,
+                                      event.data[4].point.z],
+                             value: event.data[4].height});
+        break;
     }
-    return {type: "cameraabove",
-            origin: point.point.toArray(),
-            value: point.height};
   }
 }
 
@@ -307,7 +325,7 @@ abstract class Scene extends THREE.Scene {
   public activeMeshes: {} = {};
   private lastUpdate: number = Date.now();
 
-  constructor(public label: string) {
+  constructor(public label: string, public worker) {
     super();
 
     const light = new THREE.PointLight(0xffffff);
@@ -367,8 +385,9 @@ abstract class Scene extends THREE.Scene {
     }
   }
 
-  public abstract getFaceUnderPoint(point: THREE.Vector3,
-                                    recursion: number): ISurfacePoint;
+  public abstract getSurfaceUnderPoint(label: string,
+                                    point: THREE.Vector3,
+                                    recursion: number): void;
 
   protected findMesh(label: string, meshes: IMeshesEntry) {
     for(const l in meshes.children) {
@@ -388,12 +407,13 @@ abstract class Scene extends THREE.Scene {
 class World extends Scene {
   private activeTileLevels: boolean[] = [];
   private cursor: Line[] = [];
-  private mouseRay: ICustomInputEvent;
+  private faceUnderMouse;  // TODO: Type;
   private workQueue = [];  // TODO: Type.
   private lockWorkQueue: boolean = false;
 
-  constructor(public label: string, private terrainGenerator, private worker) {
-    super(label);
+  constructor(public label: string, public worker) {
+    super(label, worker);
+    console.log(worker);
 
     /*window.addEventListener("beforeunload", (event) => {
       // Try to cleanup memory allocation before page reload.
@@ -411,11 +431,8 @@ class World extends Scene {
       console.log("done cleanup");
     });*/
 
-    this.terrainGenerator.MakeCache();
-
     for(let section = 0; section < 8; section++) {
       const rootFace = section * Math.pow(2, 29);
-      // this.generateTile("", rootFace, 0, 0);
       this.addGenerateTileTask({indexHigh: rootFace,
                                 indexLow: 0,
                                 recursion: 0,
@@ -428,21 +445,18 @@ class World extends Scene {
 
   public service(now: number) {
     super.service(now);
+
     while (this.userInput.length) {
       const input = this.userInput.pop();
       switch(input.key || input.type) {
         case "mousedown":
           // TESTING
           console.log("mouseclick", input);
-          const clickedTile = this.getFaceUnderMouse(this.mouseRay, 10);
-          if(clickedTile) {
-            this.addGenerateTileTask({indexHigh: clickedTile.indexHigh,
-                                      indexLow: clickedTile.indexLow,
-                                      recursion: 10});
+          if(this.faceUnderMouse) {
+            this.addGenerateTileTask({indexHigh: this.faceUnderMouse.indexHigh,
+                                      indexLow: this.faceUnderMouse.indexLow,
+                                      recursion: 12});
             this.doWork();
-            // this.generateTiles(clickedTile.indexHigh,
-            //                   clickedTile.indexLow,
-            //                   9);
             }
           break;
         case "0":
@@ -463,57 +477,57 @@ class World extends Scene {
           break;
         case "mouseray":
           this.getFaceUnderMouse(input as ICustomInputEvent, 6);
-          this.mouseRay = input as ICustomInputEvent;
           break;
       }
     }
   }
 
-  public setCursor(point0: THREE.Vector3,
-                   point1: THREE.Vector3,
-                   point2: THREE.Vector3) {
+  public setCursor(face: IFace) {
+    if(face === undefined) {
+      this.clearCursor();
+      return;
+    }
+
     if(this.cursor.length === 0) {
       for(let c = 0; c < 3; c += 1) {
         const cursor = new Line(new THREE.Vector3(0, 0, 0),
           new THREE.Vector3(0, 0, 0));
-        //cursor.renderOrder = 999;
-        //cursor.material.depthTest = false;
+        // cursor.renderOrder = 999;
+        // cursor.material.depthTest = false;
         this.cursor.push(cursor);
         this.add(cursor);
       }
       for(let c = 0; c < 3; c += 1) {
         const cursor = new Line(new THREE.Vector3(0, 0, 0),
           new THREE.Vector3(0, 0, 0));
-        //cursor.renderOrder = 999;
-        //cursor.material.depthTest = false;
+        // cursor.renderOrder = 999;
+        // cursor.material.depthTest = false;
         this.cursor.push(cursor);
         this.add(cursor);
       }
     }
 
-    const point0_ = new THREE.Vector3(0, 0, 0);
-    const point1_ = new THREE.Vector3(0, 0, 0);
-    const point2_ = new THREE.Vector3(0, 0, 0);
+    const point0 = new THREE.Vector3(0, 0, 0);
+    const point1 = new THREE.Vector3(0, 0, 0);
+    const point2 = new THREE.Vector3(0, 0, 0);
 
-    point0_.copy(point0);
-    point1_.copy(point1);
-    point2_.copy(point2);
+    point0.copy(face.points[0].point);
+    point1.copy(face.points[1].point);
+    point2.copy(face.points[2].point);
 
-    point0_.setLength(earthRadius * 1.02);
-    point1_.setLength(earthRadius * 1.02);
-    point2_.setLength(earthRadius * 1.02);
+    point0.setLength(earthRadius * 1.02);
+    point1.setLength(earthRadius * 1.02);
+    point2.setLength(earthRadius * 1.02);
 
-    this.cursor[0].setStart(point0_);
-    this.cursor[0].setEnd(point1_);
-    this.cursor[1].setStart(point1_);
-    this.cursor[1].setEnd(point2_);
-    this.cursor[2].setStart(point2_);
-    this.cursor[2].setEnd(point0_);
-    this.cursor[3].setStart(point0_);
-    this.cursor[4].setStart(point1_);
-    this.cursor[5].setStart(point2_);
-
-    // console.log(this.getFaceUnderPoint(point0, 6));
+    this.cursor[0].setStart(point0);
+    this.cursor[0].setEnd(point1);
+    this.cursor[1].setStart(point1);
+    this.cursor[1].setEnd(point2);
+    this.cursor[2].setStart(point2);
+    this.cursor[2].setEnd(point0);
+    this.cursor[3].setStart(point0);
+    this.cursor[4].setStart(point1);
+    this.cursor[5].setStart(point2);
   }
 
   public clearCursor() {
@@ -531,24 +545,15 @@ class World extends Scene {
   }
 
   /* Get a point on surface directly below the specified one. */
-  public getFaceUnderPoint(point: THREE.Vector3, recursion: number) {
-    const direction = new THREE.Vector3();
-    direction.copy(point);
-    direction.normalize();
-    direction.negate();
-    const face = this.terrainGenerator.rayCrossesFace(point.toArray(),
-                                                      direction.toArray(),
-                                                      recursion);
-    if(face) {
-      const surfacePoint = new THREE.Vector3(
-        (face.points[0][0] + face.points[1][0] + face.points[2][0]) / 3,
-        (face.points[0][1] + face.points[1][1] + face.points[2][1]) / 3,
-        (face.points[0][2] + face.points[1][2] + face.points[2][2]) / 3 );
-      const height = (face.heights[0] + face.heights[1] + face.heights[2] ) / 3;
-      face.delete();
-      return {point: surfacePoint, height};
-    }
-    console.log("Face not found beneath:", point);
+  public getSurfaceUnderPoint(label: string,
+                           point: THREE.Vector3,
+                           recursion: number) {
+    this.worker.port.postMessage(
+      ["getSurfaceUnderPoint", label, point, recursion]);
+  }
+
+  protected getFaceUnderMouse(mouseRay: ICustomInputEvent, recursion: number) {
+    this.worker.port.postMessage(["getFaceUnderMouse", mouseRay, recursion]);
   }
 
   protected setAllTileVisibility() {
@@ -583,33 +588,6 @@ class World extends Scene {
     }
   }
 
-  protected getFaceUnderMouse(mouseRay: ICustomInputEvent, recursion: number) {
-    if(!mouseRay) {
-      this.clearCursor();
-      return;
-    }
-
-    const face = this.terrainGenerator.rayCrossesFace(mouseRay.origin,
-                                                      mouseRay.direction,
-                                                      recursion);
-    if(face) {
-      const surfacePoint0 = new THREE.Vector3().fromArray(face.points[0]);
-      const surfacePoint1 = new THREE.Vector3().fromArray(face.points[1]);
-      const surfacePoint2 = new THREE.Vector3().fromArray(face.points[2]);
-      const returnVal = {indexHigh:face.index_high,
-                         indexLow: face.index_low,
-                         height: face.height,
-                         points: [surfacePoint0, surfacePoint1, surfacePoint2],
-                        };
-      face.delete();
-
-      this.setCursor(surfacePoint0, surfacePoint1, surfacePoint2);
-      return returnVal;
-    } else {
-      this.clearCursor();
-    }
-  }
-
   private addGenerateTileTask(task: IGenerateTileTask) {
     if(this.workQueue[task.recursion] === undefined) {
       this.workQueue[task.recursion] = {};
@@ -639,7 +617,6 @@ class World extends Scene {
       if(returnval.type === null) {
         const key = Object.keys(jobList)[0];
         if(key !== undefined) {
-          console.log(key, jobList[key]);
           returnval = jobList[key];
           delete jobList[key];
         }
@@ -688,7 +665,8 @@ class World extends Scene {
         console.log("  generate tile", parentLabel);
         this.generateTile(lastParentLabel, parentHigh, parentLow, r);
         break;
-      } else if(parentTile.mesh.userData.complete !== true) {
+      } else if(parentTile.mesh.userData.neighbours.length === 0 ||
+                parentTile.mesh.userData.complete !== true) {
         // Waiting for this parent to complete.
         console.log("  Waiting to complete", parentLabel);
         break;
@@ -738,8 +716,6 @@ class World extends Scene {
     window.setTimeout(function(){ this.doWork(); }.bind(this), 20);
 
     this.lockWorkQueue = false;
-    console.log(this.meshes);
-    console.log(this.workQueue);
   }
 
   private generateTile(parentLabel: string,
@@ -756,39 +732,63 @@ class World extends Scene {
       return;
     }
 
+    let depth = recursion + 3;
+    if(recursion < 6) {
+      depth = recursion;
+    }
     const mesh = new WorldTile(label,
-                               this.terrainGenerator,
                                this.worker,
                                indexHigh,
                                indexLow,
                                recursion,
-                               recursion + 4,
+                               depth,
                                parentLabel);
     this.setMesh(mesh);
     mesh.visible = this.activeTileLevels[mesh.userData.recursion];
   }
 
   private initWorker() {
-    this.worker.port.onmessage = function callback(e) {
-      const tileLabel = this.makeTileLabel(e.data[0], e.data[1], e.data[2]);
-      let tileMesh = this.findMesh(tileLabel, this.meshes);
-      tileMesh = tileMesh.mesh;
-      tileMesh.userData.neighbours = e.data[7];
+    this.worker.port.addEventListener("message",
+                                      this.workerCallback.bind(this));
+  }
 
-      const vertices = new Float32Array(e.data[4]);
-      const colors = new Uint8Array(e.data[5]);
-      const normals = new Float32Array(e.data[6]);
+  private workerCallback(event) {  // TODO: event type.
+    let tileLabel;
+    let tileMesh;
+    switch(event.data[0]) {
+      case "getNeighbours":
+        console.log("callback: getNeighbours");
+        tileLabel = this.makeTileLabel(event.data[1],
+                                       event.data[2],
+                                       event.data[3]);
+        tileMesh = this.findMesh(tileLabel, this.meshes).mesh;
+        tileMesh.userData.neighbours = event.data[4];
+        break;
+      case "generateTerrain":
+        console.log("callback: generateTerrain");
+        tileLabel = this.makeTileLabel(event.data[1],
+                                       event.data[2],
+                                       event.data[3]);
+        tileMesh = this.findMesh(tileLabel, this.meshes).mesh;
+        const vertices = new Float32Array(event.data[5]);
+        const colors = new Uint8Array(event.data[6]);
+        const normals = new Float32Array(event.data[7]);
 
-      tileMesh.geometry = new THREE.BufferGeometry();
-      tileMesh.geometry.addAttribute("position",
-                                 new THREE.BufferAttribute(vertices, 3));
-      tileMesh.geometry.addAttribute("color",
-                                 new THREE.BufferAttribute(colors, 3, true));
-      tileMesh.geometry.addAttribute("normal",
-                                 new THREE.BufferAttribute(normals, 3, true));
-      tileMesh.userData.complete = true;
-      this.setParentTileVisibility(tileLabel);
-    }.bind(this);
+        tileMesh.geometry = new THREE.BufferGeometry();
+        tileMesh.geometry.addAttribute("position",
+                                   new THREE.BufferAttribute(vertices, 3));
+        tileMesh.geometry.addAttribute("color",
+                                   new THREE.BufferAttribute(colors, 3, true));
+        tileMesh.geometry.addAttribute("normal",
+                                   new THREE.BufferAttribute(normals, 3, true));
+        tileMesh.userData.complete = true;
+        this.setParentTileVisibility(tileLabel);
+        break;
+      case "getFaceUnderMouse":
+        this.faceUnderMouse = event.data[3];
+        this.setCursor(this.faceUnderMouse);
+        break;
+    }
   }
 }
 
@@ -798,7 +798,8 @@ class Line extends THREE.Line {
   constructor(start: THREE.Vector3 = new THREE.Vector3(0, 0, 0),
               end: THREE.Vector3 = new THREE.Vector3(10000, 0, 0)) {
     super();
-    this.material = new THREE.LineBasicMaterial({ color: 0xff0000, linewidth: 2 });
+    this.material = new THREE.LineBasicMaterial({color: 0xff0000,
+                                                 linewidth: 2 });
     this.geometry = new THREE.Geometry();
     this.geometry.vertices.push(start);
     this.geometry.vertices.push(end);
@@ -941,7 +942,6 @@ class Box extends Mesh {
 
 class WorldTile extends Mesh {
   constructor(private label: string,
-              private terrainGenerator,
               private worker,
               private indexHigh: number,
               private indexLow: number,
@@ -961,6 +961,10 @@ class WorldTile extends Mesh {
     // this.getNeighbours();
     // this.generateTerrain();
 
+    worker.port.postMessage(["getNeighbours",
+                             indexHigh,
+                             indexLow,
+                             recursion]);
     worker.port.postMessage(["generateTerrain",
                              indexHigh,
                              indexLow,

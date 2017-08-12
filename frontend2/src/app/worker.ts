@@ -106,18 +106,58 @@ class WorldTileWorker {
       componentFace.delete();
     }
 
-    /*this.geometry = new THREE.BufferGeometry();
-    this.geometry.addAttribute("position",
-                               new THREE.BufferAttribute(vertices, 3));
-    this.geometry.addAttribute("color",
-                               new THREE.BufferAttribute(colors, 3, true));
-    this.geometry.addAttribute("normal",
-                               new THREE.BufferAttribute(normals, 3, true));*/
-
     faces.delete();
     facesAndSkirt.delete();
 
-    return [vertices, colors, normals];
+    return [vertices.buffer, colors.buffer, normals.buffer];
+  }
+
+  /* Get a point on surface directly below the specified one. */
+  public getSurfaceUnderPoint(point: THREE.Vector3, recursion: number): IPoint {
+    point = new THREE.Vector3(point.x, point.y, point.z);
+    const direction = new THREE.Vector3();
+    direction.copy(point);
+    direction.normalize();
+    direction.negate();
+    const face = this.terrainGenerator.rayCrossesFace(point.toArray(),
+                                                      direction.toArray(),
+                                                      recursion);
+    if(face) {
+      const surfacePoint = new THREE.Vector3(
+        (face.points[0][0] + face.points[1][0] + face.points[2][0]) / 3,
+        (face.points[0][1] + face.points[1][1] + face.points[2][1]) / 3,
+        (face.points[0][2] + face.points[1][2] + face.points[2][2]) / 3 );
+      const height = (face.heights[0] + face.heights[1] + face.heights[2] ) / 3;
+      face.delete();
+      return {point: surfacePoint, height};
+    }
+    console.log("Face not found beneath:", point);
+  }
+
+  public getFaceUnderMouse(mouseRay: ICustomInputEvent, recursion: number):
+  IFace {
+    const face = this.terrainGenerator.rayCrossesFace(mouseRay.origin,
+                                                      mouseRay.direction,
+                                                      recursion);
+    if(face) {
+      const surfacePoint0: IPoint = {
+        point: new THREE.Vector3().fromArray(face.points[0]),
+        height: face.heights[0]};
+      const surfacePoint1: IPoint = {
+        point: new THREE.Vector3().fromArray(face.points[1]),
+        height: face.heights[1]};
+      const surfacePoint2: IPoint = {
+        point: new THREE.Vector3().fromArray(face.points[2]),
+        height: face.heights[2]};
+      const returnVal = {indexHigh: face.index_high as number,
+                         indexLow: face.index_low as number,
+                         height: face.height as number,
+                         points: [surfacePoint0, surfacePoint1, surfacePoint2],
+                        };
+      face.delete();
+
+      return returnVal;
+    }
   }
 
   private init() {
@@ -128,7 +168,7 @@ class WorldTileWorker {
       // Memory still in use from previous page load.
       // Wait a 5 seconds and re-load again.
       console.log(err);
-      setTimeout(this.init, 5000);
+      setTimeout(this.init.bind(this), 5000);
       return;
     }
   }
@@ -143,35 +183,45 @@ let onconnect = (event) => {
   port.onmessage = (e) => {
     const workerResult = "Recieved: " + e.data[0];
     console.log(workerResult);
-    // port.postMessage(workerResult);
 
+    const reply = e.data.slice();  // Copy.
 
     switch(e.data[0]) {
       case "rayCrossesFace":
         break;
       case "getNeighbours":
+        const neighbours = worldTileWorker.getNeighbours(e.data[1],
+                                                         e.data[2],
+                                                         e.data[3]);
+        reply.push(neighbours);
+        port.postMessage(reply);
         break;
       case "generateTerrain":
         const geometry = worldTileWorker.generateTerrain(e.data[1],
                                                          e.data[2],
                                                          e.data[3],
                                                          e.data[4]);
-        const neighbours = worldTileWorker.getNeighbours(e.data[1],
-                                                         e.data[2],
-                                                         e.data[3]);
-
-        port.postMessage([e.data[1],
-                         e.data[2],
-                         e.data[3],
-                         e.data[4],
-                         geometry[0].buffer,
-                         geometry[1].buffer,
-                         geometry[2].buffer,
-                         neighbours],
-                         [geometry[0].buffer,
-                          geometry[1].buffer,
-                          geometry[2].buffer]);
+        console.log(reply.length, geometry.length);
+        port.postMessage(reply.concat(geometry), geometry);
         break;
+      case "getSurfaceUnderPoint":
+        const point = worldTileWorker.getSurfaceUnderPoint(e.data[2],
+                                                          e.data[3]);
+        reply.push(point);
+        port.postMessage(reply);
+        break;
+      case "getFaceUnderMouse":
+        const face = worldTileWorker.getFaceUnderMouse(e.data[1], e.data[2]);
+
+        reply.push(face);
+        port.postMessage(reply);
+        break;
+      case "ping":
+        reply.push("pong");
+        port.postMessage(reply);
+        break;
+      default:
+        console.log(e.data);
     }
   };
 };
