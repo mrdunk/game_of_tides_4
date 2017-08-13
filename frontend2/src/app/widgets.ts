@@ -94,7 +94,7 @@ class MenuWidget extends WidgetBase {
   private uiMenu = new UIMenu();
 
   constructor(public label: string) {
-    super("Menu", 100, 200);
+    super("Menu", 150, 400);
     setInterval(this.service.bind(this), 1000);
 
     UIMaster.clientMessageQueues.push(this.userInput);
@@ -102,9 +102,19 @@ class MenuWidget extends WidgetBase {
     const content = {
       worldLevelGenerate: {
         label: "generate: ",
-        type: "number",
+        type: "range",
         key: "generateLevel",
         value: 6,
+        min: 1,
+        max: 16,
+      },
+      cursorSize: {
+        label: "cursor size: ",
+        type: "range",
+        key: "cursorSize",
+        value: 6,
+        min: 1,
+        max: 16,
       },
       worldLevel0: {
         label: "0",
@@ -156,6 +166,31 @@ class MenuWidget extends WidgetBase {
         type: "checkbox",
         key: "9",
       },
+      worldLevel10: {
+        label: "10",
+        type: "checkbox",
+        key: "10",
+      },
+      worldLevel11: {
+        label: "11",
+        type: "checkbox",
+        key: "11",
+      },
+      worldLevel12: {
+        label: "12",
+        type: "checkbox",
+        key: "12",
+      },
+      worldLevel13: {
+        label: "13",
+        type: "checkbox",
+        key: "13",
+      },
+      worldLevel14: {
+        label: "14",
+        type: "checkbox",
+        key: "14",
+      },
     };
 
     const container = document.createElement("div");
@@ -174,6 +209,12 @@ class MenuWidget extends WidgetBase {
         newInput.type = content[id].type;
         newInput.checked = true;
         newInput.value = content[id].value || content[id].key || id;
+        if(content[id].min !== undefined) {
+          newInput.min = content[id].min;
+        }
+        if(content[id].max !== undefined) {
+          newInput.max = content[id].max;
+        }
 
         newInput.className = "inline";
 
@@ -201,6 +242,11 @@ class MenuWidget extends WidgetBase {
         case "7":
         case "8":
         case "9":
+        case "10":
+        case "11":
+        case "12":
+        case "13":
+        case "14":
           if(input.type === "keydown" && !debounce[input.key]) {
             debounce[input.key] = true;
             this.onKeyPress(input as KeyboardEvent);
@@ -236,5 +282,64 @@ class MenuWidget extends WidgetBase {
                    value: target.value};
     }
     this.uiMenu.changes[target.value] = menuEvent;
+  }
+}
+
+class CursorPositionWidget extends WidgetBase {
+  private container: HTMLElement;
+
+  constructor(private world: World) {
+    super("CursorPos", 300, 250);
+    setInterval(this.service.bind(this), 200);
+    this.element.classList.add("centered");
+    this.container = document.createElement("div");
+    this.element.appendChild(this.container);
+  }
+
+  public service() {
+    this.container.innerHTML = "";
+    const face = this.world.faceUnderMouse;
+    if(face === undefined) {
+      return;
+    }
+
+    const sizeDiv = document.createElement("div");
+    this.container.appendChild(sizeDiv);
+    
+    const point0 = new THREE.Vector3(0, 0, 0);
+    const point1 = new THREE.Vector3(0, 0, 0);
+    const point2 = new THREE.Vector3(0, 0, 0);
+
+    point0.copy(face.points[0].point);
+    point1.copy(face.points[1].point);
+    point2.copy(face.points[2].point);
+    
+    const size = (point0.distanceTo(point1) +
+                  point1.distanceTo(point2) +
+                  point2.distanceTo(point0)) / 3;
+    sizeDiv.innerHTML = "size: " + size;
+
+    
+    const tileLabel = this.world.makeTileLabel(
+      face.indexHigh,
+      face.indexLow,
+      this.world.generateTileLevel);
+    const tile = this.world.activeMeshes[tileLabel];
+
+    if(tile === undefined) {
+      return;
+    }
+
+    const tileDiv = document.createElement("div");
+    this.container.appendChild(tileDiv);
+    tileDiv.innerHTML = "" + tile.userData.label;
+
+    tile.userData.neighbours.forEach((neighbour, i) => {
+      const neighbourDiv = document.createElement("div");
+      this.container.appendChild(neighbourDiv);
+      neighbourDiv.innerHTML = "" + i + " " +
+        neighbour.indexHigh + " " +
+        neighbour.indexLow + " ";
+    });
   }
 }

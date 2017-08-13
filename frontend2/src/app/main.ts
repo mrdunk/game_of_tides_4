@@ -37,14 +37,16 @@ function init() {
   const keyboard = new UIKeyboard();
   const mouse = new UIMouse();
 
+  const menuWidget = new MenuWidget("world_tiles");
   const fpsWidget = new StatusWidget();
   const cameraWidget = new CameraPositionWidget(camera);
-  const menuWidget = new MenuWidget("world_tiles");
+  const cursorWidget = new CursorPositionWidget(scene);
   const widgetContainer = document.createElement("div");
   widgetContainer.className = "widget-container";
+  widgetContainer.appendChild(menuWidget.element);
   widgetContainer.appendChild(fpsWidget.element);
   widgetContainer.appendChild(cameraWidget.element);
-  widgetContainer.appendChild(menuWidget.element);
+  widgetContainer.appendChild(cursorWidget.element);
   renderer.element.appendChild(widgetContainer);
 }
 

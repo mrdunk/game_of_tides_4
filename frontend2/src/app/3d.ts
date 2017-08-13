@@ -6,7 +6,7 @@
 // http://davidscottlyons.com/threejs/presentations/frontporch14/#slide-16
 
 const heightMultiplier = 0.01;
-const sealevel = 0.8;
+const sealevel = 1.2;
 const earthRadius = 6371 * 1;  // km.
 const cameraInitialDistance = 10000 * 1;
 
@@ -17,11 +17,14 @@ declare var Module: {
   DataSourceGenerate: () => void;
 };
 
-interface IGenerateTileTask {
-  type?: string;
+interface IGenerateTile {
   indexHigh: number;
   indexLow: number;
   recursion: number;
+}
+
+interface IGenerateTileTask extends IGenerateTile {
+  type?: string;
   neighbours?: boolean;
   children?: boolean;
 }
@@ -148,10 +151,8 @@ class Camera extends THREE.PerspectiveCamera {
         case "cameraabove":
           const point = new THREE.Vector3();
           point.fromArray((input as ICustomInputEvent).origin);
-          let height = (input as ICustomInputEvent).value as number;
-          if(height < sealevel) {
-            height = sealevel;
-          }
+          let height = 
+            Math.max(sealevel, (input as ICustomInputEvent).value as number);
           const multiplier = 1 + (height * heightMultiplier);
           this.surfaceHeight = point.length() * multiplier;
           this.updatePos();
@@ -296,7 +297,9 @@ class Renderer extends THREE.WebGLRenderer {
       return;
     }
     this.lastCameraPos.copy(this.camera.position);
-    this.scene.getSurfaceUnderPoint("cameraabove", this.camera.position, 9);
+    this.scene.getSurfaceUnderPoint("cameraabove",
+                                    this.camera.position,
+                                    this.scene.cursorSize);
   }
 
   private initWorker() {
@@ -323,7 +326,7 @@ class Renderer extends THREE.WebGLRenderer {
 
 abstract class Scene extends THREE.Scene {
   public userInput: Array<KeyboardEvent | ICustomInputEvent> = [];
-  public meshes: IMeshesEntry = {children: {}};
+  // public meshes: IMeshesEntry = {children: {}};
   public activeMeshes: {} = {};
   private lastUpdate: number = Date.now();
   private fogDistance: number = 0;
@@ -356,20 +359,16 @@ abstract class Scene extends THREE.Scene {
 
   /* Save meshes in this.meshes tree. */
   public setMesh(mesh: Mesh) {
-    let parentMeshes = this.meshes;
-    if(mesh.userData.parentLabel) {
-      parentMeshes = this.findMeshRecursive(mesh.userData.parentLabel, this.meshes);
-      if(!parentMeshes.mesh.userData.children.includes(mesh.userData.label)) {
-        parentMeshes.mesh.userData.children.push(mesh.userData.label);
+    const parentTile = this.activeMeshes[mesh.userData.parentLabel];
+    if(parentTile !== undefined) {
+      if(!parentTile.userData.children.includes(mesh.userData.label)){
+        parentTile.userData.children.push(mesh.userData.label);
       }
     }
+    this.activeMeshes[mesh.userData.label] = mesh;
+    this.add(mesh);
 
-    parentMeshes.children[mesh.userData.label] = {mesh, children: {}};
-    this.activeMeshes[mesh.userData.label] =
-      parentMeshes.children[mesh.userData.label].mesh;
-    this.add( mesh );
-
-    // console.log(this.meshes);
+    // console.log(this.activeMeshes);
   }
 
   public service(now: number) {
@@ -408,30 +407,16 @@ abstract class Scene extends THREE.Scene {
       return this.activeMeshes[label];
     }
   }
-
-  protected findMeshRecursive(label: string, meshes: IMeshesEntry) {
-    for(const l in meshes.children) {
-      if(meshes.children.hasOwnProperty(l)) {
-        if(l === label) {
-          return meshes.children[l];
-        }
-        const child = this.findMeshRecursive(label, meshes.children[l]);
-        if(child !== undefined) {
-          return child;
-        }
-      }
-    }
-  }
 }
 
 class World extends Scene {
+  public faceUnderMouse;  // TODO: Type;
+  public generateTileLevel: number = 6;
   private activeTileLevels: boolean[] = [];
-  // private cursor: Line[] = [];
   private cursor = [];
-  private faceUnderMouse;  // TODO: Type;
   private workQueue = [];  // TODO: Type.
   private lockWorkQueue: boolean = false;
-  private generateTileLevel: number = 6;
+  private cursorSize: number = 6;
 
   constructor(public label: string, public worker) {
     super(label, worker);
@@ -452,11 +437,11 @@ class World extends Scene {
 
     for(let section = 0; section < 8; section++) {
       const rootFace = section * Math.pow(2, 29);
-      this.addGenerateTileTask({indexHigh: rootFace,
+      this.fanGenerateTileTask({indexHigh: rootFace,
                                 indexLow: 0,
-                                recursion: 1,
+                                recursion: 0,
                                 neighbours: true,
-                                children: false});
+                                children: true});
     }
     this.initWorker();
     this.doWork();
@@ -477,7 +462,7 @@ class World extends Scene {
               Module.IndexAtRecursion(this.faceUnderMouse.indexHigh,
                                       this.faceUnderMouse.indexLow,
                                       this.generateTileLevel);
-            this.addGenerateTileTask({indexHigh: high,
+            this.fanGenerateTileTask({indexHigh: high,
                                       indexLow: low,
                                       recursion: this.generateTileLevel,
                                       neighbours: true,
@@ -495,6 +480,11 @@ class World extends Scene {
         case "7":
         case "8":
         case "9":
+        case "10":
+        case "11":
+        case "12":
+        case "13":
+        case "14":
           if(input.type === "menuevent") {
             this.activeTileLevels[parseInt(input.key, 10)] =
               (input as ICustomInputEvent).value as boolean;
@@ -503,11 +493,16 @@ class World extends Scene {
           break;
         case "generateLevel":
           const generate = (input as ICustomInputEvent).value as string;
-          this.generateTileLevel = parseInt(generate);
+          this.generateTileLevel = parseInt(generate, 10);
           console.log(this.generateTileLevel, typeof this.generateTileLevel);
           break;
+        case "cursorSize":
+          const cursorSize = (input as ICustomInputEvent).value as string;
+          this.cursorSize = parseInt(cursorSize, 10);
+          console.log(this.cursorSize, typeof this.cursorSize);
+          break;
         case "mouseray":
-          this.getFaceUnderMouse(input as ICustomInputEvent, 10);
+          this.getFaceUnderMouse(input as ICustomInputEvent, this.cursorSize);
           break;
       }
     }
@@ -547,7 +542,7 @@ class World extends Scene {
     point1.copy(face.points[1].point);
     point2.copy(face.points[2].point);
 
-    const cursorFloatHeight = 0.01;  // (km)
+    const cursorFloatHeight = 0.0;  // (km)
     let height = Math.max(sealevel, face.points[0].height);
     height = Math.max(height, face.points[1].height);
     height = Math.max(height, face.points[2].height);
@@ -559,7 +554,7 @@ class World extends Scene {
 
     const origin = new THREE.Vector3(0, 0, 0);
 
-    this.cursor[0].geometry.vertices[0] = origin;
+    /*this.cursor[0].geometry.vertices[0] = origin;
     this.cursor[0].geometry.vertices[1] = point0;
     this.cursor[0].geometry.vertices[2] = point1;
 
@@ -569,7 +564,7 @@ class World extends Scene {
 
     this.cursor[0].geometry.vertices[6] = origin;
     this.cursor[0].geometry.vertices[7] = point2;
-    this.cursor[0].geometry.vertices[8] = point0;
+    this.cursor[0].geometry.vertices[8] = point0;*/
 
     this.cursor[0].geometry.vertices[9] = point0;
     this.cursor[0].geometry.vertices[10] = point1;
@@ -637,6 +632,23 @@ class World extends Scene {
     }
   }
 
+  private fanGenerateTileTask(task: IGenerateTileTask) {
+    for(let recursion = 0; recursion <= task.recursion; recursion++){
+      let indexHigh, indexLow;
+      [indexHigh, indexLow] =
+        Module.IndexAtRecursion(task.indexHigh,
+                                task.indexLow,
+                                recursion);
+      this.addGenerateTileTask(
+        {indexHigh,
+          indexLow,
+          recursion,
+          neighbours: task.neighbours,
+          children: task.children,
+        });
+    }
+  }
+
   private addGenerateTileTask(task: IGenerateTileTask) {
     if(this.workQueue[task.recursion] === undefined) {
       this.workQueue[task.recursion] = {};
@@ -655,10 +667,14 @@ class World extends Scene {
     this.workQueue[task.recursion][label] = task;
   }
 
-  private getGenerateTileTask() {
-    let returnval = { type: null, indexHigh: 0,
-        indexLow: 0, recursion: 0,
-        neighbours: false, children: false};
+  private getGenerateTileTask(): IGenerateTileTask {
+    let returnval = {
+      type: null,
+      indexHigh: 0,
+      indexLow: 0,
+      recursion: 0,
+      neighbours: false,
+      children: false};
     this.workQueue.forEach((jobList) => {
       if(returnval.type === null) {
         const key = Object.keys(jobList)[0];
@@ -669,6 +685,21 @@ class World extends Scene {
       }
     });
     return returnval;
+  }
+
+  private getParentLabel(indexHigh: number,
+                         indexLow: number,
+                         recursion: number): string {
+    if(recursion === 0) {
+      return "";
+    }
+
+    let parentIndexHigh, parentIndexLow;
+    [parentIndexHigh, parentIndexLow] =
+      Module.IndexAtRecursion(indexHigh,
+                              indexLow,
+                              recursion - 1);
+    return this.makeTileLabel(parentIndexHigh, parentIndexLow, recursion - 1);
   }
 
   private doWork() {
@@ -691,78 +722,63 @@ class World extends Scene {
                                          job.indexLow,
                                          job.recursion);
     const tile = this.findMesh(tileLabel);
-    if(tile === undefined ||
-        tile.userData.complete !== true ||
-        tile.userData.neighbours.length < 10) {
+    if(tile === undefined) {
+      console.log("  generate tile", tileLabel);
+      const parentLabel =
+        this.getParentLabel(job.indexHigh, job.indexLow, job.recursion);
+      this.generateTile(parentLabel, job.indexHigh, job.indexLow, job.recursion);
       // Since it is still pending, put this back in to the queue.
       this.addGenerateTileTask(job);
-    }
-
-    let lastParentLabel = "";
-    for(let r = 0; r <= job.recursion; r++) {
-      console.log("  ", r);
-      let parentHigh = job.indexHigh;
-      let parentLow = job.indexLow;
-      [parentHigh, parentLow] =
-        Module.IndexAtRecursion(parentHigh, parentLow, r);
-      const parentLabel = this.makeTileLabel(parentHigh, parentLow, r);
-      const parentTile = this.findMesh(parentLabel);
-
-      if(parentTile === undefined) {
-        // TODO: generate this tile.
-        console.log("  generate tile", parentLabel);
-        this.generateTile(lastParentLabel, parentHigh, parentLow, r);
-        break;
-      } else if(parentTile.userData.neighbours.length === 0 ||
-                parentTile.userData.complete !== true) {
-        // Waiting for this parent to complete.
-        console.log("  Waiting to complete", parentLabel);
-        break;
-      }
-
+    } else if(tile.userData.neighbours.length === 0 ||
+              tile.userData.complete !== true) {
+      console.log("  Waiting to complete", tileLabel);
+      // Since it is still pending, put this back in to the queue.
+      this.addGenerateTileTask(job);
+    } else {
       if(job.neighbours) {
-        for(const neighbour of parentTile.userData.neighbours) {
-          const neighbourLabel =
-            this.makeTileLabel(neighbour.indexHigh, neighbour.indexLow, r);
-          const neighbourTile = this.findMesh(neighbourLabel);
-          if(neighbourTile === undefined) {
-            console.log("  generate neighbour", neighbourLabel);
-            neighbour.neighbours = false;
-            neighbour.children = job.children;
-            this.addGenerateTileTask(neighbour);
-          } else if(neighbourTile.userData.complete !== true) {
-            // Waiting for this tile to complete.
-            console.log("  Waiting for neighbour", neighbourLabel);
-          }
-        }
+        this.generateNeighbours(tile);
+      } 
+      if(job.children && this.generateTileLevel > job.recursion) {
+        this.generateChildren(job);
       }
-
-      if(job.children && this.generateTileLevel > r) {
-        for(let c = 0; c < 4; c++) {
-          const child =
-            Module.IndexOfChild(job.indexHigh, job.indexLow, r, c);
-          const childLabel = this.makeTileLabel(child[0], child[1], r +1);
-          const childTile = this.findMesh(childLabel);
-          if(childTile === undefined) {
-            console.log("  generate child", parentLabel, childLabel, child);
-            this.addGenerateTileTask({indexHigh: child[0],
-                                      indexLow: child[1],
-                                      recursion: r +1,
-                                      neighbours: false,
-                                      children: false});
-            // break;
-          } else if(childTile.userData.complete !== true) {
-            console.log("  Waiting for child", parentLabel, childLabel);
-            // break;
-          }
-        }
-      }
-      lastParentLabel = parentLabel;
     }
 
     window.setTimeout(function(){ this.doWork(); }.bind(this), 20);
-
     this.lockWorkQueue = false;
+  }
+
+  private generateNeighbours(tile: WorldTile): void {
+    for(const neighbour of tile.userData.neighbours) {
+      const neighbourLabel =
+        this.makeTileLabel(neighbour.indexHigh, neighbour.indexLow, neighbour.recursion);
+      const neighbourTile = this.findMesh(neighbourLabel);
+      if(neighbourTile === undefined) {
+        console.log("  generate neighbour", neighbourLabel);
+        const task: IGenerateTileTask = {indexHigh: neighbour.indexHigh,
+                                         indexLow: neighbour.indexLow,
+                                         recursion: neighbour.recursion,
+                                         neighbours: false,
+                                         children: true};
+        this.fanGenerateTileTask(task);
+      }
+    }
+  }
+
+  private generateChildren(parent: IGenerateTile): void {
+    for(let c = 0; c < 4; c++) {
+      const child =
+        Module.IndexOfChild(parent.indexHigh, parent.indexLow, parent.recursion, c);
+      const childLabel = this.makeTileLabel(child[0], child[1], parent.recursion +1);
+      const childTile = this.findMesh(childLabel);
+      if(childTile === undefined) {
+        console.log("  generate child", childLabel, child);
+        this.addGenerateTileTask({indexHigh: child[0],
+                                  indexLow: child[1],
+                                  recursion: parent.recursion +1,
+                                  neighbours: false,
+                                  children: false});
+      }
+    }
   }
 
   private generateTile(parentLabel: string,
@@ -774,9 +790,12 @@ class World extends Scene {
     [iHigh, iLow] = Module.IndexAtRecursion(iHigh, iLow, recursion);
 
     let depth = recursion + 4;
-    if(recursion < 5) {
-      depth = recursion +2;
-    }
+    // if(recursion >= 12) {
+    //  depth = recursion + 5;
+    // }
+    // if(recursion === 0) {
+    //  depth = 0;
+    // }
 
     const label = this.makeTileLabel(iHigh, iLow, recursion);
     if(this.findMesh(label)) {
@@ -805,7 +824,7 @@ class World extends Scene {
     let tileMesh;
     switch(event.data[0]) {
       case "getNeighbours":
-        console.log("callback: getNeighbours");
+        // console.log("callback: getNeighbours", event.data[4].length);
         tileLabel = this.makeTileLabel(event.data[1],
                                        event.data[2],
                                        event.data[3]);
@@ -813,7 +832,7 @@ class World extends Scene {
         tileMesh.userData.neighbours = event.data[4];
         break;
       case "generateTerrain":
-        console.log("callback: generateTerrain");
+        // console.log("callback: generateTerrain");
         tileLabel = this.makeTileLabel(event.data[1],
                                        event.data[2],
                                        event.data[3]);
@@ -1008,9 +1027,10 @@ class WorldTile extends Mesh {
     this.changeMaterial();
 
     let skirt = false;
-    if(recursion > 5) {
+    if(recursion > 4) {
       skirt = true;
     }
+
 
     worker.port.postMessage(["getNeighbours",
                              indexHigh,
