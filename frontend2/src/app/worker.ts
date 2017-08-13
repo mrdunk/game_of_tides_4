@@ -37,7 +37,8 @@ class WorldTileWorker {
   public generateTerrain(faceIndexHigh: number,
                          faceIndexLow: number,
                          recursion: number,
-                         requiredDepth: number) {
+                         requiredDepth: number,
+                         skirt: boolean) {
     console.log(faceIndexHigh,
                 faceIndexLow,
                 recursion,
@@ -47,7 +48,10 @@ class WorldTileWorker {
                                                  faceIndexLow,
                                                  recursion,
                                                  requiredDepth);
-    const facesAndSkirt = this.terrainGenerator.getFacesAndSkirt(faces);
+    let facesAndSkirt = faces;
+    if(skirt) {
+      facesAndSkirt = this.terrainGenerator.getFacesAndSkirt(faces);
+    }
 
     // Finished generating faces so clear some memory.
     this.terrainGenerator.cleanCache(40000000);
@@ -107,7 +111,9 @@ class WorldTileWorker {
     }
 
     faces.delete();
-    facesAndSkirt.delete();
+    if(skirt) {
+      facesAndSkirt.delete();
+    }
 
     return [vertices.buffer, colors.buffer, normals.buffer];
   }
@@ -136,6 +142,7 @@ class WorldTileWorker {
 
   public getFaceUnderMouse(mouseRay: ICustomInputEvent, recursion: number):
   IFace {
+    // TODO: Normalize this for heights.
     const face = this.terrainGenerator.rayCrossesFace(mouseRay.origin,
                                                       mouseRay.direction,
                                                       recursion);
@@ -200,7 +207,8 @@ let onconnect = (event) => {
         const geometry = worldTileWorker.generateTerrain(e.data[1],
                                                          e.data[2],
                                                          e.data[3],
-                                                         e.data[4]);
+                                                         e.data[4],
+                                                         e.data[5]);
         console.log(reply.length, geometry.length);
         port.postMessage(reply.concat(geometry), geometry);
         break;

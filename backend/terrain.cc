@@ -179,7 +179,7 @@ void FaceCache::Report(){
       (long)cache_.size());
 }
 
-void FaceCache::clean(unsigned long long oldest){
+void FaceCache::clean(uint64_t oldest){
   LOG("Before clean: " << (long)cache_.size());
   std::vector<std::pair<uint64_t, int8_t>> delete_these;
   for(auto item : cache_){
@@ -311,11 +311,11 @@ void DataSourceGenerate::SetHeight(std::shared_ptr<Face> face){
       }
       face->height = height_total / face->neighbours.size();
 
-      if(myHash(face->index) > 0xD0000000){
-        float scale = 10.0f * myHashFloat(face->index +1) / pow(2, face->recursion);
-        face->height -= scale;
-      } else if(myHash(face->index) < 0x20000000){
+      if(myHash(face->index) > 0x80000000){
         float scale = 20.0f * myHashFloat(face->index +1) / pow(2, face->recursion);
+        face->height -= scale;
+      } else if(myHash(face->index) < 0x80000000){
+        float scale = 40.0f * myHashFloat(face->index +1) / pow(2, face->recursion);
         face->height += scale;
       }
     }

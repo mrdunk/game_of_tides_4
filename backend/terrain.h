@@ -38,7 +38,7 @@ typedef glm::tvec3< glm::f32, glm::defaultp > Point;
 //const uint32_t planet_diam = 12742000;  // Diameter of Earth in meters.
 const int64_t planet_radius = 12742 /2;
 
-const float k_scale = planet_radius * 1;
+const float k_scale = planet_radius;
 
 typedef std::pair<uint64_t /*index*/, int8_t /*recursion*/> CacheKey;
 
@@ -50,8 +50,8 @@ enum FaceStatusFlags {
 };
 
 struct IndexSplit{
-  unsigned long high;
-  unsigned long low;
+  uint32_t high;
+  uint32_t low;
 };
 
 struct Face {
@@ -59,10 +59,10 @@ struct Face {
   Face() : status(0x00), height(0), heights({{0,0,0}}), last_used(0) {}
 
   uint64_t index;
-  unsigned long getIndexHigh() const {return (index >> 32);}
-  void setIndexHigh(unsigned long index_) {index = index_;}
-  unsigned long getIndexLow() const {return index;}
-  void setIndexLow(unsigned long index_) {index = index_;}
+  uint32_t getIndexHigh() const {return (index >> 32);}
+  void setIndexHigh(uint32_t index_) {index = index_;}
+  uint32_t getIndexLow() const {return index;}
+  void setIndexLow(uint32_t index_) {index = index_;}
 
   std::array<Point, 3> points;
   std::array<Point, 3> getPoints() const {return points;}
@@ -73,8 +73,8 @@ struct Face {
   void setRecursion(short recursion_) {recursion = recursion_;}
   
   uint8_t status;
-  unsigned long getPopulated() const {return status;}
-  void setPopulated(unsigned long status_) {status = status_;}
+  uint32_t getPopulated() const {return status;}
+  void setPopulated(uint32_t status_) {status = status_;}
 
   glm::f32 height;
   float getHeight() const {return height;}
@@ -97,7 +97,7 @@ struct Face {
   };
   //void setNeighbours(std::vector<uint64_t> value) {/* TODO? */};
  
-  unsigned long long last_used;
+  uint64_t last_used;
 };
 
 inline bool operator==(const Face& lhs, const Face& rhs){
@@ -239,7 +239,7 @@ class FaceCache {
   void Report();
 
   // Do garbage collection.
-  void clean(unsigned long long age);
+  void clean(uint64_t age);
 
  private:
   uint32_t hits;
@@ -328,7 +328,7 @@ class DataSourceGenerate {
 
 
   /* Do garbage collection on cache. */
-  void cleanCache(unsigned long max_cache_age){
+  void cleanCache(uint32_t max_cache_age){
     if(max_cache_age < update_counter){
       LOG("update_counter: " << update_counter << "\toldest: " << update_counter - max_cache_age);
       cache_->clean(update_counter - max_cache_age);

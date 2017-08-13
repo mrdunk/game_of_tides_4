@@ -100,6 +100,12 @@ class MenuWidget extends WidgetBase {
     UIMaster.clientMessageQueues.push(this.userInput);
 
     const content = {
+      worldLevelGenerate: {
+        label: "generate: ",
+        type: "number",
+        key: "generateLevel",
+        value: 6,
+      },
       worldLevel0: {
         label: "0",
         type: "checkbox",
@@ -163,10 +169,11 @@ class MenuWidget extends WidgetBase {
         newLabel.className = "inline";
 
         const newInput = document.createElement("input");
-        newInput.id = this.label + "_" + content[id].label;
+        newInput.id = this.label + "_" + content[id].key;
+        newInput.name = content[id].key;
         newInput.type = content[id].type;
         newInput.checked = true;
-        newInput.value = content[id].key || id;
+        newInput.value = content[id].value || content[id].key || id;
 
         newInput.className = "inline";
 
@@ -218,9 +225,16 @@ class MenuWidget extends WidgetBase {
 
   private onClick(event: MouseEvent) {
     const target = event.target as HTMLInputElement;
-    const menuEvent: ICustomInputEvent = {type: "menuevent",
-                                  key: target.value,
-                                  value: target.checked};
+    let menuEvent: ICustomInputEvent;
+    if(target.type === "checkbox") {
+      menuEvent = {type: "menuevent",
+                   key: target.value,
+                   value: target.checked};
+    } else {
+      menuEvent = {type: "menuevent",
+                   key: target.name,
+                   value: target.value};
+    }
     this.uiMenu.changes[target.value] = menuEvent;
   }
 }
