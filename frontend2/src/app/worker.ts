@@ -6,8 +6,8 @@ declare function importScripts(...urls: string[]): void;
 importScripts("wrap_terrain.js", "three.js");
 
 class WorldTileWorker {
-  private sealevel = 1.2;
-  private heightMultiplier = 0.01;
+  private sealevel = 1;
+  private heightMultiplier = 0.005;
   private terrainGenerator;
 
   constructor() {

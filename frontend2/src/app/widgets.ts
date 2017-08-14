@@ -101,17 +101,9 @@ class MenuWidget extends WidgetBase {
 
     const content = {
       worldLevelGenerate: {
-        label: "generate: ",
-        type: "range",
-        key: "generateLevel",
-        value: 6,
-        min: 1,
-        max: 16,
-      },
-      cursorSize: {
         label: "cursor size: ",
         type: "range",
-        key: "cursorSize",
+        key: "generateLevel",
         value: 6,
         min: 1,
         max: 16,
@@ -288,7 +280,7 @@ class MenuWidget extends WidgetBase {
 class CursorPositionWidget extends WidgetBase {
   private container: HTMLElement;
 
-  constructor(private world: World) {
+  constructor(private scene: Scene) {
     super("CursorPos", 100, 50);
     setInterval(this.service.bind(this), 200);
     this.element.classList.add("centered");
@@ -298,14 +290,14 @@ class CursorPositionWidget extends WidgetBase {
 
   public service() {
     this.container.innerHTML = "";
-    const face = this.world.faceUnderMouse;
+    const face = this.scene.faceUnderMouse;
     if(face === undefined) {
       return;
     }
 
     const sizeDiv = document.createElement("div");
     this.container.appendChild(sizeDiv);
-    
+
     const point0 = new THREE.Vector3(0, 0, 0);
     const point1 = new THREE.Vector3(0, 0, 0);
     const point2 = new THREE.Vector3(0, 0, 0);
@@ -313,18 +305,18 @@ class CursorPositionWidget extends WidgetBase {
     point0.copy(face.points[0].point);
     point1.copy(face.points[1].point);
     point2.copy(face.points[2].point);
-    
-    const size = Math.round((point0.distanceTo(point1) +
-                             point1.distanceTo(point2) +
-                             point2.distanceTo(point0)) / 3);
+
+    const size = Math.round(1000 * (point0.distanceTo(point1) +
+                                    point1.distanceTo(point2) +
+                                    point2.distanceTo(point0)) / 3) / 1000;
     sizeDiv.innerHTML = "size: " + size;
 
-    
-    /*const tileLabel = this.world.makeTileLabel(
+
+    /*const tileLabel = this.scene.makeTileLabel(
       face.indexHigh,
       face.indexLow,
-      this.world.generateTileLevel);
-    const tile = this.world.activeMeshes[tileLabel];
+      this.scene.generateTileLevel);
+    const tile = this.scene.activeMeshes[tileLabel];
 
     if(tile === undefined) {
       return;
@@ -340,6 +332,6 @@ class CursorPositionWidget extends WidgetBase {
       neighbourDiv.innerHTML = "" + i + " " +
         neighbour.indexHigh + " " +
         neighbour.indexLow + " ";
-    });
-  }*/
+    });*/
+  }
 }

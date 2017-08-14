@@ -7,7 +7,7 @@ const maxFps = 30;
 
 function workerInit() {
   if(typeof(SharedWorker) === "undefined") {
-    throw("Your browser does not support SharedWorkers");
+    throw(Error("Your browser does not support SharedWorkers"));
   }
   const worker = new SharedWorker("worker.js");
   worker.onerror = (err) => {
@@ -25,7 +25,7 @@ function init() {
   const worker = workerInit();
 
   const camera = new Camera("camera_1");
-  const scene = new World("mesh1", worker);
+  const scene = new Scene("mesh1", worker);
   const renderer = new Renderer("renderer1");
 
   renderer.setScene(scene);

@@ -145,5 +145,6 @@ class UIMenu extends UIBase {
   }
 
   public resetListinerKeys() {
+    // pass
   }
 }
