@@ -9,6 +9,7 @@ const heightMultiplier = 0.01;
 const sealevel = 1.2;
 const earthRadius = 6371 * 1;  // km.
 const cameraInitialDistance = 10000 * 1;
+const skyColor = 0x90A0C0;
 
 declare var Module: {
   IndexAtRecursion: (iHigh: number, iLow: number, r: number) => number[];
@@ -26,6 +27,7 @@ interface IGenerateTile {
 interface IGenerateTileTask extends IGenerateTile {
   type?: string;
   neighbours?: boolean;
+  neighbours2?: boolean;
   children?: boolean;
 }
 
@@ -350,7 +352,7 @@ abstract class Scene extends THREE.Scene {
     const ambientLight = new THREE.AmbientLight(0x444444);
     this.add(ambientLight);
 
-    this.background = new THREE.Color(0x444444);
+    this.background = new THREE.Color(skyColor);
 
     const axis = new Line(new THREE.Vector3(0, cameraInitialDistance, 0),
                           new THREE.Vector3(0, -cameraInitialDistance, 0));
@@ -421,7 +423,7 @@ class World extends Scene {
   constructor(public label: string, public worker) {
     super(label, worker);
 
-    this.fog = new THREE.Fog(0xA0A0A0, 1, cameraInitialDistance);
+    this.fog = new THREE.Fog(skyColor, 1, cameraInitialDistance);
 
     window.addEventListener("beforeunload", (event) => {
       // Try to cleanup memory allocation before page reload.
@@ -441,6 +443,7 @@ class World extends Scene {
                                 indexLow: 0,
                                 recursion: 0,
                                 neighbours: true,
+                                neighbours2: false,
                                 children: true});
     }
     this.initWorker();
@@ -466,6 +469,7 @@ class World extends Scene {
                                       indexLow: low,
                                       recursion: this.generateTileLevel,
                                       neighbours: true,
+                                      neighbours2: true,
                                       children: true});
             this.doWork();
             }
@@ -528,8 +532,8 @@ class World extends Scene {
       }
 
       const cursor = new THREE.Mesh( geometry, material );
-      // cursor.renderOrder = 999;
-      // cursor.material.depthTest = true;
+      cursor.renderOrder = 999;
+      cursor.material.depthTest = false;
       this.cursor.push(cursor);
       this.add(cursor);
     }
@@ -641,10 +645,11 @@ class World extends Scene {
                                 recursion);
       this.addGenerateTileTask(
         {indexHigh,
-          indexLow,
-          recursion,
-          neighbours: task.neighbours,
-          children: task.children,
+         indexLow,
+         recursion,
+         neighbours: task.neighbours,
+         neighbours2: task.neighbours2,
+         children: task.children,
         });
     }
   }
@@ -660,6 +665,8 @@ class World extends Scene {
     if(this.workQueue[task.recursion][label] !== undefined) {
       task.neighbours =
         task.neighbours || this.workQueue[task.recursion][label].neighbours;
+      task.neighbours2 =
+        task.neighbours2 || this.workQueue[task.recursion][label].neighbours2;
       task.children =
         task.children || this.workQueue[task.recursion][label].children;
     }
@@ -674,6 +681,7 @@ class World extends Scene {
       indexLow: 0,
       recursion: 0,
       neighbours: false,
+      neighbours2: false,
       children: false};
     this.workQueue.forEach((jobList) => {
       if(returnval.type === null) {
@@ -736,7 +744,7 @@ class World extends Scene {
       this.addGenerateTileTask(job);
     } else {
       if(job.neighbours) {
-        this.generateNeighbours(tile);
+        this.generateNeighbours(tile, job);
       } 
       if(job.children && this.generateTileLevel > job.recursion) {
         this.generateChildren(job);
@@ -747,7 +755,7 @@ class World extends Scene {
     this.lockWorkQueue = false;
   }
 
-  private generateNeighbours(tile: WorldTile): void {
+  private generateNeighbours(tile: WorldTile, job: IGenerateTileTask): void {
     for(const neighbour of tile.userData.neighbours) {
       const neighbourLabel =
         this.makeTileLabel(neighbour.indexHigh, neighbour.indexLow, neighbour.recursion);
@@ -757,7 +765,8 @@ class World extends Scene {
         const task: IGenerateTileTask = {indexHigh: neighbour.indexHigh,
                                          indexLow: neighbour.indexLow,
                                          recursion: neighbour.recursion,
-                                         neighbours: false,
+                                         neighbours: job.neighbours2,
+                                         neighbours2: false,
                                          children: true};
         this.fanGenerateTileTask(task);
       }
@@ -776,6 +785,7 @@ class World extends Scene {
                                   indexLow: child[1],
                                   recursion: parent.recursion +1,
                                   neighbours: false,
+                                  neighbours2: false,
                                   children: false});
       }
     }

@@ -289,7 +289,7 @@ class CursorPositionWidget extends WidgetBase {
   private container: HTMLElement;
 
   constructor(private world: World) {
-    super("CursorPos", 300, 250);
+    super("CursorPos", 100, 50);
     setInterval(this.service.bind(this), 200);
     this.element.classList.add("centered");
     this.container = document.createElement("div");
@@ -314,13 +314,13 @@ class CursorPositionWidget extends WidgetBase {
     point1.copy(face.points[1].point);
     point2.copy(face.points[2].point);
     
-    const size = (point0.distanceTo(point1) +
-                  point1.distanceTo(point2) +
-                  point2.distanceTo(point0)) / 3;
+    const size = Math.round((point0.distanceTo(point1) +
+                             point1.distanceTo(point2) +
+                             point2.distanceTo(point0)) / 3);
     sizeDiv.innerHTML = "size: " + size;
 
     
-    const tileLabel = this.world.makeTileLabel(
+    /*const tileLabel = this.world.makeTileLabel(
       face.indexHigh,
       face.indexLow,
       this.world.generateTileLevel);
@@ -341,5 +341,5 @@ class CursorPositionWidget extends WidgetBase {
         neighbour.indexHigh + " " +
         neighbour.indexLow + " ";
     });
-  }
+  }*/
 }
