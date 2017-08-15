@@ -62,15 +62,26 @@ class WorldTileWorker {
 
     for(let i = 0; i < facesAndSkirt.size(); i++) {
       const componentFace = facesAndSkirt.get(i);
+      let is_land = 0;
       for(let point=0; point<3; point++) {
         let height = componentFace.heights[point];
-        if(height < 0) {
-          height = 0;
+        if(height > this.sealevel) {
+          is_land++;
         }
-        const heightColor = height * 255 / 3;
-        if(height >= this.sealevel) {
+      }
+      for(let point=0; point<3; point++) {
+        let height = componentFace.heights[point];
+        let heightColor = height * 255 / 3;
+        if(heightColor < 5) {
+          heightColor = 5;
+        }
+        if(heightColor > 250) {
+          heightColor = 250;
+        }
+        if(is_land > 0) {
           colors[(i * 9) + (point * 3) + 0] = heightColor /2;
-          colors[(i * 9) + (point * 3) + 1] = heightColor;
+          colors[(i * 9) + (point * 3) + 1] =
+            heightColor + Math.random() * 10 - 5;
           colors[(i * 9) + (point * 3) + 2] = heightColor /2;
         } else {
           colors[(i * 9) + (point * 3) + 0] = heightColor /2;
@@ -81,11 +92,11 @@ class WorldTileWorker {
         if(height < this.sealevel) {
           height = this.sealevel;
         }
+
         for(let coord=0; coord<3; coord++) {
           vertices[(i * 9) + (point * 3) + coord] =
             componentFace.points[point][coord] *
             (1 + (height * this.heightMultiplier));
-          // colors[(i * 9) + (point * 3) + coord] = Math.random() * 255;
         }
       }
 

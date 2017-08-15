@@ -18,13 +18,20 @@ declare var Module: {
   DataSourceGenerate: () => void;
 };
 
-interface IGenerateTile {
+interface IFace {
+  indexHigh: number;
+  indexLow: number;
+  height: number;
+  points: IPoint[];
+}
+
+interface ITile {
   indexHigh: number;
   indexLow: number;
   recursion: number;
 }
 
-interface IGenerateTileTask extends IGenerateTile {
+interface IGenerateTileTask extends ITile {
   type?: string;
   neighbours?: boolean;
   neighbours2?: boolean;
@@ -55,13 +62,6 @@ interface IMeshesEntry {
 interface IPoint {
   point: THREE.Vector3;
   height?: number;
-}
-
-interface IFace {
-  indexHigh: number;
-  indexLow: number;
-  height: number;
-  points: IPoint[];
 }
 
 class Camera extends THREE.PerspectiveCamera {
@@ -337,7 +337,7 @@ class Scene extends THREE.Scene {
   public activeMeshes: {} = {};
   public cursorSize: number = 6;
   private activeTileLevels: boolean[] = [];
-  private cursor = [];
+  private cursor: Cursor = new Cursor();
   private workQueue: ITileTaskHash[] = [];
   private lockWorkQueue: boolean = false;
   private lastUpdate: number = Date.now();
@@ -393,6 +393,7 @@ class Scene extends THREE.Scene {
     }
     this.initWorker();
     this.doTask();
+    this.add(this.cursor);
   }
 
   public setFog(distance: number): void {
@@ -478,90 +479,21 @@ class Scene extends THREE.Scene {
   }
 
   public setCursor(face: IFace): void {
-    if(face === undefined) {
-      // this.clearCursor();
-      return;
-    }
-
-    if(this.cursor.length === 0) {
-      const material = new THREE.MeshBasicMaterial(
-        {color: 0xff0000, side: THREE.DoubleSide});
-
-      const geometry = new THREE.Geometry();
-      for(let p = 0; p < 3 * 4; p++) {
-        geometry.vertices.push(new THREE.Vector3(0, 0, 0));
-      }
-      for(let f = 0; f < 3 * 4; f += 3) {
-        const newFace = new THREE.Face3(f + 0, f + 1, f + 2);
-        geometry.faces.push(newFace);
-      }
-
-      const cursor = new THREE.Mesh( geometry, material );
-      cursor.renderOrder = 999;
-      cursor.material.depthTest = false;
-      this.cursor.push(cursor);
-      this.add(cursor);
-    }
-
-    const point0 = new THREE.Vector3(0, 0, 0);
-    const point1 = new THREE.Vector3(0, 0, 0);
-    const point2 = new THREE.Vector3(0, 0, 0);
-
-    point0.copy(face.points[0].point);
-    point1.copy(face.points[1].point);
-    point2.copy(face.points[2].point);
-
-    const cursorFloatHeight = 0.0;  // (km)
-    let height = Math.max(sealevel, face.points[0].height);
-    height = Math.max(height, face.points[1].height);
-    height = Math.max(height, face.points[2].height);
-    height *= heightMultiplier;
-
-    point0.setLength(earthRadius * (height + 1) + cursorFloatHeight);
-    point1.setLength(earthRadius * (height + 1) + cursorFloatHeight);
-    point2.setLength(earthRadius * (height + 1) + cursorFloatHeight);
-
-    const origin = new THREE.Vector3(0, 0, 0);
-
-    /*this.cursor[0].geometry.vertices[0] = origin;
-    this.cursor[0].geometry.vertices[1] = point0;
-    this.cursor[0].geometry.vertices[2] = point1;
-
-    this.cursor[0].geometry.vertices[3] = origin;
-    this.cursor[0].geometry.vertices[4] = point1;
-    this.cursor[0].geometry.vertices[5] = point2;
-
-    this.cursor[0].geometry.vertices[6] = origin;
-    this.cursor[0].geometry.vertices[7] = point2;
-    this.cursor[0].geometry.vertices[8] = point0;*/
-
-    this.cursor[0].geometry.vertices[9] = point0;
-    this.cursor[0].geometry.vertices[10] = point1;
-    this.cursor[0].geometry.vertices[11] = point2;
-
-    this.cursor[0].geometry.verticesNeedUpdate = true;
-    this.cursor[0].geometry.elementsNeedUpdate = true;
-  }
-
-  // TODO: Use IFace as input?
-  public makeTileLabel(indexHigh: number,
-                       indexLow: number,
-                       recursion: number): string {
-    return "tile_" + indexHigh + "_" + indexLow + "_" + recursion;
+    this.cursor.setPosition(face);
   }
 
   /* Get a point on surface directly below the specified one.
    * WebWorker calculates this and returns result on input bus.*/
   public getSurfaceUnderPoint(label: string,
-                           point: THREE.Vector3,
-                           recursion: number): void {
+                              point: THREE.Vector3,
+                              recursion: number): void {
     this.worker.port.postMessage(
       ["getSurfaceUnderPoint", label, point, recursion]);
   }
 
   /* WebWorker calculates this and returns result on input bus.*/
   private getFaceUnderMouse(mouseRay: ICustomInputEvent,
-                              recursion: number): void {
+                            recursion: number): void {
     this.worker.port.postMessage(["getFaceUnderMouse", mouseRay, recursion]);
   }
 
@@ -624,9 +556,7 @@ class Scene extends THREE.Scene {
     if(this.workQueue[task.recursion] === undefined) {
       this.workQueue[task.recursion] = {};
     }
-    const label = this.makeTileLabel(task.indexHigh,
-                                     task.indexLow,
-                                     task.recursion);
+    const label = this.makeTileLabel(task);
     task.type = "generateTile";
     if(this.workQueue[task.recursion][label] !== undefined) {
       // Merge task in queue with new one.
@@ -655,21 +585,24 @@ class Scene extends THREE.Scene {
     return returnval;
   }
 
-  // TODO: Use IFace as input?
-  private getParentLabel(indexHigh: number,
-                         indexLow: number,
-                         recursion: number): string {
-    if(recursion === 0) {
+  private makeTileLabel(face: ITile): string {
+    return "tile_" +
+      face.indexHigh + "_" + face.indexLow + "_" + face.recursion;
+  }
+
+  private getParentLabel(face: ITile): string {
+    if(face.recursion === 0) {
       return "";
     }
 
-    let parentIndexHigh;
-    let parentIndexLow;
-    [parentIndexHigh, parentIndexLow] =
-      Module.IndexAtRecursion(indexHigh,
-                              indexLow,
-                              recursion - 1);
-    return this.makeTileLabel(parentIndexHigh, parentIndexLow, recursion - 1);
+    let indexHigh;
+    let indexLow;
+    [indexHigh, indexLow] =
+      Module.IndexAtRecursion(face.indexHigh,
+                              face.indexLow,
+                              face.recursion - 1);
+    return this.makeTileLabel(
+      {indexHigh, indexLow, recursion: face.recursion - 1});
   }
 
   private doTask(): void {
@@ -688,16 +621,13 @@ class Scene extends THREE.Scene {
     }
     this.lockWorkQueue = true;
 
-    const tileLabel = this.makeTileLabel(job.indexHigh,
-                                         job.indexLow,
-                                         job.recursion);
+    const tileLabel = this.makeTileLabel(job);
     const tile = this.findMesh(tileLabel);
     if(tile === undefined) {
       console.log("  generate tile", tileLabel);
-      const parentLabel =
-        this.getParentLabel(job.indexHigh, job.indexLow, job.recursion);
+      const parentLabel = this.getParentLabel(job);
       const parentTile = this.activeMeshes[parentLabel];
-      this.generateTile(parentTile, job.indexHigh, job.indexLow, job.recursion);
+      this.generateTile(parentTile, job);
       // Since it is still pending, put this back in to the queue.
       this.addGenerateTileTask(job);
     } else if(tile.userData.neighbours.length === 0 ||
@@ -721,9 +651,7 @@ class Scene extends THREE.Scene {
   private generateNeighbours(tile: WorldTile, job: IGenerateTileTask): void {
     for(const neighbour of tile.userData.neighbours) {
       const neighbourLabel =
-        this.makeTileLabel(neighbour.indexHigh,
-                           neighbour.indexLow,
-                           neighbour.recursion);
+        this.makeTileLabel(neighbour);
       const neighbourTile = this.findMesh(neighbourLabel);
       if(neighbourTile === undefined) {
         console.log("  generate neighbour", neighbourLabel);
@@ -738,16 +666,16 @@ class Scene extends THREE.Scene {
     }
   }
 
-  private generateChildren(parent: IGenerateTile): void {
+  private generateChildren(parent: ITile): void {
     for(let c = 0; c < 4; c++) {
       const child =
         Module.IndexOfChild(parent.indexHigh,
                             parent.indexLow,
                             parent.recursion,
                             c);
-      const childLabel = this.makeTileLabel(child[0],
-                                            child[1],
-                                            parent.recursion +1);
+      const childLabel = this.makeTileLabel({indexHigh: child[0],
+                                             indexLow: child[1],
+                                             recursion: parent.recursion +1});
       const childTile = this.findMesh(childLabel);
       if(childTile === undefined) {
         console.log("  generate child", childLabel, child);
@@ -767,15 +695,11 @@ class Scene extends THREE.Scene {
     }
   }
 
-  private generateTile(parentTile: WorldTile,
-                       indexHigh: number,
-                       indexLow: number,
-                       recursion: number): void {
-    let iHigh = indexHigh;
-    let iLow = indexLow;
-    [iHigh, iLow] = Module.IndexAtRecursion(iHigh, iLow, recursion);
+  private generateTile(parentTile: WorldTile, job: ITile): void {
+    // [indexHigh, indexLow] =
+    //     Module.IndexAtRecursion(indexHigh, indexLow, recursion);
 
-    const depth = recursion + 4;
+    const depth = job.recursion + 4;
     // if(recursion >= 12) {
     //  depth = recursion + 5;
     // }
@@ -783,7 +707,7 @@ class Scene extends THREE.Scene {
     //  depth = 0;
     // }
 
-    const label = this.makeTileLabel(iHigh, iLow, recursion);
+    const label = this.makeTileLabel(job);
     if(this.findMesh(label)) {
       console.log("Already created: ", label);
       return;
@@ -791,14 +715,14 @@ class Scene extends THREE.Scene {
 
     const mesh = new WorldTile(label,
                                this.worker,
-                               indexHigh,
-                               indexLow,
-                               recursion,
+                               job.indexHigh,
+                               job.indexLow,
+                               job.recursion,
                                depth,
                                parentTile);
     this.activeMeshes[mesh.userData.label] = mesh;
     this.add(mesh);
-    mesh.visible = this.activeTileLevels[recursion];
+    mesh.visible = this.activeTileLevels[job.recursion];
   }
 
   private initWorker(): void {
@@ -812,17 +736,17 @@ class Scene extends THREE.Scene {
     switch(event.data[0]) {
       case "getNeighbours":
         // console.log("callback: getNeighbours", event.data[4].length);
-        tileLabel = this.makeTileLabel(event.data[1],
-                                       event.data[2],
-                                       event.data[3]);
+        tileLabel = this.makeTileLabel({indexHigh: event.data[1],
+                                        indexLow: event.data[2],
+                                        recursion: event.data[3]});
         tileMesh = this.findMesh(tileLabel);
         tileMesh.userData.neighbours = event.data[4];
         break;
       case "generateTerrain":
         // console.log("callback: generateTerrain");
-        tileLabel = this.makeTileLabel(event.data[1],
-                                       event.data[2],
-                                       event.data[3]);
+        tileLabel = this.makeTileLabel({indexHigh: event.data[1],
+                                        indexLow: event.data[2],
+                                        recursion: event.data[3]});
         tileMesh = this.findMesh(tileLabel);
         const vertices = new Float32Array(event.data[6]);
         const colors = new Uint8Array(event.data[7]);
@@ -843,6 +767,57 @@ class Scene extends THREE.Scene {
         this.setCursor(this.faceUnderMouse);
         break;
     }
+  }
+}
+
+class Cursor extends THREE.Mesh {
+  constructor() {
+    super();
+    this.material = new THREE.MeshBasicMaterial(
+      {color: 0xff0000, side: THREE.DoubleSide},
+    );
+
+    this.geometry = new THREE.Geometry();
+    for(let p = 0; p < 3 * 4; p++) {
+      this.geometry.vertices.push(new THREE.Vector3(0, 0, 0));
+    }
+    this.geometry.faces.push(new THREE.Face3(0, 1, 2));
+
+    this.renderOrder = 999;
+    this.material.depthTest = false;
+  }
+
+  public setPosition(face: IFace): void {
+    if(face === undefined) {
+      // this.clearCursor();
+      return;
+    }
+
+    const point0 = new THREE.Vector3(0, 0, 0);
+    const point1 = new THREE.Vector3(0, 0, 0);
+    const point2 = new THREE.Vector3(0, 0, 0);
+
+    point0.copy(face.points[0].point);
+    point1.copy(face.points[1].point);
+    point2.copy(face.points[2].point);
+
+    const cursorFloatHeight = 0.01;  // (km)
+    let height = Math.max(sealevel, face.points[0].height);
+    height = Math.max(height, face.points[1].height);
+    height = Math.max(height, face.points[2].height);
+    height *= heightMultiplier;
+
+    point0.setLength(earthRadius * (height + 1) + cursorFloatHeight);
+    point1.setLength(earthRadius * (height + 1) + cursorFloatHeight);
+    point2.setLength(earthRadius * (height + 1) + cursorFloatHeight);
+
+    (this.geometry as THREE.Geometry).vertices[0] = point0;
+    (this.geometry as THREE.Geometry).vertices[1] = point1;
+    (this.geometry as THREE.Geometry).vertices[2] = point2;
+
+    (this.geometry as THREE.Geometry).verticesNeedUpdate = true;
+    (this.geometry as THREE.Geometry).elementsNeedUpdate = true;
+    (this.geometry as THREE.Geometry).computeBoundingSphere();
   }
 }
 
@@ -876,7 +851,6 @@ abstract class Mesh extends THREE.Mesh {
   public material: any;
 
   public userInput: Array<KeyboardEvent | ICustomInputEvent> = [];
-
   private materialIndex: number = -1;
   private materialIndexChanged: number = 0;
 
@@ -952,7 +926,8 @@ abstract class Mesh extends THREE.Mesh {
         this.material = new THREE.MeshLambertMaterial({
           vertexColors: THREE.VertexColors,
           // transparent: true,
-          // opacity: 1
+          // opacity: 1,
+          overdraw: 1.0,  // TODO: Still getting gaps in fine detail.
         });
         break;
       case 1:
