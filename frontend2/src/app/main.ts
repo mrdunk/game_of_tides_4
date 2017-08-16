@@ -7,7 +7,7 @@ const maxFps = 30;
 
 function workerInit() {
   if(typeof(SharedWorker) === "undefined") {
-    throw(Error("Your browser does not support SharedWorkers"));
+    throw(new Error("Your browser does not support SharedWorkers"));
   }
   const worker = new SharedWorker("worker.js");
   worker.onerror = (err) => {

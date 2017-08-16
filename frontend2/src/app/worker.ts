@@ -6,8 +6,8 @@ declare function importScripts(...urls: string[]): void;
 importScripts("wrap_terrain.js", "three.js");
 
 class WorldTileWorker {
-  private sealevel = 1;
-  private heightMultiplier = 0.005;
+  private sealevel = 0.001;  // Ratio of planets diamiter.
+  private heightMultiplier = 1;
   private terrainGenerator;
 
   constructor() {
@@ -39,10 +39,10 @@ class WorldTileWorker {
                          recursion: number,
                          requiredDepth: number,
                          skirt: boolean) {
-    console.log(faceIndexHigh,
+    /* console.log(faceIndexHigh,
                 faceIndexLow,
                 recursion,
-                requiredDepth);
+                requiredDepth);*/
 
     const faces = this.terrainGenerator.getFaces(faceIndexHigh,
                                                  faceIndexLow,
@@ -62,29 +62,32 @@ class WorldTileWorker {
 
     for(let i = 0; i < facesAndSkirt.size(); i++) {
       const componentFace = facesAndSkirt.get(i);
-      let is_land = 0;
+      let isLand = 0;
       for(let point=0; point<3; point++) {
-        let height = componentFace.heights[point];
+        const height = componentFace.heights[point];
         if(height > this.sealevel) {
-          is_land++;
+          isLand++;
         }
       }
       for(let point=0; point<3; point++) {
         let height = componentFace.heights[point];
-        let heightColor = height * 255 / 3;
+        let heightColor = height * 100000;
         if(heightColor < 5) {
           heightColor = 5;
         }
         if(heightColor > 250) {
           heightColor = 250;
         }
-        if(is_land > 0) {
+        
+        if(isLand > 0) {
           colors[(i * 9) + (point * 3) + 0] = heightColor /2;
           colors[(i * 9) + (point * 3) + 1] =
             heightColor + Math.random() * 10 - 5;
           colors[(i * 9) + (point * 3) + 2] = heightColor /2;
         } else {
-          colors[(i * 9) + (point * 3) + 0] = heightColor /2;
+          heightColor /= 2;
+          heightColor += 100;
+          colors[(i * 9) + (point * 3) + 0] = heightColor /8;
           colors[(i * 9) + (point * 3) + 1] = heightColor /2;
           colors[(i * 9) + (point * 3) + 2] = heightColor;
         }
@@ -199,8 +202,8 @@ let onconnect = (event) => {
   const port = event.ports[0];
 
   port.onmessage = (e) => {
-    const workerResult = "Recieved: " + e.data[0];
-    console.log(workerResult);
+    // const workerResult = "Recieved: " + e.data[0];
+    // console.log(workerResult);
 
     const reply = e.data.slice();  // Copy.
 
@@ -220,7 +223,6 @@ let onconnect = (event) => {
                                                          e.data[3],
                                                          e.data[4],
                                                          e.data[5]);
-        console.log(reply.length, geometry.length);
         port.postMessage(reply.concat(geometry), geometry);
         break;
       case "getSurfaceUnderPoint":
