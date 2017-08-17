@@ -5,8 +5,8 @@
 // Helpful diagram showing how Threejs components fits together:
 // http://davidscottlyons.com/threejs/presentations/frontporch14/#slide-16
 
-const heightMultiplier = 1;
-const sealevel = 0.001;  // Ratio of planets diamiter.
+const heightMultiplier = 1.5;
+const sealevel = 0.001;  // Ratio of planets diameter.
 const earthRadius = 6371;  // km.
 const cameraInitialDistance = 10000 * 1;
 const skyColor = 0x90A0C0;

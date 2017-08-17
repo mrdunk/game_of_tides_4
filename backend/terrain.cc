@@ -314,8 +314,8 @@ void DataSourceGenerate::SetHeight(std::shared_ptr<Face> face){
       face->height = height_total / face->neighbours.size();
 
       float scale = myHashFloat(face->index) - 0.5;
-      scale /= pow(2, recursion);
-      scale /= 20;
+      scale /= pow(1.7, recursion);
+      scale /= 40;
       face->height += scale;
     }
   }

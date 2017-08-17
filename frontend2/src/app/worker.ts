@@ -7,7 +7,7 @@ importScripts("wrap_terrain.js", "three.js");
 
 class WorldTileWorker {
   private sealevel = 0.001;  // Ratio of planets diamiter.
-  private heightMultiplier = 1;
+  private heightMultiplier = 1.5;
   private terrainGenerator;
 
   constructor() {
@@ -79,7 +79,12 @@ class WorldTileWorker {
           heightColor = 250;
         }
         
-        if(isLand > 0) {
+        if(isLand > 0 && height > 0.002) {
+          colors[(i * 9) + (point * 3) + 0] = heightColor / 1.1;
+          colors[(i * 9) + (point * 3) + 1] = heightColor / 1.1;
+          colors[(i * 9) + (point * 3) + 2] =
+            heightColor + Math.random() * 10 - 5;
+        } else if(isLand > 0) {
           colors[(i * 9) + (point * 3) + 0] = heightColor /2;
           colors[(i * 9) + (point * 3) + 1] =
             heightColor + Math.random() * 10 - 5;
