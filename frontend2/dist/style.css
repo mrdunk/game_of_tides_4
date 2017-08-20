@@ -1,0 +1,50 @@
+body { 
+  overflow-x: hidden; 
+  overflow-y: hidden;
+  margin: 0;
+}
+
+.widget-container {
+  position: absolute;
+  top: 0px;
+}
+
+.widget {
+  background: aliceblue;
+  margin: 4px 4px;
+  padding: 8px 8px;
+  border-radius: 5px;
+  float: left;
+}
+
+.widget.centered {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.widget .message {
+  position: absolute;
+}
+
+.widget .graph {
+  display:flex;
+  align-items: flex-end;
+  height: 100%;
+  width: 100%;
+}
+
+.widget .graph .bar {
+  float: left;
+  width: 1px;
+  background: red;
+  height: 100%;
+}
+
+.widget .inline {
+  display: inline-block;
+}
+
+.widget input[type=number]{
+  width: 2em;
+}

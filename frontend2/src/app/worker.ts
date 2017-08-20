@@ -6,8 +6,8 @@ declare function importScripts(...urls: string[]): void;
 importScripts("wrap_terrain.js", "three.js");
 
 class WorldTileWorker {
-  private sealevel = 0.001;  // Ratio of planets diamiter.
-  private heightMultiplier = 1.5;
+  private sealevel = 0.001;  // Ratio of planets diameter.
+  private heightMultiplier = 2;
   private terrainGenerator;
 
   constructor() {
@@ -72,26 +72,29 @@ class WorldTileWorker {
       for(let point=0; point<3; point++) {
         let height = componentFace.heights[point];
         let heightColor = height * 100000;
-        if(heightColor < 5) {
-          heightColor = 5;
+        if(heightColor < 20) {
+          heightColor = 20;
         }
-        if(heightColor > 250) {
-          heightColor = 250;
+        if(heightColor > 245) {
+          heightColor = 245;
         }
         
         if(isLand > 0 && height > 0.002) {
-          colors[(i * 9) + (point * 3) + 0] = heightColor / 1.1;
-          colors[(i * 9) + (point * 3) + 1] = heightColor / 1.1;
+          colors[(i * 9) + (point * 3) + 0] = heightColor / 2;
+          colors[(i * 9) + (point * 3) + 1] = heightColor / 1.5;
           colors[(i * 9) + (point * 3) + 2] =
-            heightColor + Math.random() * 10 - 5;
+            (heightColor - (heightColor % 20) - 10);
         } else if(isLand > 0) {
-          colors[(i * 9) + (point * 3) + 0] = heightColor /2;
+          colors[(i * 9) + (point * 3) + 0] =
+            (heightColor - (heightColor % 20) - 10)/2;
           colors[(i * 9) + (point * 3) + 1] =
-            heightColor + Math.random() * 10 - 5;
-          colors[(i * 9) + (point * 3) + 2] = heightColor /2;
+            (heightColor + (heightColor % 20) - 10);
+          colors[(i * 9) + (point * 3) + 2] =
+            (heightColor + (heightColor % 20) - 10)/2;
         } else {
           heightColor /= 2;
           heightColor += 100;
+          heightColor -= 5 * (heightColor % 5);
           colors[(i * 9) + (point * 3) + 0] = heightColor /8;
           colors[(i * 9) + (point * 3) + 1] = heightColor /2;
           colors[(i * 9) + (point * 3) + 2] = heightColor;

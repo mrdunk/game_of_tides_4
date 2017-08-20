@@ -7,5 +7,4 @@ rapidjson/
 websocketpp/
 emscripten/
 googletest/
-frontend2/dist/
 frontend2/node_modules/

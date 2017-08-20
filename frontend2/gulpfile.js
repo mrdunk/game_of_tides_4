@@ -81,6 +81,7 @@ gulp.task('serve', ['compile-ts', 'copy-html', 'watch'], function() {
     port: 3000,
     files: ['index.html', 'style.css', '**/*.js', '../build/*.js'],
     injectChanges: true,
+    open: false,
     //logFileChanges: false,
     //logLevel: 'silent',
     logPrefix: 'game',

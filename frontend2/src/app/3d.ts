@@ -5,7 +5,7 @@
 // Helpful diagram showing how Threejs components fits together:
 // http://davidscottlyons.com/threejs/presentations/frontporch14/#slide-16
 
-const heightMultiplier = 1.5;
+const heightMultiplier = 2;
 const sealevel = 0.001;  // Ratio of planets diameter.
 const earthRadius = 6371;  // km.
 const cameraInitialDistance = 10000 * 1;
@@ -529,6 +529,7 @@ class Scene extends THREE.Scene {
   /* Set correct visibility for parent of specified tile. */
   private setParentTileVisibility(meshLabel: string): void {
     const mesh = this.activeMeshes[meshLabel];
+    console.log(mesh.userData.parentLabel, meshLabel);
     this.setTileVisibility(mesh.userData.parentLabel);
   }
 
@@ -783,6 +784,8 @@ class Scene extends THREE.Scene {
                                    new THREE.BufferAttribute(normals, 3, true));
         tileMesh.userData.complete = true;
         this.setParentTileVisibility(tileLabel);
+        this.setTileVisibility(tileLabel);
+        // this.setAllTileVisibility();
         break;
       case "getFaceUnderMouse":
         this.faceUnderMouse = event.data[3];
@@ -823,7 +826,7 @@ class Cursor extends THREE.Mesh {
     point1.copy(face.points[1].point);
     point2.copy(face.points[2].point);
 
-    const cursorFloatHeight = 0.01;  // (km)
+    const cursorFloatHeight = 0.0;  // (km)
     let height = Math.max(sealevel, face.points[0].height);
     height = Math.max(height, face.points[1].height);
     height = Math.max(height, face.points[2].height);
