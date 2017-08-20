@@ -18,8 +18,12 @@ var WidgetBase = (function () {
             this.element = document.createElement("div");
         }
         this.element.classList.add("widget");
-        this.element.style.width = "" + width + "px";
-        this.element.style.height = "" + height + "px";
+        if (width !== undefined) {
+            this.element.style.width = "" + width + "px";
+        }
+        if (height !== undefined) {
+            this.element.style.height = "" + height + "px";
+        }
     }
     return WidgetBase;
 }());
@@ -92,7 +96,7 @@ var CameraPositionWidget = (function (_super) {
 var MenuWidget = (function (_super) {
     __extends(MenuWidget, _super);
     function MenuWidget(label) {
-        var _this = _super.call(this, "Menu", 150, 400) || this;
+        var _this = _super.call(this, "Menu") || this;
         _this.label = label;
         _this.userInput = [];
         _this.uiMenu = new UIMenu();
@@ -100,7 +104,7 @@ var MenuWidget = (function (_super) {
         UIMaster.clientMessageQueues.push(_this.userInput);
         var content = {
             worldLevelGenerate: {
-                label: "cursor size: ",
+                label: "cursor size:",
                 type: "range",
                 key: "generateLevel",
                 value: 6,

@@ -48,3 +48,7 @@ body {
 .widget input[type=number]{
   width: 2em;
 }
+
+.widget input[type=range]{
+  display: block;
+}

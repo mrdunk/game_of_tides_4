@@ -21,8 +21,9 @@ declare var Module: {
 interface IFace {
   indexHigh: number;
   indexLow: number;
-  height: number;
-  points: IPoint[];
+  recursion: number;
+  height?: number;
+  points?: IPoint[];
 }
 
 interface ITile {
@@ -52,6 +53,7 @@ interface ICustomInputEvent {
   key?: string;
   target?: HTMLElement;
   value?: string | number | boolean;
+  face?: IFace;
 }
 
 interface IMeshesEntry {
@@ -62,6 +64,7 @@ interface IMeshesEntry {
 interface IPoint {
   point: THREE.Vector3;
   height?: number;
+  face?: IFace;
 }
 
 function makeTileLabel(face: ITile): string {
@@ -94,6 +97,7 @@ class Camera extends THREE.PerspectiveCamera {
   private animate: boolean = true;
   private animateChanged: number = 0;
   private surfaceHeight: number = earthRadius;
+  private faceOver: IFace;
 
   constructor(public label: string) {
     super( 75,
@@ -175,6 +179,7 @@ class Camera extends THREE.PerspectiveCamera {
           }
           break;
         case "cameraabove":
+          this.faceOver = (input as ICustomInputEvent).face;
           const point = new THREE.Vector3();
           point.fromArray((input as ICustomInputEvent).origin);
           const height =
@@ -240,11 +245,24 @@ class Renderer extends THREE.WebGLRenderer {
       this.height = window.innerHeight;
     }
     this.setSize(this.width, this.height);
-    this.setPixelRatio( window.devicePixelRatio );
+    this.setPixelRatio(window.devicePixelRatio);
     this.element = document.getElementById(label);
     this.element.appendChild(this.domElement);
 
     UIMaster.clientMessageQueues.push(this.userInput);
+
+    window.onresize = this.changeSize.bind(this);
+  }
+
+  public changeSize() {
+    this.width = window.innerWidth;
+    this.height = window.innerHeight;
+    this.setSize(this.width, this.height);
+    this.setPixelRatio(window.devicePixelRatio);
+    if(this.camera !== undefined) {
+      this.camera.aspect = (this.width / this.height);
+      this.camera.updatePos();
+    }
   }
 
   public setScene(scene: Scene): void {
@@ -256,6 +274,7 @@ class Renderer extends THREE.WebGLRenderer {
 
   public setCamera(camera: Camera): void {
     this.camera = camera;
+    this.camera.aspect = (this.width / this.height);
     this.service(Date.now());
   }
 
@@ -343,7 +362,8 @@ class Renderer extends THREE.WebGLRenderer {
                                origin: [event.data[4].point.x,
                                         event.data[4].point.y,
                                         event.data[4].point.z],
-                               value: event.data[4].height});
+                                        value: event.data[4].height,
+                                        face: event.data[4].face});
         }
         break;
     }
@@ -362,6 +382,8 @@ class Scene extends THREE.Scene {
   private lockWorkQueue: boolean = false;
   private lastUpdate: number = Date.now();
   private fogDistance: number = 0;
+  private materialIndex: number = 0;
+  private setMaterialDabounce: number = 0;
 
   constructor(public label: string, public worker) {
     super();
@@ -484,6 +506,9 @@ class Scene extends THREE.Scene {
               (input as ICustomInputEvent).value as boolean;
             this.setAllTileVisibility();
           }
+          break;
+        case "c":
+          this.setMaterial();
           break;
         case "generateLevel":
           const generate = (input as ICustomInputEvent).value as string;
@@ -724,6 +749,7 @@ class Scene extends THREE.Scene {
                                job.indexLow,
                                job.recursion,
                                depth,
+                               this.materialIndex,
                                parentTile);
     this.activeMeshes[mesh.userData.label] = mesh;
     this.add(mesh);
@@ -791,6 +817,24 @@ class Scene extends THREE.Scene {
         this.faceUnderMouse = event.data[3];
         this.setCursor(this.faceUnderMouse);
         break;
+    }
+  }
+
+  private setMaterial() {
+    if(this.setMaterialDabounce + 500 > Date.now()) {
+      return;
+    }
+    this.setMaterialDabounce = Date.now();
+
+    if(++this.materialIndex >= 4) {
+      this.materialIndex = 0;
+    }
+
+    for(const meshLabel in this.activeMeshes) {
+      if(this.activeMeshes.hasOwnProperty(meshLabel)) {
+        const mesh = this.activeMeshes[meshLabel];
+        mesh.setMaterial(this.materialIndex, mesh.recursion);
+      }
     }
   }
 }
@@ -876,7 +920,6 @@ abstract class Mesh extends THREE.Mesh {
   public material: any;
 
   public userInput: Array<KeyboardEvent | ICustomInputEvent> = [];
-  private materialIndex: number = -1;
   private materialIndexChanged: number = 0;
 
   constructor(label: string) {
@@ -896,21 +939,18 @@ abstract class Mesh extends THREE.Mesh {
   }
 
   protected resetMaterial() {
-    this.materialIndex = -1;
-    this.changeMaterial();
+    this.setMaterial(0);
   }
 
-  protected changeMaterial(colorHint: number=0) {
+  protected setMaterial(material: number=0, colorHint: number=0) {
+    console.log("setMaterial(", material, colorHint, ")");
     if(Date.now() - this.materialIndexChanged < 200) {
       // Debounce input.
       return;
     }
     this.materialIndexChanged = Date.now();
 
-    if(++this.materialIndex >= 6) {
-      this.materialIndex = 0;
-    }
-
+    colorHint = colorHint % 10;
     let color = 0x000000;
     switch(colorHint) {
       case 0:
@@ -945,8 +985,20 @@ abstract class Mesh extends THREE.Mesh {
         break;
     }
 
-    switch(this.materialIndex) {
-      case 0:
+    switch(material) {
+      case 1:
+        this.material = new THREE.MeshLambertMaterial({
+          vertexColors: THREE.VertexColors});
+        this.material.wireframe = true;
+        break;
+      case 2:
+        this.material = new THREE.MeshBasicMaterial({color});
+        break;
+      case 3:
+        this.material = new THREE.MeshBasicMaterial({color});
+        this.material.wireframe = true;
+        break;
+      default:
         // this.material = new THREE.MeshLambertMaterial({color: 0x55B663});
         this.material = new THREE.MeshLambertMaterial({
           vertexColors: THREE.VertexColors,
@@ -954,22 +1006,6 @@ abstract class Mesh extends THREE.Mesh {
           // opacity: 1,
           overdraw: 1.0,  // TODO: Still getting gaps in fine detail.
         });
-        break;
-      case 1:
-        this.material.wireframe = true;
-        break;
-      case 2:
-        this.material = new THREE.MeshBasicMaterial({color});
-        break;
-      case 3:
-        this.material.wireframe = true;
-        break;
-      case 4:
-        this.material = new THREE.MeshNormalMaterial({side : THREE.DoubleSide,
-                                                      wireframeLinewidth: 1});
-        break;
-      case 5:
-        this.material.wireframe = true;
         break;
     }
   }
@@ -979,7 +1015,7 @@ class Box extends Mesh {
   constructor(label: string) {
     super(label);
     this.geometry = new THREE.BoxGeometry( 1, 1, 1 );
-    this.changeMaterial();
+    this.setMaterial();
   }
 
   public service() {
@@ -987,7 +1023,7 @@ class Box extends Mesh {
       const input = this.userInput.pop();
       switch(input.key || input.type) {
         case "c":
-          this.changeMaterial();
+          this.setMaterial();
           break;
       }
     }
@@ -1001,6 +1037,7 @@ class WorldTile extends Mesh {
               private indexLow: number,
               private recursion: number,
               private requiredDepth: number,
+              private materialIndex: number,
               private parentTile: WorldTile) {
     super(label);
     this.userData.indexHigh = indexHigh;
@@ -1020,7 +1057,7 @@ class WorldTile extends Mesh {
       // Must populate children later.
     }
 
-    this.changeMaterial();
+    this.setMaterial(this.materialIndex, recursion);
 
     let skirt = false;
     if(recursion > 4) {
@@ -1042,17 +1079,17 @@ class WorldTile extends Mesh {
 
   public service() {
     // TODO: Should this actually happen for each mesh or for the whole scene?
-    while (this.userInput.length) {
+    /*while (this.userInput.length) {
       const input = this.userInput.pop();
       // console.log(input.type, input.key);
       switch(input.key || input.type) {
         case "c":
-          this.changeMaterial(this.recursion);
+          this.setMaterial(this.recursion);
           break;
         case " ":
           this.resetMaterial();
           break;
       }
-    }
+    }*/
   }
 }

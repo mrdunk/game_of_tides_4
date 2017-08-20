@@ -78,7 +78,7 @@ class WorldTileWorker {
         if(heightColor > 245) {
           heightColor = 245;
         }
-        
+
         if(isLand > 0 && height > 0.002) {
           colors[(i * 9) + (point * 3) + 0] = heightColor / 2;
           colors[(i * 9) + (point * 3) + 1] = heightColor / 1.5;
@@ -156,8 +156,10 @@ class WorldTileWorker {
         (face.points[0][1] + face.points[1][1] + face.points[2][1]) / 3,
         (face.points[0][2] + face.points[1][2] + face.points[2][2]) / 3 );
       const height = (face.heights[0] + face.heights[1] + face.heights[2] ) / 3;
+      const returnFace: IFace = {
+        indexHigh: face.index_high, indexLow: face.index_low, recursion};
       face.delete();
-      return {point: surfacePoint, height};
+      return {point: surfacePoint, height, face: returnFace};
     }
     console.log("Face not found beneath:", point);
   }
@@ -180,6 +182,7 @@ class WorldTileWorker {
         height: face.heights[2]};
       const returnVal = {indexHigh: face.index_high as number,
                          indexLow: face.index_low as number,
+                         recursion,
                          height: face.height as number,
                          points: [surfacePoint0, surfacePoint1, surfacePoint2],
                         };

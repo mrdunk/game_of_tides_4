@@ -120,8 +120,11 @@ var WorldTileWorker = (function () {
         if (face) {
             var surfacePoint = new THREE.Vector3((face.points[0][0] + face.points[1][0] + face.points[2][0]) / 3, (face.points[0][1] + face.points[1][1] + face.points[2][1]) / 3, (face.points[0][2] + face.points[1][2] + face.points[2][2]) / 3);
             var height = (face.heights[0] + face.heights[1] + face.heights[2]) / 3;
+            var returnFace = {
+                indexHigh: face.index_high, indexLow: face.index_low, recursion: recursion
+            };
             face.delete();
-            return { point: surfacePoint, height: height };
+            return { point: surfacePoint, height: height, face: returnFace };
         }
         console.log("Face not found beneath:", point);
     };
@@ -143,6 +146,7 @@ var WorldTileWorker = (function () {
             };
             var returnVal = { indexHigh: face.index_high,
                 indexLow: face.index_low,
+                recursion: recursion,
                 height: face.height,
                 points: [surfacePoint0, surfacePoint1, surfacePoint2],
             };

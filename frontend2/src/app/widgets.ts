@@ -2,16 +2,20 @@ class WidgetBase {
   public element: HTMLElement;
 
   constructor(public label: string,
-              public width: number,
-              public height: number) {
+              public width?: number,
+              public height?: number) {
     this.element = document.getElementById(label);
     if(!this.element) {
       this.element = document.createElement("div");
     }
     this.element.classList.add("widget");
 
-    this.element.style.width = "" + width + "px";
-    this.element.style.height = "" + height + "px";
+    if(width !== undefined) {
+      this.element.style.width = "" + width + "px";
+    }
+    if(height !== undefined) {
+      this.element.style.height = "" + height + "px";
+    }
   }
 }
 
@@ -94,14 +98,14 @@ class MenuWidget extends WidgetBase {
   private uiMenu = new UIMenu();
 
   constructor(public label: string) {
-    super("Menu", 150, 400);
+    super("Menu");
     setInterval(this.service.bind(this), 1000);
 
     UIMaster.clientMessageQueues.push(this.userInput);
 
     const content = {
       worldLevelGenerate: {
-        label: "cursor size: ",
+        label: "cursor size:",
         type: "range",
         key: "generateLevel",
         value: 6,

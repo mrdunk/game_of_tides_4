@@ -126,6 +126,7 @@ var Camera = (function (_super) {
                     }
                     break;
                 case "cameraabove":
+                    this.faceOver = input.face;
                     var point = new THREE.Vector3();
                     point.fromArray(input.origin);
                     var height = Math.max(sealevel, input.value);
@@ -195,8 +196,19 @@ var Renderer = (function (_super) {
         _this.element = document.getElementById(label);
         _this.element.appendChild(_this.domElement);
         UIMaster.clientMessageQueues.push(_this.userInput);
+        window.onresize = _this.changeSize.bind(_this);
         return _this;
     }
+    Renderer.prototype.changeSize = function () {
+        this.width = window.innerWidth;
+        this.height = window.innerHeight;
+        this.setSize(this.width, this.height);
+        this.setPixelRatio(window.devicePixelRatio);
+        if (this.camera !== undefined) {
+            this.camera.aspect = (this.width / this.height);
+            this.camera.updatePos();
+        }
+    };
     Renderer.prototype.setScene = function (scene) {
         this.scene = scene;
         this.service(Date.now());
@@ -204,6 +216,7 @@ var Renderer = (function (_super) {
     };
     Renderer.prototype.setCamera = function (camera) {
         this.camera = camera;
+        this.camera.aspect = (this.width / this.height);
         this.service(Date.now());
     };
     Renderer.prototype.service = function (now) {
@@ -278,7 +291,8 @@ var Renderer = (function (_super) {
                         origin: [event.data[4].point.x,
                             event.data[4].point.y,
                             event.data[4].point.z],
-                        value: event.data[4].height });
+                        value: event.data[4].height,
+                        face: event.data[4].face });
                 }
                 break;
         }
@@ -301,6 +315,8 @@ var Scene = (function (_super) {
         _this.lockWorkQueue = false;
         _this.lastUpdate = Date.now();
         _this.fogDistance = 0;
+        _this.materialIndex = 0;
+        _this.setMaterialDabounce = 0;
         var light = new THREE.PointLight(0xffffff);
         light.position.set(0, 0, 2 * cameraInitialDistance);
         _this.add(light);
@@ -404,6 +420,9 @@ var Scene = (function (_super) {
                             input.value;
                         this.setAllTileVisibility();
                     }
+                    break;
+                case "c":
+                    this.setMaterial();
                     break;
                 case "generateLevel":
                     var generate = input.value;
@@ -611,7 +630,7 @@ var Scene = (function (_super) {
             console.log("Already created: ", label);
             return;
         }
-        var mesh = new WorldTile(label, this.worker, job.indexHigh, job.indexLow, job.recursion, depth, parentTile);
+        var mesh = new WorldTile(label, this.worker, job.indexHigh, job.indexLow, job.recursion, depth, this.materialIndex, parentTile);
         this.activeMeshes[mesh.userData.label] = mesh;
         this.add(mesh);
         mesh.visible = this.activeTileLevels[job.recursion];
@@ -666,6 +685,21 @@ var Scene = (function (_super) {
                 this.faceUnderMouse = event.data[3];
                 this.setCursor(this.faceUnderMouse);
                 break;
+        }
+    };
+    Scene.prototype.setMaterial = function () {
+        if (this.setMaterialDabounce + 500 > Date.now()) {
+            return;
+        }
+        this.setMaterialDabounce = Date.now();
+        if (++this.materialIndex >= 4) {
+            this.materialIndex = 0;
+        }
+        for (var meshLabel in this.activeMeshes) {
+            if (this.activeMeshes.hasOwnProperty(meshLabel)) {
+                var mesh = this.activeMeshes[meshLabel];
+                mesh.setMaterial(this.materialIndex, mesh.recursion);
+            }
         }
     };
     return Scene;
@@ -740,7 +774,6 @@ var Mesh = (function (_super) {
     function Mesh(label) {
         var _this = _super.call(this) || this;
         _this.userInput = [];
-        _this.materialIndex = -1;
         _this.materialIndexChanged = 0;
         _this.userData.label = label;
         return _this;
@@ -754,19 +787,18 @@ var Mesh = (function (_super) {
         }
     };
     Mesh.prototype.resetMaterial = function () {
-        this.materialIndex = -1;
-        this.changeMaterial();
+        this.setMaterial(0);
     };
-    Mesh.prototype.changeMaterial = function (colorHint) {
+    Mesh.prototype.setMaterial = function (material, colorHint) {
+        if (material === void 0) { material = 0; }
         if (colorHint === void 0) { colorHint = 0; }
+        console.log("setMaterial(", material, colorHint, ")");
         if (Date.now() - this.materialIndexChanged < 200) {
             // Debounce input.
             return;
         }
         this.materialIndexChanged = Date.now();
-        if (++this.materialIndex >= 6) {
-            this.materialIndex = 0;
-        }
+        colorHint = colorHint % 10;
         var color = 0x000000;
         switch (colorHint) {
             case 0:
@@ -800,8 +832,21 @@ var Mesh = (function (_super) {
                 color = 0x22AA22;
                 break;
         }
-        switch (this.materialIndex) {
-            case 0:
+        switch (material) {
+            case 1:
+                this.material = new THREE.MeshLambertMaterial({
+                    vertexColors: THREE.VertexColors
+                });
+                this.material.wireframe = true;
+                break;
+            case 2:
+                this.material = new THREE.MeshBasicMaterial({ color: color });
+                break;
+            case 3:
+                this.material = new THREE.MeshBasicMaterial({ color: color });
+                this.material.wireframe = true;
+                break;
+            default:
                 // this.material = new THREE.MeshLambertMaterial({color: 0x55B663});
                 this.material = new THREE.MeshLambertMaterial({
                     vertexColors: THREE.VertexColors,
@@ -809,22 +854,6 @@ var Mesh = (function (_super) {
                     // opacity: 1,
                     overdraw: 1.0,
                 });
-                break;
-            case 1:
-                this.material.wireframe = true;
-                break;
-            case 2:
-                this.material = new THREE.MeshBasicMaterial({ color: color });
-                break;
-            case 3:
-                this.material.wireframe = true;
-                break;
-            case 4:
-                this.material = new THREE.MeshNormalMaterial({ side: THREE.DoubleSide,
-                    wireframeLinewidth: 1 });
-                break;
-            case 5:
-                this.material.wireframe = true;
                 break;
         }
     };
@@ -835,7 +864,7 @@ var Box = (function (_super) {
     function Box(label) {
         var _this = _super.call(this, label) || this;
         _this.geometry = new THREE.BoxGeometry(1, 1, 1);
-        _this.changeMaterial();
+        _this.setMaterial();
         return _this;
     }
     Box.prototype.service = function () {
@@ -843,7 +872,7 @@ var Box = (function (_super) {
             var input = this.userInput.pop();
             switch (input.key || input.type) {
                 case "c":
-                    this.changeMaterial();
+                    this.setMaterial();
                     break;
             }
         }
@@ -852,7 +881,7 @@ var Box = (function (_super) {
 }(Mesh));
 var WorldTile = (function (_super) {
     __extends(WorldTile, _super);
-    function WorldTile(label, worker, indexHigh, indexLow, recursion, requiredDepth, parentTile) {
+    function WorldTile(label, worker, indexHigh, indexLow, recursion, requiredDepth, materialIndex, parentTile) {
         var _this = _super.call(this, label) || this;
         _this.label = label;
         _this.worker = worker;
@@ -860,6 +889,7 @@ var WorldTile = (function (_super) {
         _this.indexLow = indexLow;
         _this.recursion = recursion;
         _this.requiredDepth = requiredDepth;
+        _this.materialIndex = materialIndex;
         _this.parentTile = parentTile;
         _this.userData.indexHigh = indexHigh;
         _this.userData.indexLow = indexLow;
@@ -877,7 +907,7 @@ var WorldTile = (function (_super) {
             _this.userData.parentLabel = getParentLabel(_this.userData);
             // Must populate children later.
         }
-        _this.changeMaterial();
+        _this.setMaterial(_this.materialIndex, recursion);
         var skirt = false;
         if (recursion > 4) {
             skirt = true;
@@ -896,18 +926,18 @@ var WorldTile = (function (_super) {
     }
     WorldTile.prototype.service = function () {
         // TODO: Should this actually happen for each mesh or for the whole scene?
-        while (this.userInput.length) {
-            var input = this.userInput.pop();
-            // console.log(input.type, input.key);
-            switch (input.key || input.type) {
-                case "c":
-                    this.changeMaterial(this.recursion);
-                    break;
-                case " ":
-                    this.resetMaterial();
-                    break;
-            }
-        }
+        /*while (this.userInput.length) {
+          const input = this.userInput.pop();
+          // console.log(input.type, input.key);
+          switch(input.key || input.type) {
+            case "c":
+              this.setMaterial(this.recursion);
+              break;
+            case " ":
+              this.resetMaterial();
+              break;
+          }
+        }*/
     };
     return WorldTile;
 }(Mesh));
