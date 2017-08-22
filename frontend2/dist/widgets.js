@@ -13,11 +13,22 @@ var WidgetBase = (function () {
         this.label = label;
         this.width = width;
         this.height = height;
+        this.elementHeight = "";
+        this.contentHeight = "";
+        this.sizeState = true;
         this.element = document.getElementById(label);
         if (!this.element) {
             this.element = document.createElement("div");
         }
         this.element.classList.add("widget");
+        var button = document.createElement("div");
+        button.innerHTML = "-";
+        button.classList.add("button");
+        this.element.appendChild(button);
+        button.addEventListener("click", this.shrinkGrow.bind(this));
+        this.content = document.createElement("div");
+        this.element.appendChild(this.content);
+        this.content.classList.add("content");
         if (width !== undefined) {
             this.element.style.width = "" + width + "px";
         }
@@ -25,6 +36,23 @@ var WidgetBase = (function () {
             this.element.style.height = "" + height + "px";
         }
     }
+    WidgetBase.prototype.shrinkGrow = function () {
+        if (this.sizeState) {
+            if (this.element.style.height !== "") {
+                this.elementHeight = this.element.style.height;
+                this.element.style.height = "0";
+            }
+            this.contentHeight = this.content.style.height;
+            this.content.style.height = "0";
+        }
+        else {
+            if (this.elementHeight !== "") {
+                this.element.style.height = this.elementHeight;
+            }
+            this.content.style.height = this.contentHeight;
+        }
+        this.sizeState = !this.sizeState;
+    };
     return WidgetBase;
 }());
 var StatusWidget = (function (_super) {
@@ -32,28 +60,28 @@ var StatusWidget = (function (_super) {
     function StatusWidget() {
         var _this = _super.call(this, "FPS", 100, 50) || this;
         setInterval(_this.service.bind(_this), 1000);
-        _this.graph = document.createElement("div");
-        _this.graph.classList.add("graph");
         _this.message = document.createElement("div");
         _this.message.classList.add("message");
-        _this.element.appendChild(_this.graph);
-        _this.element.appendChild(_this.message);
-        _this.element.classList.add("centered");
+        _this.content.appendChild(_this.message);
+        _this.content.classList.add("centered");
+        _this.message.classList.add("centered");
         return _this;
     }
     StatusWidget.prototype.service = function () {
-        this.message.innerHTML = "FPS: " + Math.round(MainLoop.FPS);
+        this.message.innerHTML = "FPS: " + Math.round(MainLoop.FPS) + "<br/>" +
+            "ave: " + Math.round(MainLoop.longAverageFPS);
         var bar = document.createElement("div");
         bar.classList.add("bar");
         if (Date.now() - MainLoop.lastDrawFrame <= 1000) {
-            var height = this.height * MainLoop.FPS / maxFps;
+            var height = 0.8 * this.height * MainLoop.FPS / maxFps;
             bar.style.background = "cadetblue";
             bar.style.height = "" + Math.round(height) + "px";
         }
-        this.graph.appendChild(bar);
-        while (this.graph.childElementCount > this.width) {
-            this.graph.removeChild(this.graph.firstChild);
+        this.content.appendChild(bar);
+        while (this.content.childElementCount > this.width) {
+            this.content.removeChild(this.content.childNodes[1]);
         }
+        this.content.classList.add("graph");
     };
     return StatusWidget;
 }(WidgetBase));
@@ -63,7 +91,7 @@ var CameraPositionWidget = (function (_super) {
         var _this = _super.call(this, "CameraPos", 180, 50) || this;
         _this.camera = camera;
         setInterval(_this.service.bind(_this), 20);
-        _this.element.classList.add("centered");
+        _this.content.classList.add("centered");
         return _this;
     }
     CameraPositionWidget.prototype.service = function () {
@@ -82,7 +110,7 @@ var CameraPositionWidget = (function (_super) {
         var minLat = Math.floor((this.camera.lat - degLat) * 60);
         var degLon = Math.floor(this.camera.lon);
         var minLon = Math.floor((this.camera.lon - degLon) * 60);
-        this.element.innerHTML =
+        this.content.innerHTML =
             "lat: " + degLat + "\xB0&nbsp;" + minLat + "'" +
                 "&nbsp;&nbsp;&nbsp;" +
                 "lon: " + degLon + "\xB0&nbsp;" + minLon + "'" +
@@ -188,7 +216,7 @@ var MenuWidget = (function (_super) {
             },
         };
         var container = document.createElement("div");
-        _this.element.appendChild(container);
+        _this.content.appendChild(container);
         for (var id in content) {
             if (content.hasOwnProperty(id)) {
                 var newElement = document.createElement("div");
@@ -279,9 +307,9 @@ var CursorPositionWidget = (function (_super) {
         var _this = _super.call(this, "CursorPos", 100, 50) || this;
         _this.scene = scene;
         setInterval(_this.service.bind(_this), 200);
-        _this.element.classList.add("centered");
+        _this.content.classList.add("centered");
         _this.container = document.createElement("div");
-        _this.element.appendChild(_this.container);
+        _this.content.appendChild(_this.container);
         return _this;
     }
     CursorPositionWidget.prototype.service = function () {
@@ -325,4 +353,39 @@ var CursorPositionWidget = (function (_super) {
         });*/
     };
     return CursorPositionWidget;
+}(WidgetBase));
+var BrowserInfo = (function (_super) {
+    __extends(BrowserInfo, _super);
+    function BrowserInfo() {
+        var _this = _super.call(this, "BrowserInfo") || this;
+        setInterval(_this.service.bind(_this), 10000);
+        var lineCount = 1;
+        var keys = ["name", "manufacturer", "layout", "description", "version"];
+        keys.forEach(function (key) {
+            if (platform[key]) {
+                var div = document.createElement("div");
+                _this.content.appendChild(div);
+                lineCount++;
+                div.innerHTML = key + ": " + platform[key];
+            }
+        });
+        var osKeys = ["architecture", "family", "version"];
+        osKeys.forEach(function (key) {
+            if (platform.os[key]) {
+                var div = document.createElement("div");
+                _this.content.appendChild(div);
+                lineCount++;
+                div.innerHTML = "os." + key + ": " + platform.os[key];
+            }
+        });
+        _this.fpsContainer = document.createElement("div");
+        _this.content.appendChild(_this.fpsContainer);
+        _this.fpsContainer.innerHTML = "FPS: " + MainLoop.longAverageFPS;
+        _this.content.style.height = "" + lineCount + "em";
+        return _this;
+    }
+    BrowserInfo.prototype.service = function () {
+        this.fpsContainer.innerHTML = "FPS: " + MainLoop.longAverageFPS;
+    };
+    return BrowserInfo;
 }(WidgetBase));

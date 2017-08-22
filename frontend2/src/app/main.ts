@@ -41,12 +41,14 @@ function init() {
   const fpsWidget = new StatusWidget();
   const cameraWidget = new CameraPositionWidget(camera);
   const cursorWidget = new CursorPositionWidget(scene);
+  const browserInfo = new BrowserInfo();
   const widgetContainer = document.createElement("div");
   widgetContainer.className = "widget-container";
   widgetContainer.appendChild(menuWidget.element);
   widgetContainer.appendChild(fpsWidget.element);
   widgetContainer.appendChild(cameraWidget.element);
   widgetContainer.appendChild(cursorWidget.element);
+  widgetContainer.appendChild(browserInfo.element);
   renderer.element.appendChild(widgetContainer);
 }
 

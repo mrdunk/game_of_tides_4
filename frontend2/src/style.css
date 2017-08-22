@@ -15,9 +15,31 @@ body {
   padding: 8px 8px;
   border-radius: 5px;
   float: left;
+  position: relative;
+  transition: all 0.3s linear;
+  min-height: 4px;
 }
 
-.widget.centered {
+.widget .content {
+  transition: all 0.3s linear;
+  position: relative;
+  overflow: hidden;
+}
+
+.widget.shrink {
+  height: 0;
+}
+
+.widget .button {
+  background: grey;
+  padding: 0px 4px;
+  position: absolute;
+  right: 0;
+  top: 0;
+  cursor: pointer;
+}
+
+.widget .centered {
   display: flex;
   align-items: center;
   justify-content: center;
@@ -25,16 +47,18 @@ body {
 
 .widget .message {
   position: absolute;
-}
-
-.widget .graph {
-  display:flex;
-  align-items: flex-end;
   height: 100%;
   width: 100%;
 }
 
-.widget .graph .bar {
+.widget .content.graph {
+  display:flex;
+  align-items: flex-end;
+  justify-content: left;
+  height: 100%;
+}
+
+.widget .bar {
   float: left;
   width: 1px;
   background: red;

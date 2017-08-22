@@ -1,5 +1,9 @@
 class WidgetBase {
   public element: HTMLElement;
+  protected content: HTMLElement;
+  protected elementHeight: string = "";
+  protected contentHeight: string = "";
+  protected sizeState: boolean = true;
 
   constructor(public label: string,
               public width?: number,
@@ -10,6 +14,16 @@ class WidgetBase {
     }
     this.element.classList.add("widget");
 
+    const button = document.createElement("div");
+    button.innerHTML = "-";
+    button.classList.add("button");
+    this.element.appendChild(button);
+    button.addEventListener("click", this.shrinkGrow.bind(this));
+
+    this.content = document.createElement("div");
+    this.element.appendChild(this.content);
+    this.content.classList.add("content");
+
     if(width !== undefined) {
       this.element.style.width = "" + width + "px";
     }
@@ -17,43 +31,57 @@ class WidgetBase {
       this.element.style.height = "" + height + "px";
     }
   }
+
+  private shrinkGrow() {
+    if(this.sizeState){
+      if(this.element.style.height !== "") {
+        this.elementHeight = this.element.style.height;
+        this.element.style.height = "0";
+      }
+      this.contentHeight = this.content.style.height;
+      this.content.style.height = "0";
+    } else {
+      if(this.elementHeight !== "") {
+        this.element.style.height = this.elementHeight;
+      }
+      this.content.style.height = this.contentHeight;
+    }
+    this.sizeState = !this.sizeState;
+  }
 }
 
 class StatusWidget extends WidgetBase {
-  private graph: HTMLElement;
   private message: HTMLElement;
 
   constructor() {
     super("FPS", 100, 50);
     setInterval(this.service.bind(this), 1000);
 
-    this.graph = document.createElement("div");
-    this.graph.classList.add("graph");
-
     this.message = document.createElement("div");
     this.message.classList.add("message");
 
-    this.element.appendChild(this.graph);
-    this.element.appendChild(this.message);
+    this.content.appendChild(this.message);
 
-    this.element.classList.add("centered");
+    this.content.classList.add("centered");
+    this.message.classList.add("centered");
   }
 
   public service() {
-    this.message.innerHTML = "FPS: " + Math.round(MainLoop.FPS);
-
+    this.message.innerHTML = "FPS: " + Math.round(MainLoop.FPS) + "<br/>" +
+                             "ave: " + Math.round(MainLoop.longAverageFPS);
 
     const bar = document.createElement("div");
     bar.classList.add("bar");
     if(Date.now() - MainLoop.lastDrawFrame <= 1000) {
-      const height = this.height * MainLoop.FPS / maxFps;
+      const height = 0.8 * this.height * MainLoop.FPS / maxFps;
       bar.style.background = "cadetblue";
       bar.style.height = "" + Math.round(height) + "px";
     }
-    this.graph.appendChild(bar);
-    while(this.graph.childElementCount > this.width) {
-      this.graph.removeChild(this.graph.firstChild);
+    this.content.appendChild(bar);
+    while(this.content.childElementCount > this.width) {
+      this.content.removeChild(this.content.childNodes[1]);
     }
+    this.content.classList.add("graph");
   }
 }
 
@@ -61,7 +89,7 @@ class CameraPositionWidget extends WidgetBase {
   constructor(private camera: Camera) {
     super("CameraPos", 180, 50);
     setInterval(this.service.bind(this), 20);
-    this.element.classList.add("centered");
+    this.content.classList.add("centered");
   }
 
   public service() {
@@ -82,7 +110,7 @@ class CameraPositionWidget extends WidgetBase {
     const minLat = Math.floor((this.camera.lat - degLat) * 60);
     const degLon = Math.floor(this.camera.lon);
     const minLon = Math.floor((this.camera.lon - degLon) * 60);
-    this.element.innerHTML =
+    this.content.innerHTML =
       "lat: " + degLat + "\xB0&nbsp;" + minLat + "'" +
       "&nbsp;&nbsp;&nbsp;" +
       "lon: " + degLon + "\xB0&nbsp;" + minLon + "'" +
@@ -190,7 +218,7 @@ class MenuWidget extends WidgetBase {
     };
 
     const container = document.createElement("div");
-    this.element.appendChild(container);
+    this.content.appendChild(container);
     for(const id in content) {
       if(content.hasOwnProperty(id)) {
         const newElement = document.createElement("div");
@@ -287,9 +315,9 @@ class CursorPositionWidget extends WidgetBase {
   constructor(private scene: Scene) {
     super("CursorPos", 100, 50);
     setInterval(this.service.bind(this), 200);
-    this.element.classList.add("centered");
+    this.content.classList.add("centered");
     this.container = document.createElement("div");
-    this.element.appendChild(this.container);
+    this.content.appendChild(this.container);
   }
 
   public service() {
@@ -339,3 +367,46 @@ class CursorPositionWidget extends WidgetBase {
     });*/
   }
 }
+
+class BrowserInfo extends WidgetBase {
+  private container: HTMLElement;
+  private fpsContainer: HTMLElement;
+
+  constructor() {
+    super("BrowserInfo");
+    setInterval(this.service.bind(this), 10000);
+
+    let lineCount = 1;
+
+    const keys = ["name", "manufacturer", "layout", "description", "version" ];
+    keys.forEach((key) => {
+      if(platform[key]){
+        const div = document.createElement("div");
+        this.content.appendChild(div);
+        lineCount++;
+        div.innerHTML = key + ": " + platform[key];
+      }
+    });
+
+    const osKeys = ["architecture", "family", "version"];
+    osKeys.forEach((key) => {
+      if(platform.os[key]){
+        const div = document.createElement("div");
+        this.content.appendChild(div);
+        lineCount++;
+        div.innerHTML = "os." + key + ": " + platform.os[key];
+      }
+    });
+
+    this.fpsContainer = document.createElement("div");
+    this.content.appendChild(this.fpsContainer);
+    this.fpsContainer.innerHTML = "FPS: " + MainLoop.longAverageFPS;
+
+    this.content.style.height = "" + lineCount + "em";
+  }
+
+  public service() {
+    this.fpsContainer.innerHTML = "FPS: " + MainLoop.longAverageFPS;
+  }
+}
+
