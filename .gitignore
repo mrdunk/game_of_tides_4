@@ -8,3 +8,4 @@ websocketpp/
 emscripten/
 googletest/
 frontend2/node_modules/
+secret*

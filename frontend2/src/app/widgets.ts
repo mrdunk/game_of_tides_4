@@ -67,8 +67,7 @@ class StatusWidget extends WidgetBase {
   }
 
   public service() {
-    this.message.innerHTML = "FPS: " + Math.round(MainLoop.FPS) + "<br/>" +
-                             "ave: " + Math.round(MainLoop.longAverageFPS);
+    this.message.innerHTML = "FPS: " + Math.round(MainLoop.FPS);
 
     const bar = document.createElement("div");
     bar.classList.add("bar");
@@ -368,45 +367,23 @@ class CursorPositionWidget extends WidgetBase {
   }
 }
 
-class BrowserInfo extends WidgetBase {
+class BrowserInfoWidget extends WidgetBase {
   private container: HTMLElement;
   private fpsContainer: HTMLElement;
 
-  constructor() {
+  constructor(private browserInfo: BrowserInfo) {
     super("BrowserInfo");
     setInterval(this.service.bind(this), 10000);
 
-    let lineCount = 1;
-
-    const keys = ["name", "manufacturer", "layout", "description", "version" ];
-    keys.forEach((key) => {
-      if(platform[key]){
-        const div = document.createElement("div");
-        this.content.appendChild(div);
-        lineCount++;
-        div.innerHTML = key + ": " + platform[key];
-      }
-    });
-
-    const osKeys = ["architecture", "family", "version"];
-    osKeys.forEach((key) => {
-      if(platform.os[key]){
-        const div = document.createElement("div");
-        this.content.appendChild(div);
-        lineCount++;
-        div.innerHTML = "os." + key + ": " + platform.os[key];
-      }
-    });
-
-    this.fpsContainer = document.createElement("div");
-    this.content.appendChild(this.fpsContainer);
-    this.fpsContainer.innerHTML = "FPS: " + MainLoop.longAverageFPS;
-
-    this.content.style.height = "" + lineCount + "em";
+    this.service();
   }
 
   public service() {
-    this.fpsContainer.innerHTML = "FPS: " + MainLoop.longAverageFPS;
+    this.content.innerHTML = this.browserInfo.returnHtml().innerHTML;
+    const lineCount = this.content.childElementCount;
+    if(this.sizeState) {
+      this.content.style.height = "" + lineCount + "em";
+    }
   }
 }
 

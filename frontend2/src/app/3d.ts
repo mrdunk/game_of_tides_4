@@ -197,6 +197,10 @@ class Camera extends THREE.PerspectiveCamera {
     if(this.lat < -90) { this.lat = -90; }
     if(this.lon > 180) { this.lon -= 360; }
     if(this.lon < -180) { this.lon += 360; }
+    if(this.yaw > Math.PI) { this.yaw -= 2 * Math.PI; }
+    if(this.yaw < -Math.PI) { this.yaw += 2 * Math.PI; }
+    if(this.pitch > Math.PI) { this.pitch -= 2 * Math.PI; }
+    if(this.pitch < -Math.PI) { this.pitch += 2 * Math.PI; }
     if(this.distance < 0.01) {
       this.distance = 0.01;
     }
@@ -286,8 +290,11 @@ class Renderer extends THREE.WebGLRenderer {
       // If we use this.userInput.filter() here we cannot modify in place so
       // would have to replace UIMaster's reference to this.userInput.
       const target = this.userInput[i].target as HTMLElement;
-      if(target !== undefined && this.userInput[i] instanceof MouseEvent &&
-         target.parentElement.id !== this.label) {
+      if(target !== undefined &&
+          target.parentElement !== undefined &&
+          target.parentElement !== null &&
+          this.userInput[i] instanceof MouseEvent &&
+          target.parentElement.id !== this.label) {
         this.userInput.splice(i, 1);
       }
     }
@@ -854,11 +861,13 @@ class Cursor extends THREE.Mesh {
 
     this.renderOrder = 999;
     this.material.depthTest = false;
+
+    this.clear();
   }
 
   public setPosition(face: IFace): void {
     if(face === undefined) {
-      // this.clearCursor();
+      this.clear();
       return;
     }
 
@@ -869,6 +878,12 @@ class Cursor extends THREE.Mesh {
     point0.copy(face.points[0].point);
     point1.copy(face.points[1].point);
     point2.copy(face.points[2].point);
+
+    if(point0.distanceToSquared(point1) > earthRadius * earthRadius / 2) {
+      // TODO: Work out why cursor is sometimes initializing to a huge size.
+      this.clear();
+      return;
+    }
 
     const cursorFloatHeight = 0.0;  // (km)
     let height = Math.max(sealevel, face.points[0].height);
@@ -887,6 +902,12 @@ class Cursor extends THREE.Mesh {
     (this.geometry as THREE.Geometry).verticesNeedUpdate = true;
     (this.geometry as THREE.Geometry).elementsNeedUpdate = true;
     (this.geometry as THREE.Geometry).computeBoundingSphere();
+
+    this.visible = true;
+  }
+
+  public clear() {
+    this.visible = false;
   }
 }
 
@@ -943,7 +964,6 @@ abstract class Mesh extends THREE.Mesh {
   }
 
   protected setMaterial(material: number=0, colorHint: number=0) {
-    console.log("setMaterial(", material, colorHint, ")");
     if(Date.now() - this.materialIndexChanged < 200) {
       // Debounce input.
       return;

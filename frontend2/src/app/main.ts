@@ -37,18 +37,20 @@ function init() {
   const keyboard = new UIKeyboard();
   const mouse = new UIMouse();
 
+  const browserInfo = new BrowserInfo();
+
   const menuWidget = new MenuWidget("world_tiles");
   const fpsWidget = new StatusWidget();
   const cameraWidget = new CameraPositionWidget(camera);
   const cursorWidget = new CursorPositionWidget(scene);
-  const browserInfo = new BrowserInfo();
+  const browserInfoWidget = new BrowserInfoWidget(browserInfo);
   const widgetContainer = document.createElement("div");
   widgetContainer.className = "widget-container";
   widgetContainer.appendChild(menuWidget.element);
   widgetContainer.appendChild(fpsWidget.element);
   widgetContainer.appendChild(cameraWidget.element);
   widgetContainer.appendChild(cursorWidget.element);
-  widgetContainer.appendChild(browserInfo.element);
+  widgetContainer.appendChild(browserInfoWidget.element);
   renderer.element.appendChild(widgetContainer);
 }
 

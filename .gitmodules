@@ -7,3 +7,6 @@
 [submodule "frontend2/submodules/platform"]
 	path = frontend2/submodules/platform
 	url = https://github.com/bestiejs/platform.js.git
+[submodule "frontend2/submodules/game_analitics"]
+	path = frontend2/submodules/game_analitics
+	url = https://github.com/GameAnalytics/GA-SDK-JAVASCRIPT.git

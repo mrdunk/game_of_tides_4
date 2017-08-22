@@ -26,18 +26,19 @@ function init() {
     MainLoop.startRendering();
     var keyboard = new UIKeyboard();
     var mouse = new UIMouse();
+    var browserInfo = new BrowserInfo();
     var menuWidget = new MenuWidget("world_tiles");
     var fpsWidget = new StatusWidget();
     var cameraWidget = new CameraPositionWidget(camera);
     var cursorWidget = new CursorPositionWidget(scene);
-    var browserInfo = new BrowserInfo();
+    var browserInfoWidget = new BrowserInfoWidget(browserInfo);
     var widgetContainer = document.createElement("div");
     widgetContainer.className = "widget-container";
     widgetContainer.appendChild(menuWidget.element);
     widgetContainer.appendChild(fpsWidget.element);
     widgetContainer.appendChild(cameraWidget.element);
     widgetContainer.appendChild(cursorWidget.element);
-    widgetContainer.appendChild(browserInfo.element);
+    widgetContainer.appendChild(browserInfoWidget.element);
     renderer.element.appendChild(widgetContainer);
 }
 window.onload = function () {

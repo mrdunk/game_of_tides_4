@@ -68,8 +68,7 @@ var StatusWidget = (function (_super) {
         return _this;
     }
     StatusWidget.prototype.service = function () {
-        this.message.innerHTML = "FPS: " + Math.round(MainLoop.FPS) + "<br/>" +
-            "ave: " + Math.round(MainLoop.longAverageFPS);
+        this.message.innerHTML = "FPS: " + Math.round(MainLoop.FPS);
         var bar = document.createElement("div");
         bar.classList.add("bar");
         if (Date.now() - MainLoop.lastDrawFrame <= 1000) {
@@ -354,38 +353,21 @@ var CursorPositionWidget = (function (_super) {
     };
     return CursorPositionWidget;
 }(WidgetBase));
-var BrowserInfo = (function (_super) {
-    __extends(BrowserInfo, _super);
-    function BrowserInfo() {
+var BrowserInfoWidget = (function (_super) {
+    __extends(BrowserInfoWidget, _super);
+    function BrowserInfoWidget(browserInfo) {
         var _this = _super.call(this, "BrowserInfo") || this;
+        _this.browserInfo = browserInfo;
         setInterval(_this.service.bind(_this), 10000);
-        var lineCount = 1;
-        var keys = ["name", "manufacturer", "layout", "description", "version"];
-        keys.forEach(function (key) {
-            if (platform[key]) {
-                var div = document.createElement("div");
-                _this.content.appendChild(div);
-                lineCount++;
-                div.innerHTML = key + ": " + platform[key];
-            }
-        });
-        var osKeys = ["architecture", "family", "version"];
-        osKeys.forEach(function (key) {
-            if (platform.os[key]) {
-                var div = document.createElement("div");
-                _this.content.appendChild(div);
-                lineCount++;
-                div.innerHTML = "os." + key + ": " + platform.os[key];
-            }
-        });
-        _this.fpsContainer = document.createElement("div");
-        _this.content.appendChild(_this.fpsContainer);
-        _this.fpsContainer.innerHTML = "FPS: " + MainLoop.longAverageFPS;
-        _this.content.style.height = "" + lineCount + "em";
+        _this.service();
         return _this;
     }
-    BrowserInfo.prototype.service = function () {
-        this.fpsContainer.innerHTML = "FPS: " + MainLoop.longAverageFPS;
+    BrowserInfoWidget.prototype.service = function () {
+        this.content.innerHTML = this.browserInfo.returnHtml().innerHTML;
+        var lineCount = this.content.childElementCount;
+        if (this.sizeState) {
+            this.content.style.height = "" + lineCount + "em";
+        }
     };
-    return BrowserInfo;
+    return BrowserInfoWidget;
 }(WidgetBase));

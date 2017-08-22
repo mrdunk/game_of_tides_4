@@ -150,6 +150,18 @@ var Camera = (function (_super) {
         if (this.lon < -180) {
             this.lon += 360;
         }
+        if (this.yaw > Math.PI) {
+            this.yaw -= 2 * Math.PI;
+        }
+        if (this.yaw < -Math.PI) {
+            this.yaw += 2 * Math.PI;
+        }
+        if (this.pitch > Math.PI) {
+            this.pitch -= 2 * Math.PI;
+        }
+        if (this.pitch < -Math.PI) {
+            this.pitch += 2 * Math.PI;
+        }
         if (this.distance < 0.01) {
             this.distance = 0.01;
         }
@@ -227,7 +239,10 @@ var Renderer = (function (_super) {
             // If we use this.userInput.filter() here we cannot modify in place so
             // would have to replace UIMaster's reference to this.userInput.
             var target = this.userInput[i].target;
-            if (target !== undefined && this.userInput[i] instanceof MouseEvent &&
+            if (target !== undefined &&
+                target.parentElement !== undefined &&
+                target.parentElement !== null &&
+                this.userInput[i] instanceof MouseEvent &&
                 target.parentElement.id !== this.label) {
                 this.userInput.splice(i, 1);
             }
@@ -716,11 +731,12 @@ var Cursor = (function (_super) {
         _this.geometry.faces.push(new THREE.Face3(0, 1, 2));
         _this.renderOrder = 999;
         _this.material.depthTest = false;
+        _this.clear();
         return _this;
     }
     Cursor.prototype.setPosition = function (face) {
         if (face === undefined) {
-            // this.clearCursor();
+            this.clear();
             return;
         }
         var point0 = new THREE.Vector3(0, 0, 0);
@@ -729,6 +745,11 @@ var Cursor = (function (_super) {
         point0.copy(face.points[0].point);
         point1.copy(face.points[1].point);
         point2.copy(face.points[2].point);
+        if (point0.distanceToSquared(point1) > earthRadius * earthRadius / 2) {
+            // TODO: Work out why cursor is sometimes initializing to a huge size.
+            this.clear();
+            return;
+        }
         var cursorFloatHeight = 0.0; // (km)
         var height = Math.max(sealevel, face.points[0].height);
         height = Math.max(height, face.points[1].height);
@@ -743,6 +764,10 @@ var Cursor = (function (_super) {
         this.geometry.verticesNeedUpdate = true;
         this.geometry.elementsNeedUpdate = true;
         this.geometry.computeBoundingSphere();
+        this.visible = true;
+    };
+    Cursor.prototype.clear = function () {
+        this.visible = false;
     };
     return Cursor;
 }(THREE.Mesh));
@@ -792,7 +817,6 @@ var Mesh = (function (_super) {
     Mesh.prototype.setMaterial = function (material, colorHint) {
         if (material === void 0) { material = 0; }
         if (colorHint === void 0) { colorHint = 0; }
-        console.log("setMaterial(", material, colorHint, ")");
         if (Date.now() - this.materialIndexChanged < 200) {
             // Debounce input.
             return;
