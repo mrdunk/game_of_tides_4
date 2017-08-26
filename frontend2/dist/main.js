@@ -1,19 +1,32 @@
 // Copyright 2017 duncan law (mrdunk@gmail.com)
 var timeStep = 1000 / 60;
 var maxFps = 30;
+var workerType;
 function workerInit() {
-    if (typeof (SharedWorker) === "undefined") {
-        throw (new Error("Your browser does not support SharedWorkers"));
+    var worker;
+    console.log("workerInit()");
+    if (window.SharedWorker !== undefined) {
+        console.log("Spawining SharedWorker");
+        workerType = "SharedWorker";
+        worker = new SharedWorker("worker.js");
+        worker.port.start();
     }
-    var worker = new SharedWorker("worker.js");
+    else if (window.Worker !== undefined) {
+        console.log("Spawining Worker");
+        workerType = "Worker";
+        worker = new Worker("worker.js");
+    }
+    else {
+        throw (new Error("Your browser does not support Workers"));
+    }
     worker.onerror = function (err) {
         console.log(err.message);
         worker.port.close();
     };
-    worker.port.start();
-    worker.port.postMessage(["ping"]); // Bring up webworker.
-    setInterval(function () { worker.port.postMessage(["ping"]); }, 1000);
-    return worker;
+    var w = worker.port || worker;
+    w.postMessage(["ping"]); // Bring up webworker.
+    setInterval(function () { w.postMessage(["ping"]); }, 1000);
+    return w;
 }
 function init() {
     var worker = workerInit();

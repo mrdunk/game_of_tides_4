@@ -33,7 +33,7 @@ class WidgetBase {
   }
 
   private shrinkGrow() {
-    if(this.sizeState){
+    if(this.sizeState) {
       if(this.element.style.height !== "") {
         this.elementHeight = this.element.style.height;
         this.element.style.height = "0";

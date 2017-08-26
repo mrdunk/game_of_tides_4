@@ -214,12 +214,12 @@ var Renderer = (function (_super) {
     Renderer.prototype.changeSize = function () {
         this.width = window.innerWidth;
         this.height = window.innerHeight;
-        this.setSize(this.width, this.height);
-        this.setPixelRatio(window.devicePixelRatio);
         if (this.camera !== undefined) {
             this.camera.aspect = (this.width / this.height);
             this.camera.updatePos();
         }
+        this.setSize(this.width, this.height);
+        // this.setPixelRatio(window.devicePixelRatio);
     };
     Renderer.prototype.setScene = function (scene) {
         this.scene = scene;
@@ -295,7 +295,7 @@ var Renderer = (function (_super) {
         this.scene.getSurfaceUnderPoint("cameraabove", this.camera.position, this.scene.cursorSize);
     };
     Renderer.prototype.initWorker = function () {
-        this.scene.worker.port.addEventListener("message", this.workerCallback.bind(this));
+        this.scene.worker.addEventListener("message", this.workerCallback.bind(this));
     };
     Renderer.prototype.workerCallback = function (event) {
         switch (event.data[0]) {
@@ -458,11 +458,11 @@ var Scene = (function (_super) {
     /* Get a point on surface directly below the specified one.
      * WebWorker calculates this and returns result on input bus.*/
     Scene.prototype.getSurfaceUnderPoint = function (label, point, recursion) {
-        this.worker.port.postMessage(["getSurfaceUnderPoint", label, point, recursion]);
+        this.worker.postMessage(["getSurfaceUnderPoint", label, point, recursion]);
     };
     /* WebWorker calculates this and returns result on input bus.*/
     Scene.prototype.getFaceUnderMouse = function (mouseRay, recursion) {
-        this.worker.port.postMessage(["getFaceUnderMouse", mouseRay, recursion]);
+        this.worker.postMessage(["getFaceUnderMouse", mouseRay, recursion]);
     };
     /* Set correct visibility for all tiles. */
     Scene.prototype.setAllTileVisibility = function () {
@@ -664,7 +664,7 @@ var Scene = (function (_super) {
         }
     };
     Scene.prototype.initWorker = function () {
-        this.worker.port.addEventListener("message", this.workerCallback.bind(this));
+        this.worker.addEventListener("message", this.workerCallback.bind(this));
     };
     Scene.prototype.workerCallback = function (event) {
         var tileLabel;
@@ -936,11 +936,11 @@ var WorldTile = (function (_super) {
         if (recursion > 4) {
             skirt = true;
         }
-        worker.port.postMessage(["getNeighbours",
+        worker.postMessage(["getNeighbours",
             indexHigh,
             indexLow,
             recursion]);
-        worker.port.postMessage(["generateTerrain",
+        worker.postMessage(["generateTerrain",
             indexHigh,
             indexLow,
             recursion,

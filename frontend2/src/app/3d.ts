@@ -261,12 +261,12 @@ class Renderer extends THREE.WebGLRenderer {
   public changeSize() {
     this.width = window.innerWidth;
     this.height = window.innerHeight;
-    this.setSize(this.width, this.height);
-    this.setPixelRatio(window.devicePixelRatio);
     if(this.camera !== undefined) {
       this.camera.aspect = (this.width / this.height);
       this.camera.updatePos();
     }
+    this.setSize(this.width, this.height);
+    // this.setPixelRatio(window.devicePixelRatio);
   }
 
   public setScene(scene: Scene): void {
@@ -356,7 +356,7 @@ class Renderer extends THREE.WebGLRenderer {
   }
 
   private initWorker(): void {
-    this.scene.worker.port.addEventListener("message",
+    this.scene.worker.addEventListener("message",
                                             this.workerCallback.bind(this));
   }
 
@@ -539,14 +539,14 @@ class Scene extends THREE.Scene {
   public getSurfaceUnderPoint(label: string,
                               point: THREE.Vector3,
                               recursion: number): void {
-    this.worker.port.postMessage(
+    this.worker.postMessage(
       ["getSurfaceUnderPoint", label, point, recursion]);
   }
 
   /* WebWorker calculates this and returns result on input bus.*/
   private getFaceUnderMouse(mouseRay: ICustomInputEvent,
                             recursion: number): void {
-    this.worker.port.postMessage(["getFaceUnderMouse", mouseRay, recursion]);
+    this.worker.postMessage(["getFaceUnderMouse", mouseRay, recursion]);
   }
 
   /* Set correct visibility for all tiles. */
@@ -782,7 +782,7 @@ class Scene extends THREE.Scene {
   }
 
   private initWorker(): void {
-    this.worker.port.addEventListener("message",
+    this.worker.addEventListener("message",
                                       this.workerCallback.bind(this));
   }
 
@@ -1085,11 +1085,11 @@ class WorldTile extends Mesh {
     }
 
 
-    worker.port.postMessage(["getNeighbours",
+    worker.postMessage(["getNeighbours",
                              indexHigh,
                              indexLow,
                              recursion]);
-    worker.port.postMessage(["generateTerrain",
+    worker.postMessage(["generateTerrain",
                              indexHigh,
                              indexLow,
                              recursion,

@@ -4,21 +4,33 @@ declare function SharedWorker(url: string): void;
 
 const timeStep = 1000 / 60;
 const maxFps = 30;
+let workerType;
 
 function workerInit() {
-  if(typeof(SharedWorker) === "undefined") {
-    throw(new Error("Your browser does not support SharedWorkers"));
+  let worker;
+  console.log("workerInit()");
+  if(window.SharedWorker !== undefined) {
+    console.log("Spawining SharedWorker");
+    workerType = "SharedWorker";
+    worker = new SharedWorker("worker.js");
+    worker.port.start();
+  } else if(window.Worker !== undefined) {
+    console.log("Spawining Worker");
+    workerType = "Worker";
+    worker = new Worker("worker.js");
+  } else {
+    throw(new Error("Your browser does not support Workers"));
   }
-  const worker = new SharedWorker("worker.js");
   worker.onerror = (err) => {
     console.log(err.message);
     worker.port.close();
   };
-  worker.port.start();
-  worker.port.postMessage(["ping"]);  // Bring up webworker.
-  setInterval(() => {worker.port.postMessage(["ping"]);}, 1000);
 
-  return worker;
+  const w = worker.port || worker;
+  w.postMessage(["ping"]);  // Bring up webworker.
+  setInterval(() => {w.postMessage(["ping"]);}, 1000);
+
+  return w;
 }
 
 function init() {

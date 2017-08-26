@@ -170,41 +170,44 @@ var WorldTileWorker = (function () {
     return WorldTileWorker;
 }());
 var worldTileWorker = new WorldTileWorker();
+var socket = self;
+// Used by SharedWorker.
 var onconnect = function (event) {
     console.log("onconnect", event.ports);
-    var port = event.ports[0];
-    port.onmessage = function (e) {
-        // const workerResult = "Recieved: " + e.data[0];
-        // console.log(workerResult);
-        var reply = e.data.slice(); // Copy.
-        switch (e.data[0]) {
-            case "rayCrossesFace":
-                break;
-            case "getNeighbours":
-                var neighbours = worldTileWorker.getNeighbours(e.data[1], e.data[2], e.data[3]);
-                reply.push(neighbours);
-                port.postMessage(reply);
-                break;
-            case "generateTerrain":
-                var geometry = worldTileWorker.generateTerrain(e.data[1], e.data[2], e.data[3], e.data[4], e.data[5]);
-                port.postMessage(reply.concat(geometry), geometry);
-                break;
-            case "getSurfaceUnderPoint":
-                var point = worldTileWorker.getSurfaceUnderPoint(e.data[2], e.data[3]);
-                reply.push(point);
-                port.postMessage(reply);
-                break;
-            case "getFaceUnderMouse":
-                var face = worldTileWorker.getFaceUnderMouse(e.data[1], e.data[2]);
-                reply.push(face);
-                port.postMessage(reply);
-                break;
-            case "ping":
-                reply.push("pong");
-                port.postMessage(reply);
-                break;
-            default:
-                console.log(e.data);
-        }
-    };
+    socket = event.ports[0];
+    socket.onmessage = onmessage;
+};
+onmessage = function (e) {
+    // const workerResult = "Recieved: " + e.data[0];
+    // console.log(workerResult);
+    var reply = e.data.slice(); // Copy.
+    switch (e.data[0]) {
+        case "rayCrossesFace":
+            break;
+        case "getNeighbours":
+            var neighbours = worldTileWorker.getNeighbours(e.data[1], e.data[2], e.data[3]);
+            reply.push(neighbours);
+            socket.postMessage(reply);
+            break;
+        case "generateTerrain":
+            var geometry = worldTileWorker.generateTerrain(e.data[1], e.data[2], e.data[3], e.data[4], e.data[5]);
+            socket.postMessage(reply.concat(geometry), geometry);
+            break;
+        case "getSurfaceUnderPoint":
+            var point = worldTileWorker.getSurfaceUnderPoint(e.data[2], e.data[3]);
+            reply.push(point);
+            socket.postMessage(reply);
+            break;
+        case "getFaceUnderMouse":
+            var face = worldTileWorker.getFaceUnderMouse(e.data[1], e.data[2]);
+            reply.push(face);
+            socket.postMessage(reply);
+            break;
+        case "ping":
+            reply.push("pong");
+            socket.postMessage(reply);
+            break;
+        default:
+            console.log(e.data);
+    }
 };
