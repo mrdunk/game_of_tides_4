@@ -1,7 +1,5 @@
-var MainLoop = (function () {
-    function MainLoop() {
-    }
-    MainLoop.startRendering = function () {
+class MainLoop {
+    static startRendering() {
         if (MainLoop.lastDrawFrame >= 0) {
             console.log("ERROR: Already rendering.");
             return;
@@ -12,20 +10,20 @@ var MainLoop = (function () {
         MainLoop.startSecond = MainLoop.lastDrawFrame;
         MainLoop.framesInSecond = 0;
         MainLoop.drawFrame();
-    };
-    MainLoop.drawFrame = function () {
+    }
+    static drawFrame() {
         if (MainLoop.lastDrawFrame < 0) {
             console.log("Rendering stopped.");
             return;
         }
         MainLoop.frameId = requestAnimationFrame(MainLoop.drawFrame);
-        var now = Date.now();
-        var diff = now - MainLoop.lastDrawFrame;
+        const now = Date.now();
+        let diff = now - MainLoop.lastDrawFrame;
         if (diff >= 1000 / maxFps ||
             (MainLoop.averageFPS < maxFps * 0.95 && MainLoop.FPS < maxFps * 0.95)) {
             diff %= (1000 / maxFps);
             MainLoop.lastDrawFrame = now - diff;
-            for (var renderer in MainLoop.renderers) {
+            for (const renderer in MainLoop.renderers) {
                 if (MainLoop.renderers.hasOwnProperty(renderer)) {
                     MainLoop.renderers[renderer].service(now);
                     UIMaster.service(now);
@@ -49,8 +47,8 @@ var MainLoop = (function () {
                 }
             }
         }
-    };
-    MainLoop.stopRendering = function () {
+    }
+    static stopRendering() {
         if (MainLoop.lastDrawFrame < 0) {
             console.log("ERROR: Not currently rendering.");
             return;
@@ -58,14 +56,13 @@ var MainLoop = (function () {
         console.log("Stopping rendering.");
         MainLoop.lastDrawFrame = -1;
         cancelAnimationFrame(MainLoop.frameId);
-    };
-    MainLoop.FPS = 0;
-    MainLoop.averageFPS = 0;
-    MainLoop.longAverageFPS = 0;
-    MainLoop.lastDrawFrame = -1;
-    MainLoop.renderers = [];
-    MainLoop.frameId = undefined;
-    MainLoop.startSecond = undefined;
-    MainLoop.framesInSecond = undefined;
-    return MainLoop;
-}());
+    }
+}
+MainLoop.FPS = 0;
+MainLoop.averageFPS = 0;
+MainLoop.longAverageFPS = 0;
+MainLoop.lastDrawFrame = -1;
+MainLoop.renderers = [];
+MainLoop.frameId = undefined;
+MainLoop.startSecond = undefined;
+MainLoop.framesInSecond = undefined;

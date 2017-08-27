@@ -4,7 +4,7 @@ const gulp = require('gulp');
 const debug = require('gulp-debug');
 const inject = require('gulp-inject');
 const ts = require('gulp-typescript');
-const tsProject = ts.createProject('./tsconfig.json');
+// const tsProject = ts.createProject('./tsconfig.json');
 const tslint = require('gulp-tslint');
 const sourcemaps = require('gulp-sourcemaps');
 const del = require('del');
@@ -18,6 +18,11 @@ var paths = {
     other: ['build/wrap_terrain.js'],
 		dist: 'dist'
 };
+
+var projects = [
+                'src/app/world/tsconfig.json',
+                'src/app/worker/tsconfig.json'
+                ];
 
 
 /**
@@ -38,11 +43,14 @@ gulp.task("ts-lint", () =>
  */
 gulp.task('compile-ts', function () {
     var flatten = require('gulp-flatten');
-    return tsProject.src()
-                    .pipe(tsProject())
-                    .js
-                    .pipe(flatten())
-                    .pipe(gulp.dest(paths.dist));
+    projects.forEach((projectLocation) => {
+      const tsProject = ts.createProject(projectLocation);
+      tsProject.src()
+                      .pipe(tsProject())
+                      .js
+                      .pipe(flatten())
+                      .pipe(gulp.dest(paths.dist));
+    });
 });
 
 gulp.task("copy-html", function () {

@@ -216,10 +216,11 @@ let onconnect = (event: MessageEvent) => {
 
   socket.onmessage = onmessage;
 };
+this.addEventListener("connect", onconnect);
 
 onmessage = (e: MessageEvent) => {
-  // const workerResult = "Recieved: " + e.data[0];
-  // console.log(workerResult);
+  const workerResult = "Recieved: " + e.data[0];
+  console.log(workerResult);
 
   const reply = e.data.slice();  // Copy.
 
@@ -262,3 +263,4 @@ onmessage = (e: MessageEvent) => {
   }
 };
 
+console.log("worker");

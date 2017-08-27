@@ -7,7 +7,10 @@ interface ISystemData {
   sessionId?: string;
   hardwareConcurrency?: number;
   workerType?: string;
-  state?: string;
+  state_starting?: boolean;
+  state_running?: boolean;
+  state_closing?: boolean;
+  state_closed?: boolean;
   cleanShutdown?: boolean;
 }
 
@@ -64,9 +67,9 @@ class BrowserInfo {
     this.pullLocalStorage();
 
     // Push this session to DB.
-    this.data.state = "starting";
+    this.data.state_starting = true;
     this.pushMongo();
-    this.data.state = "running";
+    this.data.state_running = true;
     setTimeout(this.pushMongo.bind(this), 10000);  // 10 seconds.
     setTimeout(this.pushMongo.bind(this), 60000);  // 60 seconds.
     setTimeout(this.pushMongo.bind(this), 600000);  // 10 minutes.
@@ -88,7 +91,7 @@ class BrowserInfo {
     this.service();
     let returnString = "";
     for(const key in this.data) {
-      if(this.data.hasOwnProperty(key) && this.data[key]) {
+      if(this.data.hasOwnProperty(key) && this.data[key] !== undefined) {
         returnString += key + ": " + this.data[key] + "\n\r";
       }
     }
@@ -99,7 +102,7 @@ class BrowserInfo {
     this.service();
     const content = document.createElement("div");
     for(const key in this.data) {
-      if(this.data.hasOwnProperty(key) && this.data[key]) {
+      if(this.data.hasOwnProperty(key) && this.data[key] !== undefined) {
         const div = document.createElement("div");
         content.appendChild(div);
         div.innerHTML = key + ": " + this.data[key];
@@ -143,10 +146,10 @@ class BrowserInfo {
     if(data !== undefined && data !== null) {
       const jsonData: ISystemData = JSON.parse(data);
       console.log("Pushing previous session data to MongoDb.", jsonData);
-      if(jsonData.state === "closing") {
+      if(jsonData.state_closing = true) {
         jsonData.cleanShutdown = true;
       }
-      jsonData.state = "closed";
+      jsonData.state_closed = true;
       this.pushMongo(jsonData);
       localStorage.removeItem("sessionData");
     }
@@ -157,7 +160,7 @@ class BrowserInfo {
     // GameAnalytics("addProgressionEvent", "Complete", "world01");
     // GameAnalytics("session_end");
 
-    this.data.state = "closing";
+    this.data.state_closing = true;
     this.pushLocalStorage();
     console.log("BrowserInfo.unloadPage() done");
   }

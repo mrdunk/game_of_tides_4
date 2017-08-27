@@ -1,25 +1,15 @@
 // Copyright 2017 duncan law (mrdunk@gmail.com)
-var __extends = (this && this.__extends) || (function () {
-    var extendStatics = Object.setPrototypeOf ||
-        ({ __proto__: [] } instanceof Array && function (d, b) { d.__proto__ = b; }) ||
-        function (d, b) { for (var p in b) if (b.hasOwnProperty(p)) d[p] = b[p]; };
-    return function (d, b) {
-        extendStatics(d, b);
-        function __() { this.constructor = d; }
-        d.prototype = b === null ? Object.create(b) : (__.prototype = b.prototype, new __());
-    };
-})();
 function elementSize(element) {
-    var copy = element.cloneNode(true);
+    const copy = element.cloneNode(true);
     copy.style.display = "inline-block";
     document.body.appendChild(copy);
-    var w = copy.scrollWidth;
-    var h = copy.scrollHeight;
+    const w = copy.scrollWidth;
+    const h = copy.scrollHeight;
     document.body.removeChild(copy);
-    return { w: w, h: h };
+    return { w, h };
 }
-var WidgetBase = (function () {
-    function WidgetBase(label, width, height) {
+class WidgetBase {
+    constructor(label, width, height) {
         this.label = label;
         this.width = width;
         this.height = height;
@@ -28,14 +18,14 @@ var WidgetBase = (function () {
         this.elementWidth = "";
         this.contentWidth = "";
         this.sizeState = true;
-        var sizeState = localStorage.getItem(this.label + "__sizeState");
+        const sizeState = localStorage.getItem(this.label + "__sizeState");
         this.sizeState = (sizeState === "true");
         this.element = document.getElementById(label);
         if (!this.element) {
             this.element = document.createElement("div");
         }
         this.element.classList.add("widget");
-        var button = document.createElement("div");
+        const button = document.createElement("div");
         button.innerHTML = "-";
         button.classList.add("button");
         this.element.appendChild(button);
@@ -51,7 +41,7 @@ var WidgetBase = (function () {
         }
         this.setSize();
     }
-    WidgetBase.prototype.setSize = function () {
+    setSize() {
         console.log("WidgetBase.setSize()", this.label, this.sizeState);
         if (this.sizeState) {
             if (this.elementHeight !== "") {
@@ -87,33 +77,30 @@ var WidgetBase = (function () {
             }
             this.content.style.width = "0";
         }
-    };
-    WidgetBase.prototype.shrinkGrow = function () {
+    }
+    shrinkGrow() {
         console.log("WidgetBase.shrinkGrow()", this.label, this.sizeState);
         this.sizeState = !this.sizeState;
-        localStorage.setItem(this.label + "__sizeState", this.sizeState);
+        localStorage.setItem(this.label + "__sizeState", "" + this.sizeState);
         this.setSize();
-    };
-    return WidgetBase;
-}());
-var StatusWidget = (function (_super) {
-    __extends(StatusWidget, _super);
-    function StatusWidget() {
-        var _this = _super.call(this, "FPS", 100, 50) || this;
-        setInterval(_this.service.bind(_this), 1000);
-        _this.message = document.createElement("div");
-        _this.message.classList.add("message");
-        _this.content.appendChild(_this.message);
-        _this.content.classList.add("centered");
-        _this.message.classList.add("centered");
-        return _this;
     }
-    StatusWidget.prototype.service = function () {
+}
+class StatusWidget extends WidgetBase {
+    constructor() {
+        super("FPS", 100, 50);
+        setInterval(this.service.bind(this), 1000);
+        this.message = document.createElement("div");
+        this.message.classList.add("message");
+        this.content.appendChild(this.message);
+        this.content.classList.add("centered");
+        this.message.classList.add("centered");
+    }
+    service() {
         this.message.innerHTML = "FPS: " + Math.round(MainLoop.FPS);
-        var bar = document.createElement("div");
+        const bar = document.createElement("div");
         bar.classList.add("bar");
         if (Date.now() - MainLoop.lastDrawFrame <= 1000) {
-            var height = 0.8 * this.height * MainLoop.FPS / maxFps;
+            const height = 0.8 * this.height * MainLoop.FPS / maxFps;
             bar.style.background = "cadetblue";
             bar.style.height = "" + Math.round(height) + "px";
         }
@@ -122,34 +109,31 @@ var StatusWidget = (function (_super) {
             this.content.removeChild(this.content.childNodes[1]);
         }
         this.content.classList.add("graph");
-    };
-    return StatusWidget;
-}(WidgetBase));
-var CameraPositionWidget = (function (_super) {
-    __extends(CameraPositionWidget, _super);
-    function CameraPositionWidget(camera) {
-        var _this = _super.call(this, "CameraPos", 180, 50) || this;
-        _this.camera = camera;
-        setInterval(_this.service.bind(_this), 20);
-        _this.content.classList.add("centered");
-        return _this;
     }
-    CameraPositionWidget.prototype.service = function () {
-        var pitch = Math.round(THREE.Math.radToDeg(this.camera.pitch)) - 90;
-        var pitchString = "" + pitch + "\xB0";
-        var yaw = Math.round(THREE.Math.radToDeg(this.camera.yaw));
-        var yawString = "0\xB0";
+}
+class CameraPositionWidget extends WidgetBase {
+    constructor(camera) {
+        super("CameraPos", 180, 50);
+        this.camera = camera;
+        setInterval(this.service.bind(this), 20);
+        this.content.classList.add("centered");
+    }
+    service() {
+        const pitch = Math.round(THREE.Math.radToDeg(this.camera.pitch)) - 90;
+        const pitchString = "" + pitch + "\xB0";
+        const yaw = Math.round(THREE.Math.radToDeg(this.camera.yaw));
+        let yawString = "0\xB0";
         if (yaw < 0) {
             yawString = "" + (0 - yaw) + "\xB0E";
         }
         else if (yaw > 0) {
             yawString = "" + yaw + "\xB0W";
         }
-        var height = Math.round(this.camera.distance * 1000);
-        var degLat = Math.floor(this.camera.lat);
-        var minLat = Math.floor((this.camera.lat - degLat) * 60);
-        var degLon = Math.floor(this.camera.lon);
-        var minLon = Math.floor((this.camera.lon - degLon) * 60);
+        const height = Math.round(this.camera.distance * 1000);
+        const degLat = Math.floor(this.camera.lat);
+        const minLat = Math.floor((this.camera.lat - degLat) * 60);
+        const degLon = Math.floor(this.camera.lon);
+        const minLon = Math.floor((this.camera.lon - degLon) * 60);
         this.content.innerHTML =
             "lat: " + degLat + "\xB0&nbsp;" + minLat + "'" +
                 "&nbsp;&nbsp;&nbsp;" +
@@ -158,19 +142,17 @@ var CameraPositionWidget = (function (_super) {
                 "pitch: " + pitchString + "&nbsp;&nbsp;&nbsp;yaw: " + yawString +
                 "<br>" +
                 "height: " + height + "m";
-    };
-    return CameraPositionWidget;
-}(WidgetBase));
-var MenuWidget = (function (_super) {
-    __extends(MenuWidget, _super);
-    function MenuWidget(label) {
-        var _this = _super.call(this, label) || this;
-        _this.label = label;
-        _this.userInput = [];
-        _this.uiMenu = new UIMenu();
-        setInterval(_this.service.bind(_this), 1000);
-        UIMaster.clientMessageQueues.push(_this.userInput);
-        var content = {
+    }
+}
+class MenuWidget extends WidgetBase {
+    constructor(label) {
+        super(label);
+        this.label = label;
+        this.userInput = [];
+        this.uiMenu = new UIMenu();
+        setInterval(this.service.bind(this), 1000);
+        UIMaster.clientMessageQueues.push(this.userInput);
+        const content = {
             worldLevelGenerate: {
                 label: "cursor size:",
                 type: "range",
@@ -255,14 +237,14 @@ var MenuWidget = (function (_super) {
                 key: "14",
             },
         };
-        for (var id in content) {
+        for (const id in content) {
             if (content.hasOwnProperty(id)) {
-                var newElement = document.createElement("div");
-                var newLabel = document.createElement("div");
+                const newElement = document.createElement("div");
+                const newLabel = document.createElement("div");
                 newLabel.innerHTML = content[id].label;
                 newLabel.className = "inline";
-                var newInput = document.createElement("input");
-                newInput.id = _this.label + "_" + content[id].key;
+                const newInput = document.createElement("input");
+                newInput.id = this.label + "_" + content[id].key;
                 newInput.name = content[id].key;
                 newInput.type = content[id].type;
                 newInput.checked = true;
@@ -276,16 +258,15 @@ var MenuWidget = (function (_super) {
                 newInput.className = "inline";
                 newElement.appendChild(newLabel);
                 newElement.appendChild(newInput);
-                _this.content.appendChild(newElement);
-                newInput.onclick = _this.onClick.bind(_this);
+                this.content.appendChild(newElement);
+                newInput.onclick = this.onClick.bind(this);
             }
         }
-        return _this;
     }
-    MenuWidget.prototype.service = function () {
-        var debounce = {};
+    service() {
+        const debounce = {};
         while (this.userInput.length) {
-            var input = this.userInput.pop();
+            const input = this.userInput.pop();
             switch (input.key || input.type) {
                 case "0":
                 case "1":
@@ -309,22 +290,22 @@ var MenuWidget = (function (_super) {
                     break;
             }
         }
-    };
-    MenuWidget.prototype.onKeyPress = function (event) {
-        var id = this.label + "_" + event.key;
-        var checkBox = document.getElementById(id);
+    }
+    onKeyPress(event) {
+        const id = this.label + "_" + event.key;
+        const checkBox = document.getElementById(id);
         if (checkBox) {
-            var change = new MouseEvent("click", {
+            const change = new MouseEvent("click", {
                 view: window,
                 bubbles: true,
                 cancelable: true,
             });
             checkBox.dispatchEvent(change);
         }
-    };
-    MenuWidget.prototype.onClick = function (event) {
-        var target = event.target;
-        var menuEvent;
+    }
+    onClick(event) {
+        const target = event.target;
+        let menuEvent;
         if (target.type === "checkbox") {
             menuEvent = { type: "menuevent",
                 key: target.value,
@@ -336,35 +317,32 @@ var MenuWidget = (function (_super) {
                 value: target.value };
         }
         this.uiMenu.changes[target.value] = menuEvent;
-    };
-    return MenuWidget;
-}(WidgetBase));
-var CursorPositionWidget = (function (_super) {
-    __extends(CursorPositionWidget, _super);
-    function CursorPositionWidget(scene) {
-        var _this = _super.call(this, "CursorPos", 100, 50) || this;
-        _this.scene = scene;
-        setInterval(_this.service.bind(_this), 200);
-        _this.content.classList.add("centered");
-        _this.container = document.createElement("div");
-        _this.content.appendChild(_this.container);
-        return _this;
     }
-    CursorPositionWidget.prototype.service = function () {
+}
+class CursorPositionWidget extends WidgetBase {
+    constructor(scene) {
+        super("CursorPos", 100, 50);
+        this.scene = scene;
+        setInterval(this.service.bind(this), 200);
+        this.content.classList.add("centered");
+        this.container = document.createElement("div");
+        this.content.appendChild(this.container);
+    }
+    service() {
         this.container.innerHTML = "";
-        var face = this.scene.faceUnderMouse;
+        const face = this.scene.faceUnderMouse;
         if (face === undefined) {
             return;
         }
-        var sizeDiv = document.createElement("div");
+        const sizeDiv = document.createElement("div");
         this.container.appendChild(sizeDiv);
-        var point0 = new THREE.Vector3(0, 0, 0);
-        var point1 = new THREE.Vector3(0, 0, 0);
-        var point2 = new THREE.Vector3(0, 0, 0);
+        const point0 = new THREE.Vector3(0, 0, 0);
+        const point1 = new THREE.Vector3(0, 0, 0);
+        const point2 = new THREE.Vector3(0, 0, 0);
         point0.copy(face.points[0].point);
         point1.copy(face.points[1].point);
         point2.copy(face.points[2].point);
-        var size = Math.round(1000 * (point0.distanceTo(point1) +
+        const size = Math.round(1000 * (point0.distanceTo(point1) +
             point1.distanceTo(point2) +
             point2.distanceTo(point0)) / 3) / 1000;
         sizeDiv.innerHTML = "size: " + size;
@@ -389,39 +367,35 @@ var CursorPositionWidget = (function (_super) {
             neighbour.indexHigh + " " +
             neighbour.indexLow + " ";
         });*/
-    };
-    return CursorPositionWidget;
-}(WidgetBase));
-var BrowserInfoWidget = (function (_super) {
-    __extends(BrowserInfoWidget, _super);
-    function BrowserInfoWidget(browserInfo) {
-        var _this = _super.call(this, "BrowserInfo") || this;
-        _this.browserInfo = browserInfo;
-        setInterval(_this.service.bind(_this), 10000);
-        _this.service();
-        return _this;
     }
-    BrowserInfoWidget.prototype.service = function () {
+}
+class BrowserInfoWidget extends WidgetBase {
+    constructor(browserInfo) {
+        super("BrowserInfo");
+        this.browserInfo = browserInfo;
+        setInterval(this.service.bind(this), 10000);
+        this.service();
+    }
+    service() {
         this.content.innerHTML = this.browserInfo.returnHtml().innerHTML;
         this.setSize();
-    };
-    BrowserInfoWidget.prototype.setSize = function () {
+    }
+    setSize() {
         if (this.sizeState) {
-            var lineCount = this.content.childElementCount;
+            const lineCount = this.content.childElementCount;
             this.content.style.height = "" + lineCount + "em";
-            var lineWidth_1 = 0;
-            this.content.childNodes.forEach(function (node) {
-                var w = elementSize(node).w;
-                if (w > lineWidth_1) {
-                    lineWidth_1 = w;
+            let lineWidth = 0;
+            this.content.childNodes.forEach((node) => {
+                const w = elementSize(node).w;
+                if (w > lineWidth) {
+                    lineWidth = w;
                 }
             });
-            this.content.style.width = "" + lineWidth_1 + "px";
+            this.content.style.width = "" + lineWidth + "px";
         }
         else {
             this.content.style.height = "0";
             this.content.style.width = "0";
         }
-    };
-    return BrowserInfoWidget;
-}(WidgetBase));
+    }
+}

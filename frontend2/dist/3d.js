@@ -1,23 +1,13 @@
 // Copyright 2017 duncan law (mrdunk@gmail.com)
-/// <reference path='../../node_modules/@types/three/index.d.ts' />
-/// <reference path='../../build/wrap_terrain.js' />
-var __extends = (this && this.__extends) || (function () {
-    var extendStatics = Object.setPrototypeOf ||
-        ({ __proto__: [] } instanceof Array && function (d, b) { d.__proto__ = b; }) ||
-        function (d, b) { for (var p in b) if (b.hasOwnProperty(p)) d[p] = b[p]; };
-    return function (d, b) {
-        extendStatics(d, b);
-        function __() { this.constructor = d; }
-        d.prototype = b === null ? Object.create(b) : (__.prototype = b.prototype, new __());
-    };
-})();
+/// <reference path='../../../node_modules/@types/three/index.d.ts' />
+/// <reference path='../../../build/wrap_terrain.js' />
 // Helpful diagram showing how Threejs components fits together:
 // http://davidscottlyons.com/threejs/presentations/frontporch14/#slide-16
-var heightMultiplier = 2;
-var sealevel = 0.001; // Ratio of planets diameter.
-var earthRadius = 6371; // km.
-var cameraInitialDistance = 10000 * 1;
-var skyColor = 0x90A0C0;
+const heightMultiplier = 2;
+const sealevel = 0.001; // Ratio of planets diameter.
+const earthRadius = 6371; // km.
+const cameraInitialDistance = 10000 * 1;
+const skyColor = 0x90A0C0;
 function makeTileLabel(face) {
     return "tile_" +
         face.indexHigh + "_" + face.indexLow + "_" + face.recursion;
@@ -26,33 +16,31 @@ function getParentLabel(face) {
     if (face.recursion === 0) {
         return "";
     }
-    var indexHigh;
-    var indexLow;
-    _a = Module.IndexAtRecursion(face.indexHigh, face.indexLow, face.recursion - 1), indexHigh = _a[0], indexLow = _a[1];
-    return makeTileLabel({ indexHigh: indexHigh, indexLow: indexLow, recursion: face.recursion - 1 });
-    var _a;
+    let indexHigh;
+    let indexLow;
+    [indexHigh, indexLow] =
+        Module.IndexAtRecursion(face.indexHigh, face.indexLow, face.recursion - 1);
+    return makeTileLabel({ indexHigh, indexLow, recursion: face.recursion - 1 });
 }
-var Camera = (function (_super) {
-    __extends(Camera, _super);
-    function Camera(label) {
-        var _this = _super.call(this, 75, window.innerWidth / window.innerHeight, 100, cameraInitialDistance * 2) || this;
-        _this.label = label;
-        _this.lat = 0;
-        _this.lon = 0;
-        _this.pitch = 0;
-        _this.yaw = 0;
-        _this.distance = cameraInitialDistance;
-        _this.userInput = [];
-        _this.animate = true;
-        _this.animateChanged = 0;
-        _this.surfaceHeight = earthRadius;
-        _this.position.z = _this.distance + _this.surfaceHeight;
-        _this.updatePos();
-        return _this;
+class Camera extends THREE.PerspectiveCamera {
+    constructor(label) {
+        super(75, window.innerWidth / window.innerHeight, 100, cameraInitialDistance * 2);
+        this.label = label;
+        this.lat = 0;
+        this.lon = 0;
+        this.pitch = 0;
+        this.yaw = 0;
+        this.distance = cameraInitialDistance;
+        this.userInput = [];
+        this.animate = true;
+        this.animateChanged = 0;
+        this.surfaceHeight = earthRadius;
+        this.position.z = this.distance + this.surfaceHeight;
+        this.updatePos();
     }
-    Camera.prototype.service = function () {
+    service() {
         while (this.userInput.length) {
-            var input = this.userInput.pop();
+            const input = this.userInput.pop();
             switch (input.key || input.type) {
                 case "C":
                     if (Date.now() - this.animateChanged < 200) {
@@ -127,17 +115,17 @@ var Camera = (function (_super) {
                     break;
                 case "cameraabove":
                     this.faceOver = input.face;
-                    var point = new THREE.Vector3();
+                    const point = new THREE.Vector3();
                     point.fromArray(input.origin);
-                    var height = Math.max(sealevel, input.value);
-                    var multiplier = 1 + (height * heightMultiplier);
+                    const height = Math.max(sealevel, input.value);
+                    const multiplier = 1 + (height * heightMultiplier);
                     this.surfaceHeight = point.length() * multiplier;
                     this.updatePos();
                     break;
             }
         }
-    };
-    Camera.prototype.updatePos = function () {
+    }
+    updatePos() {
         if (this.lat > 90) {
             this.lat = 90;
         }
@@ -165,9 +153,9 @@ var Camera = (function (_super) {
         if (this.distance < 0.01) {
             this.distance = 0.01;
         }
-        var lat = 90 - this.lat;
-        var lon = this.lon + 90;
-        var origin = new THREE.Vector3(0, 0, 0);
+        const lat = 90 - this.lat;
+        const lon = this.lon + 90;
+        const origin = new THREE.Vector3(0, 0, 0);
         this.position.x =
             -((this.distance + this.surfaceHeight) *
                 Math.sin(THREE.Math.degToRad(lat)) *
@@ -185,33 +173,30 @@ var Camera = (function (_super) {
         this.near = this.distance / 4;
         this.far = Math.max(this.distance * 2, 2000);
         this.updateProjectionMatrix();
-    };
-    return Camera;
-}(THREE.PerspectiveCamera));
-var Renderer = (function (_super) {
-    __extends(Renderer, _super);
-    function Renderer(label, width, height) {
-        var _this = _super.call(this, { antialias: true }) || this;
-        _this.label = label;
-        _this.width = width;
-        _this.height = height;
-        _this.userInput = [];
-        _this.lastCameraPos = new THREE.Vector3(0, 0, 0);
-        if (!_this.width) {
-            _this.width = window.innerWidth;
-        }
-        if (!_this.height) {
-            _this.height = window.innerHeight;
-        }
-        _this.setSize(_this.width, _this.height);
-        _this.setPixelRatio(window.devicePixelRatio);
-        _this.element = document.getElementById(label);
-        _this.element.appendChild(_this.domElement);
-        UIMaster.clientMessageQueues.push(_this.userInput);
-        window.onresize = _this.changeSize.bind(_this);
-        return _this;
     }
-    Renderer.prototype.changeSize = function () {
+}
+class Renderer extends THREE.WebGLRenderer {
+    constructor(label, width, height) {
+        super({ antialias: true });
+        this.label = label;
+        this.width = width;
+        this.height = height;
+        this.userInput = [];
+        this.lastCameraPos = new THREE.Vector3(0, 0, 0);
+        if (!this.width) {
+            this.width = window.innerWidth;
+        }
+        if (!this.height) {
+            this.height = window.innerHeight;
+        }
+        this.setSize(this.width, this.height);
+        this.setPixelRatio(window.devicePixelRatio);
+        this.element = document.getElementById(label);
+        this.element.appendChild(this.domElement);
+        UIMaster.clientMessageQueues.push(this.userInput);
+        window.onresize = this.changeSize.bind(this);
+    }
+    changeSize() {
         this.width = window.innerWidth;
         this.height = window.innerHeight;
         if (this.camera !== undefined) {
@@ -220,25 +205,25 @@ var Renderer = (function (_super) {
         }
         this.setSize(this.width, this.height);
         // this.setPixelRatio(window.devicePixelRatio);
-    };
-    Renderer.prototype.setScene = function (scene) {
+    }
+    setScene(scene) {
         this.scene = scene;
         this.service(Date.now());
         this.initWorker();
-    };
-    Renderer.prototype.setCamera = function (camera) {
+    }
+    setCamera(camera) {
         this.camera = camera;
         this.camera.aspect = (this.width / this.height);
         this.service(Date.now());
-    };
-    Renderer.prototype.service = function (now) {
+    }
+    service(now) {
         // User input.
-        for (var i = this.userInput.length - 1; i >= 0; i--) {
+        for (let i = this.userInput.length - 1; i >= 0; i--) {
             // Remove mouse events destined for other HTML elements.
             //
             // If we use this.userInput.filter() here we cannot modify in place so
             // would have to replace UIMaster's reference to this.userInput.
-            var target = this.userInput[i].target;
+            const target = this.userInput[i].target;
             if (target !== undefined &&
                 target.parentElement !== undefined &&
                 target.parentElement !== null &&
@@ -247,9 +232,9 @@ var Renderer = (function (_super) {
                 this.userInput.splice(i, 1);
             }
         }
-        var userInput = this.userInput.slice(); // Copy array.
+        const userInput = this.userInput.slice(); // Copy array.
         while (userInput.length) {
-            var input = userInput.pop();
+            const input = userInput.pop();
             switch (input.key || input.type) {
                 case "mousemove":
                     this.userInput.push(this.getMouseRay(input));
@@ -268,23 +253,23 @@ var Renderer = (function (_super) {
         }
         // Empty the user input buffer.
         this.userInput.splice(0, this.userInput.length);
-    };
-    Renderer.prototype.getMouseRay = function (event) {
-        var raycaster = new THREE.Raycaster();
-        var mouse = new THREE.Vector2();
+    }
+    getMouseRay(event) {
+        const raycaster = new THREE.Raycaster();
+        const mouse = new THREE.Vector2();
         mouse.x = (event.clientX / window.innerWidth) * 2 - 1;
         mouse.y = -(event.clientY / window.innerHeight) * 2 + 1;
         raycaster.setFromCamera(mouse, this.camera);
-        var origin = [raycaster.ray.origin.x,
+        const origin = [raycaster.ray.origin.x,
             raycaster.ray.origin.y,
             raycaster.ray.origin.z];
-        var direction = [raycaster.ray.direction.x,
+        const direction = [raycaster.ray.direction.x,
             raycaster.ray.direction.y,
             raycaster.ray.direction.z];
-        return { type: "mouseray", origin: origin, direction: direction };
-    };
+        return { type: "mouseray", origin, direction };
+    }
     // Will be delegated to WebWorker. Result will be announced on the input bus.
-    Renderer.prototype.getCameraAbovePoint = function () {
+    getCameraAbovePoint() {
         if (this.camera === undefined) {
             return;
         }
@@ -293,11 +278,11 @@ var Renderer = (function (_super) {
         }
         this.lastCameraPos.copy(this.camera.position);
         this.scene.getSurfaceUnderPoint("cameraabove", this.camera.position, this.scene.cursorSize);
-    };
-    Renderer.prototype.initWorker = function () {
+    }
+    initWorker() {
         this.scene.worker.addEventListener("message", this.workerCallback.bind(this));
-    };
-    Renderer.prototype.workerCallback = function (event) {
+    }
+    workerCallback(event) {
         switch (event.data[0]) {
             case "getSurfaceUnderPoint":
                 // console.log("callback: getSurfaceUnderPoint", event.data);
@@ -311,85 +296,82 @@ var Renderer = (function (_super) {
                 }
                 break;
         }
-    };
-    return Renderer;
-}(THREE.WebGLRenderer));
-var Scene = (function (_super) {
-    __extends(Scene, _super);
-    function Scene(label, worker) {
-        var _this = _super.call(this) || this;
-        _this.label = label;
-        _this.worker = worker;
-        _this.generateTileLevel = 6;
-        _this.userInput = [];
-        _this.activeMeshes = {};
-        _this.cursorSize = 6;
-        _this.activeTileLevels = [];
-        _this.cursor = new Cursor();
-        _this.workQueue = [];
-        _this.lockWorkQueue = false;
-        _this.lastUpdate = Date.now();
-        _this.fogDistance = 0;
-        _this.materialIndex = 0;
-        _this.setMaterialDabounce = 0;
-        var light = new THREE.PointLight(0xffffff);
+    }
+}
+class Scene extends THREE.Scene {
+    constructor(label, worker) {
+        super();
+        this.label = label;
+        this.worker = worker;
+        this.generateTileLevel = 6;
+        this.userInput = [];
+        this.activeMeshes = {};
+        this.cursorSize = 6;
+        this.activeTileLevels = [];
+        this.cursor = new Cursor();
+        this.workQueue = [];
+        this.lockWorkQueue = false;
+        this.lastUpdate = Date.now();
+        this.fogDistance = 0;
+        this.materialIndex = 0;
+        this.setMaterialDabounce = 0;
+        const light = new THREE.PointLight(0xffffff);
         light.position.set(0, 0, 2 * cameraInitialDistance);
-        _this.add(light);
-        var twighLight1 = new THREE.PointLight(0x444455);
+        this.add(light);
+        const twighLight1 = new THREE.PointLight(0x444455);
         twighLight1.position.set(2 * cameraInitialDistance, cameraInitialDistance, -cameraInitialDistance / 10);
-        _this.add(twighLight1);
-        var twighLight2 = new THREE.PointLight(0x554444);
+        this.add(twighLight1);
+        const twighLight2 = new THREE.PointLight(0x554444);
         twighLight2.position.set(-2 * cameraInitialDistance, -cameraInitialDistance, -cameraInitialDistance / 10);
-        _this.add(twighLight2);
-        var ambientLight = new THREE.AmbientLight(0x666666);
-        _this.add(ambientLight);
-        _this.background = new THREE.Color(skyColor);
-        var axis = new Line(new THREE.Vector3(0, cameraInitialDistance, 0), new THREE.Vector3(0, -cameraInitialDistance, 0));
-        _this.add(axis);
-        _this.fog = new THREE.Fog(skyColor, 1, cameraInitialDistance);
-        window.addEventListener("beforeunload", function (event) {
+        this.add(twighLight2);
+        const ambientLight = new THREE.AmbientLight(0x666666);
+        this.add(ambientLight);
+        this.background = new THREE.Color(skyColor);
+        const axis = new Line(new THREE.Vector3(0, cameraInitialDistance, 0), new THREE.Vector3(0, -cameraInitialDistance, 0));
+        this.add(axis);
+        this.fog = new THREE.Fog(skyColor, 1, cameraInitialDistance);
+        window.addEventListener("beforeunload", (event) => {
             // Try to cleanup memory allocation before page reload.
             console.log("Reloading page");
-            for (var mesh in _this.activeMeshes) {
-                if (_this.activeMeshes.hasOwnProperty(mesh) && _this.activeMeshes[mesh]) {
-                    _this.activeMeshes[mesh].dispose();
-                    delete _this.activeMeshes[mesh];
+            for (const mesh in this.activeMeshes) {
+                if (this.activeMeshes.hasOwnProperty(mesh) && this.activeMeshes[mesh]) {
+                    this.activeMeshes[mesh].dispose();
+                    delete this.activeMeshes[mesh];
                 }
             }
             console.log("done cleanup");
         });
-        for (var section = 0; section < 8; section++) {
-            var rootFace = section * Math.pow(2, 29);
-            _this.addGenerateTileTask({ indexHigh: rootFace,
+        for (let section = 0; section < 8; section++) {
+            const rootFace = section * Math.pow(2, 29);
+            this.addGenerateTileTask({ indexHigh: rootFace,
                 indexLow: 0,
                 recursion: 0,
                 parent: true,
                 neighbours: true,
                 children: true });
         }
-        _this.initWorker();
-        _this.doTask();
-        _this.add(_this.cursor);
-        return _this;
+        this.initWorker();
+        this.doTask();
+        this.add(this.cursor);
     }
-    Scene.prototype.setFog = function (distance) {
+    setFog(distance) {
         if (distance < 10) {
             distance = 10;
         }
-        var fogDistance = 20 * distance;
+        const fogDistance = 20 * distance;
         if (fogDistance !== this.fogDistance) {
             this.fogDistance = fogDistance;
             this.fog.far = fogDistance;
         }
-    };
-    Scene.prototype.service = function (now) {
+    }
+    service(now) {
         if (now - this.lastUpdate > 1000) {
             console.log("ERROR: Scene last update more than 1 second ago.");
             this.lastUpdate = now;
         }
         while (this.lastUpdate < now - timeStep) {
             this.lastUpdate += timeStep;
-            for (var mesh in this.activeMeshes) {
+            for (const mesh in this.activeMeshes) {
                 if (this.activeMeshes.hasOwnProperty(mesh) && this.activeMeshes[mesh]) {
                     this.activeMeshes[mesh].userInput = this.userInput.slice(); // Copy.
                     this.activeMeshes[mesh].service();
@@ -397,15 +379,16 @@ var Scene = (function (_super) {
             }
         }
         while (this.userInput.length) {
-            var input = this.userInput.pop();
+            const input = this.userInput.pop();
             switch (input.key || input.type) {
                 case "mousedown":
                     // TESTING
                     console.log("mouseclick", input);
                     if (this.faceUnderMouse) {
-                        var high = void 0;
-                        var low = void 0;
-                        _a = Module.IndexAtRecursion(this.faceUnderMouse.indexHigh, this.faceUnderMouse.indexLow, this.generateTileLevel), high = _a[0], low = _a[1];
+                        let high;
+                        let low;
+                        [high, low] =
+                            Module.IndexAtRecursion(this.faceUnderMouse.indexHigh, this.faceUnderMouse.indexLow, this.generateTileLevel);
                         this.addGenerateTileTask({ indexHigh: high,
                             indexLow: low,
                             recursion: this.generateTileLevel,
@@ -440,7 +423,7 @@ var Scene = (function (_super) {
                     this.setMaterial();
                     break;
                 case "generateLevel":
-                    var generate = input.value;
+                    const generate = input.value;
                     this.generateTileLevel = parseInt(generate, 10);
                     this.cursorSize = this.generateTileLevel;
                     console.log(this.generateTileLevel, typeof this.generateTileLevel);
@@ -450,58 +433,56 @@ var Scene = (function (_super) {
                     break;
             }
         }
-        var _a;
-    };
-    Scene.prototype.setCursor = function (face) {
+    }
+    setCursor(face) {
         this.cursor.setPosition(face);
-    };
+    }
     /* Get a point on surface directly below the specified one.
      * WebWorker calculates this and returns result on input bus.*/
-    Scene.prototype.getSurfaceUnderPoint = function (label, point, recursion) {
+    getSurfaceUnderPoint(label, point, recursion) {
         this.worker.postMessage(["getSurfaceUnderPoint", label, point, recursion]);
-    };
+    }
     /* WebWorker calculates this and returns result on input bus.*/
-    Scene.prototype.getFaceUnderMouse = function (mouseRay, recursion) {
+    getFaceUnderMouse(mouseRay, recursion) {
         this.worker.postMessage(["getFaceUnderMouse", mouseRay, recursion]);
-    };
+    }
     /* Set correct visibility for all tiles. */
-    Scene.prototype.setAllTileVisibility = function () {
-        for (var meshLabel in this.activeMeshes) {
+    setAllTileVisibility() {
+        for (const meshLabel in this.activeMeshes) {
             if (this.activeMeshes.hasOwnProperty(meshLabel)) {
                 this.setTileVisibility(meshLabel);
             }
         }
-    };
+    }
     /* Set correct visibility for parent of specified tile. */
-    Scene.prototype.setParentTileVisibility = function (meshLabel) {
-        var mesh = this.activeMeshes[meshLabel];
+    setParentTileVisibility(meshLabel) {
+        const mesh = this.activeMeshes[meshLabel];
         console.log(mesh.userData.parentLabel, meshLabel);
         this.setTileVisibility(mesh.userData.parentLabel);
-    };
+    }
     /* Set correct visibility for tile. */
-    Scene.prototype.setTileVisibility = function (meshLabel) {
-        var _this = this;
-        var mesh = this.activeMeshes[meshLabel];
+    setTileVisibility(meshLabel) {
+        const mesh = this.activeMeshes[meshLabel];
         if (mesh !== undefined) {
-            var recursion = mesh.userData.recursion;
-            var childrenComplete_1 = (mesh.userData.children.length > 3);
-            var sumChildrenComplete = function (childLabel) {
-                childrenComplete_1 =
-                    (childrenComplete_1 &&
-                        _this.activeMeshes[childLabel].userData.complete === true);
+            const recursion = mesh.userData.recursion;
+            let childrenComplete = (mesh.userData.children.length > 3);
+            const sumChildrenComplete = (childLabel) => {
+                childrenComplete =
+                    (childrenComplete &&
+                        this.activeMeshes[childLabel].userData.complete === true);
             };
             mesh.userData.children.forEach(sumChildrenComplete);
             this.activeMeshes[meshLabel].visible =
                 (this.activeTileLevels[recursion] ||
                     this.activeTileLevels[recursion] === undefined) &&
-                    !childrenComplete_1;
+                    !childrenComplete;
         }
-    };
-    Scene.prototype.addGenerateTileTask = function (task) {
+    }
+    addGenerateTileTask(task) {
         if (this.workQueue[task.recursion] === undefined) {
             this.workQueue[task.recursion] = {};
         }
-        var label = makeTileLabel(task);
+        const label = makeTileLabel(task);
         task.type = "generateTile";
         if (this.workQueue[task.recursion][label] !== undefined) {
             // Merge task in queue with new one.
@@ -513,13 +494,13 @@ var Scene = (function (_super) {
                 task.children || this.workQueue[task.recursion][label].children;
         }
         this.workQueue[task.recursion][label] = task;
-    };
+    }
     /* Pop a task off the queue. */
-    Scene.prototype.getGenerateTileTask = function () {
-        var returnval;
-        var isJob = function (jobList) {
+    getGenerateTileTask() {
+        let returnval;
+        const isJob = (jobList) => {
             if (returnval === undefined) {
-                var key = Object.keys(jobList)[0];
+                const key = Object.keys(jobList)[0];
                 if (key !== undefined) {
                     returnval = jobList[key];
                     delete jobList[key];
@@ -528,10 +509,10 @@ var Scene = (function (_super) {
         };
         this.workQueue.forEach(isJob);
         return returnval;
-    };
-    Scene.prototype.doTask = function () {
-        var testStr = "";
-        var testFunc = function (tiles, index) {
+    }
+    doTask() {
+        let testStr = "";
+        const testFunc = (tiles, index) => {
             testStr += ", " + index + ":" + Object.keys(tiles).length;
         };
         this.workQueue.forEach(testFunc);
@@ -539,17 +520,17 @@ var Scene = (function (_super) {
         if (this.lockWorkQueue) {
             return;
         }
-        var job = this.getGenerateTileTask();
+        const job = this.getGenerateTileTask();
         if (job === undefined) {
             return;
         }
         this.lockWorkQueue = true;
-        var tileLabel = makeTileLabel(job);
-        var tile = this.findMesh(tileLabel);
+        const tileLabel = makeTileLabel(job);
+        const tile = this.findMesh(tileLabel);
         if (tile === undefined) {
             console.log("  generate tile", tileLabel, job);
-            var parentLabel = getParentLabel(job);
-            var parentTile = this.activeMeshes[parentLabel];
+            const parentLabel = getParentLabel(job);
+            const parentTile = this.activeMeshes[parentLabel];
             this.generateTile(parentTile, job);
             // Since it is still pending, put this back in to the queue.
             this.addGenerateTileTask(job);
@@ -573,31 +554,29 @@ var Scene = (function (_super) {
         }
         window.setTimeout(function () { this.doTask(); }.bind(this), 20);
         this.lockWorkQueue = false;
-    };
-    Scene.prototype.generateParent = function (job) {
+    }
+    generateParent(job) {
         if (job.recursion <= 0) {
             return;
         }
-        var indexHigh;
-        var indexLow;
-        _a = Module.IndexAtRecursion(job.indexHigh, job.indexLow, job.recursion - 1), indexHigh = _a[0], indexLow = _a[1];
-        var task = { indexHigh: indexHigh,
-            indexLow: indexLow,
+        let indexHigh;
+        let indexLow;
+        [indexHigh, indexLow] = Module.IndexAtRecursion(job.indexHigh, job.indexLow, job.recursion - 1);
+        const task = { indexHigh,
+            indexLow,
             recursion: job.recursion - 1,
             parent: true,
             neighbours: true,
             children: true };
         this.addGenerateTileTask(task);
-        var _a;
-    };
-    Scene.prototype.generateNeighbours = function (tile, job) {
-        for (var _i = 0, _a = tile.userData.neighbours; _i < _a.length; _i++) {
-            var neighbour = _a[_i];
-            var neighbourLabel = makeTileLabel(neighbour);
-            var neighbourTile = this.findMesh(neighbourLabel);
+    }
+    generateNeighbours(tile, job) {
+        for (const neighbour of tile.userData.neighbours) {
+            const neighbourLabel = makeTileLabel(neighbour);
+            const neighbourTile = this.findMesh(neighbourLabel);
             if (neighbourTile === undefined) {
                 console.log("  generate neighbour", neighbourLabel);
-                var task = { indexHigh: neighbour.indexHigh,
+                const task = { indexHigh: neighbour.indexHigh,
                     indexLow: neighbour.indexLow,
                     recursion: neighbour.recursion,
                     parent: true,
@@ -606,14 +585,14 @@ var Scene = (function (_super) {
                 this.addGenerateTileTask(task);
             }
         }
-    };
-    Scene.prototype.generateChildren = function (parent) {
-        for (var c = 0; c < 4; c++) {
-            var child = Module.IndexOfChild(parent.indexHigh, parent.indexLow, parent.recursion, c);
-            var childLabel = makeTileLabel({ indexHigh: child[0],
+    }
+    generateChildren(parent) {
+        for (let c = 0; c < 4; c++) {
+            const child = Module.IndexOfChild(parent.indexHigh, parent.indexLow, parent.recursion, c);
+            const childLabel = makeTileLabel({ indexHigh: child[0],
                 indexLow: child[1],
                 recursion: parent.recursion + 1 });
-            var childTile = this.findMesh(childLabel);
+            const childTile = this.findMesh(childLabel);
             if (childTile === undefined) {
                 console.log("  generate child", childLabel, child);
                 this.addGenerateTileTask({ indexHigh: child[0],
@@ -624,51 +603,51 @@ var Scene = (function (_super) {
                     children: false });
             }
         }
-    };
-    Scene.prototype.findMesh = function (label) {
+    }
+    findMesh(label) {
         if (this.activeMeshes.hasOwnProperty(label)) {
             return this.activeMeshes[label];
         }
-    };
-    Scene.prototype.generateTile = function (parentTile, job) {
+    }
+    generateTile(parentTile, job) {
         // [indexHigh, indexLow] =
         //     Module.IndexAtRecursion(indexHigh, indexLow, recursion);
-        var depth = job.recursion + 4;
+        const depth = job.recursion + 4;
         // if(recursion >= 12) {
         //  depth = recursion + 5;
         // }
         // if(recursion === 0) {
         //  depth = 0;
         // }
-        var label = makeTileLabel(job);
+        const label = makeTileLabel(job);
         if (this.findMesh(label)) {
             console.log("Already created: ", label);
             return;
         }
-        var mesh = new WorldTile(label, this.worker, job.indexHigh, job.indexLow, job.recursion, depth, this.materialIndex, parentTile);
+        const mesh = new WorldTile(label, this.worker, job.indexHigh, job.indexLow, job.recursion, depth, this.materialIndex, parentTile);
         this.activeMeshes[mesh.userData.label] = mesh;
         this.add(mesh);
         mesh.visible = this.activeTileLevels[job.recursion];
         // Populate any children that have already been created.
         mesh.userData.children = [];
         // TODO: Refactor into getCildLabels() method.
-        for (var c = 0; c < 4; c++) {
-            var child = Module.IndexOfChild(job.indexHigh, job.indexLow, job.recursion, c);
-            var childLabel = makeTileLabel({ indexHigh: child[0],
+        for (let c = 0; c < 4; c++) {
+            const child = Module.IndexOfChild(job.indexHigh, job.indexLow, job.recursion, c);
+            const childLabel = makeTileLabel({ indexHigh: child[0],
                 indexLow: child[1],
                 recursion: job.recursion + 1 });
-            var childTile = this.findMesh(childLabel);
+            const childTile = this.findMesh(childLabel);
             if (childTile !== undefined) {
                 mesh.userData.children.push(childLabel);
             }
         }
-    };
-    Scene.prototype.initWorker = function () {
+    }
+    initWorker() {
         this.worker.addEventListener("message", this.workerCallback.bind(this));
-    };
-    Scene.prototype.workerCallback = function (event) {
-        var tileLabel;
-        var tileMesh;
+    }
+    workerCallback(event) {
+        let tileLabel;
+        let tileMesh;
         switch (event.data[0]) {
             case "getNeighbours":
                 // console.log("callback: getNeighbours", event.data[4].length);
@@ -684,9 +663,9 @@ var Scene = (function (_super) {
                     indexLow: event.data[2],
                     recursion: event.data[3] });
                 tileMesh = this.findMesh(tileLabel);
-                var vertices = new Float32Array(event.data[6]);
-                var colors = new Uint8Array(event.data[7]);
-                var normals = new Float32Array(event.data[8]);
+                const vertices = new Float32Array(event.data[6]);
+                const colors = new Uint8Array(event.data[7]);
+                const normals = new Float32Array(event.data[8]);
                 tileMesh.geometry = new THREE.BufferGeometry();
                 tileMesh.geometry.addAttribute("position", new THREE.BufferAttribute(vertices, 3));
                 tileMesh.geometry.addAttribute("color", new THREE.BufferAttribute(colors, 3, true));
@@ -701,8 +680,8 @@ var Scene = (function (_super) {
                 this.setCursor(this.faceUnderMouse);
                 break;
         }
-    };
-    Scene.prototype.setMaterial = function () {
+    }
+    setMaterial() {
         if (this.setMaterialDabounce + 500 > Date.now()) {
             return;
         }
@@ -710,38 +689,35 @@ var Scene = (function (_super) {
         if (++this.materialIndex >= 4) {
             this.materialIndex = 0;
         }
-        for (var meshLabel in this.activeMeshes) {
+        for (const meshLabel in this.activeMeshes) {
             if (this.activeMeshes.hasOwnProperty(meshLabel)) {
-                var mesh = this.activeMeshes[meshLabel];
+                const mesh = this.activeMeshes[meshLabel];
                 mesh.setMaterial(this.materialIndex, mesh.recursion);
             }
         }
-    };
-    return Scene;
-}(THREE.Scene));
-var Cursor = (function (_super) {
-    __extends(Cursor, _super);
-    function Cursor() {
-        var _this = _super.call(this) || this;
-        _this.material = new THREE.MeshBasicMaterial({ color: 0xff0000, side: THREE.DoubleSide });
-        _this.geometry = new THREE.Geometry();
-        for (var p = 0; p < 3 * 4; p++) {
-            _this.geometry.vertices.push(new THREE.Vector3(0, 0, 0));
-        }
-        _this.geometry.faces.push(new THREE.Face3(0, 1, 2));
-        _this.renderOrder = 999;
-        _this.material.depthTest = false;
-        _this.clear();
-        return _this;
     }
-    Cursor.prototype.setPosition = function (face) {
+}
+class Cursor extends THREE.Mesh {
+    constructor() {
+        super();
+        this.material = new THREE.MeshBasicMaterial({ color: 0xff0000, side: THREE.DoubleSide });
+        this.geometry = new THREE.Geometry();
+        for (let p = 0; p < 3 * 4; p++) {
+            this.geometry.vertices.push(new THREE.Vector3(0, 0, 0));
+        }
+        this.geometry.faces.push(new THREE.Face3(0, 1, 2));
+        this.renderOrder = 999;
+        this.material.depthTest = false;
+        this.clear();
+    }
+    setPosition(face) {
         if (face === undefined) {
             this.clear();
             return;
         }
-        var point0 = new THREE.Vector3(0, 0, 0);
-        var point1 = new THREE.Vector3(0, 0, 0);
-        var point2 = new THREE.Vector3(0, 0, 0);
+        const point0 = new THREE.Vector3(0, 0, 0);
+        const point1 = new THREE.Vector3(0, 0, 0);
+        const point2 = new THREE.Vector3(0, 0, 0);
         point0.copy(face.points[0].point);
         point1.copy(face.points[1].point);
         point2.copy(face.points[2].point);
@@ -750,8 +726,8 @@ var Cursor = (function (_super) {
             this.clear();
             return;
         }
-        var cursorFloatHeight = 0.0; // (km)
-        var height = Math.max(sealevel, face.points[0].height);
+        const cursorFloatHeight = 0.0; // (km)
+        let height = Math.max(sealevel, face.points[0].height);
         height = Math.max(height, face.points[1].height);
         height = Math.max(height, face.points[2].height);
         height *= heightMultiplier;
@@ -765,65 +741,55 @@ var Cursor = (function (_super) {
         this.geometry.elementsNeedUpdate = true;
         this.geometry.computeBoundingSphere();
         this.visible = true;
-    };
-    Cursor.prototype.clear = function () {
-        this.visible = false;
-    };
-    return Cursor;
-}(THREE.Mesh));
-var Line = (function (_super) {
-    __extends(Line, _super);
-    function Line(start, end) {
-        if (start === void 0) { start = new THREE.Vector3(0, 0, 0); }
-        if (end === void 0) { end = new THREE.Vector3(10000, 0, 0); }
-        var _this = _super.call(this) || this;
-        _this.material = new THREE.LineBasicMaterial({ color: 0xff0000,
-            linewidth: 2 });
-        _this.geometry = new THREE.Geometry();
-        _this.geometry.vertices.push(start);
-        _this.geometry.vertices.push(end);
-        return _this;
     }
-    Line.prototype.setStart = function (point) {
+    clear() {
+        this.visible = false;
+    }
+}
+class Line extends THREE.Line {
+    constructor(start = new THREE.Vector3(0, 0, 0), end = new THREE.Vector3(10000, 0, 0)) {
+        super();
+        this.material = new THREE.LineBasicMaterial({ color: 0xff0000,
+            linewidth: 2 });
+        this.geometry = new THREE.Geometry();
+        this.geometry.vertices.push(start);
+        this.geometry.vertices.push(end);
+    }
+    setStart(point) {
         this.geometry.vertices[0] = point;
         this.geometry.verticesNeedUpdate = true;
-    };
-    Line.prototype.setEnd = function (point) {
+    }
+    setEnd(point) {
         this.geometry.vertices[1] = point;
         this.geometry.verticesNeedUpdate = true;
-    };
-    return Line;
-}(THREE.Line));
-var Mesh = (function (_super) {
-    __extends(Mesh, _super);
-    function Mesh(label) {
-        var _this = _super.call(this) || this;
-        _this.userInput = [];
-        _this.materialIndexChanged = 0;
-        _this.userData.label = label;
-        return _this;
     }
-    Mesh.prototype.dispose = function () {
+}
+class Mesh extends THREE.Mesh {
+    constructor(label) {
+        super();
+        this.userInput = [];
+        this.materialIndexChanged = 0;
+        this.userData.label = label;
+    }
+    dispose() {
         if (this.geometry) {
             this.geometry.dispose();
         }
         if (this.material) {
             this.material.dispose();
         }
-    };
-    Mesh.prototype.resetMaterial = function () {
+    }
+    resetMaterial() {
         this.setMaterial(0);
-    };
-    Mesh.prototype.setMaterial = function (material, colorHint) {
-        if (material === void 0) { material = 0; }
-        if (colorHint === void 0) { colorHint = 0; }
+    }
+    setMaterial(material = 0, colorHint = 0) {
         if (Date.now() - this.materialIndexChanged < 200) {
             // Debounce input.
             return;
         }
         this.materialIndexChanged = Date.now();
         colorHint = colorHint % 10;
-        var color = 0x000000;
+        let color = 0x000000;
         switch (colorHint) {
             case 0:
                 color = 0x433F81;
@@ -864,10 +830,10 @@ var Mesh = (function (_super) {
                 this.material.wireframe = true;
                 break;
             case 2:
-                this.material = new THREE.MeshBasicMaterial({ color: color });
+                this.material = new THREE.MeshBasicMaterial({ color });
                 break;
             case 3:
-                this.material = new THREE.MeshBasicMaterial({ color: color });
+                this.material = new THREE.MeshBasicMaterial({ color });
                 this.material.wireframe = true;
                 break;
             default:
@@ -880,59 +846,54 @@ var Mesh = (function (_super) {
                 });
                 break;
         }
-    };
-    return Mesh;
-}(THREE.Mesh));
-var Box = (function (_super) {
-    __extends(Box, _super);
-    function Box(label) {
-        var _this = _super.call(this, label) || this;
-        _this.geometry = new THREE.BoxGeometry(1, 1, 1);
-        _this.setMaterial();
-        return _this;
     }
-    Box.prototype.service = function () {
+}
+class Box extends Mesh {
+    constructor(label) {
+        super(label);
+        this.geometry = new THREE.BoxGeometry(1, 1, 1);
+        this.setMaterial();
+    }
+    service() {
         while (this.userInput.length) {
-            var input = this.userInput.pop();
+            const input = this.userInput.pop();
             switch (input.key || input.type) {
                 case "c":
                     this.setMaterial();
                     break;
             }
         }
-    };
-    return Box;
-}(Mesh));
-var WorldTile = (function (_super) {
-    __extends(WorldTile, _super);
-    function WorldTile(label, worker, indexHigh, indexLow, recursion, requiredDepth, materialIndex, parentTile) {
-        var _this = _super.call(this, label) || this;
-        _this.label = label;
-        _this.worker = worker;
-        _this.indexHigh = indexHigh;
-        _this.indexLow = indexLow;
-        _this.recursion = recursion;
-        _this.requiredDepth = requiredDepth;
-        _this.materialIndex = materialIndex;
-        _this.parentTile = parentTile;
-        _this.userData.indexHigh = indexHigh;
-        _this.userData.indexLow = indexLow;
-        _this.userData.recursion = recursion;
-        _this.userData.requiredDepth = requiredDepth;
-        _this.userData.neighbours = []; // TODO: Type.
-        _this.userData.children = [];
+    }
+}
+class WorldTile extends Mesh {
+    constructor(label, worker, indexHigh, indexLow, recursion, requiredDepth, materialIndex, parentTile) {
+        super(label);
+        this.label = label;
+        this.worker = worker;
+        this.indexHigh = indexHigh;
+        this.indexLow = indexLow;
+        this.recursion = recursion;
+        this.requiredDepth = requiredDepth;
+        this.materialIndex = materialIndex;
+        this.parentTile = parentTile;
+        this.userData.indexHigh = indexHigh;
+        this.userData.indexLow = indexLow;
+        this.userData.recursion = recursion;
+        this.userData.requiredDepth = requiredDepth;
+        this.userData.neighbours = []; // TODO: Type.
+        this.userData.children = [];
         if (parentTile !== undefined) {
-            _this.userData.parentLabel = parentTile.label;
+            this.userData.parentLabel = parentTile.label;
             if (!parentTile.userData.children.includes(label)) {
                 parentTile.userData.children.push(label);
             }
         }
         else {
-            _this.userData.parentLabel = getParentLabel(_this.userData);
+            this.userData.parentLabel = getParentLabel(this.userData);
             // Must populate children later.
         }
-        _this.setMaterial(_this.materialIndex, recursion);
-        var skirt = false;
+        this.setMaterial(this.materialIndex, recursion);
+        let skirt = false;
         if (recursion > 4) {
             skirt = true;
         }
@@ -946,9 +907,8 @@ var WorldTile = (function (_super) {
             recursion,
             requiredDepth,
             skirt]);
-        return _this;
     }
-    WorldTile.prototype.service = function () {
+    service() {
         // TODO: Should this actually happen for each mesh or for the whole scene?
         /*while (this.userInput.length) {
           const input = this.userInput.pop();
@@ -962,6 +922,5 @@ var WorldTile = (function (_super) {
               break;
           }
         }*/
-    };
-    return WorldTile;
-}(Mesh));
+    }
+}

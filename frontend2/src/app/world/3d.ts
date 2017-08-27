@@ -1,6 +1,6 @@
 // Copyright 2017 duncan law (mrdunk@gmail.com)
-/// <reference path='../../node_modules/@types/three/index.d.ts' />
-/// <reference path='../../build/wrap_terrain.js' />
+/// <reference path='../../../node_modules/@types/three/index.d.ts' />
+/// <reference path='../../../build/wrap_terrain.js' />
 
 // Helpful diagram showing how Threejs components fits together:
 // http://davidscottlyons.com/threejs/presentations/frontporch14/#slide-16
@@ -11,60 +11,9 @@ const earthRadius = 6371;  // km.
 const cameraInitialDistance = 10000 * 1;
 const skyColor = 0x90A0C0;
 
-declare var Module: {
-  IndexAtRecursion: (iHigh: number, iLow: number, r: number) => number[];
-  IndexOfChild:
-    (iHigh: number, iLow: number, recursion: number, child: number) => number[];
-  DataSourceGenerate: () => void;
-};
-
-interface IFace {
-  indexHigh: number;
-  indexLow: number;
-  recursion: number;
-  height?: number;
-  points?: IPoint[];
-}
-
-interface ITile {
-  indexHigh: number;
-  indexLow: number;
-  recursion: number;
-}
-
-interface IGenerateTileTask extends ITile {
-  type?: string;
-  parent?: boolean;
-  neighbours?: boolean;
-  children?: boolean;
-}
-
-interface ITileTaskHash {
-  [tileLabel: string]: IGenerateTileTask;
-}
-
-interface ICustomInputEvent {
-  type: string;
-  origin?: number[];
-  direction?: number[];
-  shiftKey?: number;
-  ctrlKey?: number;
-  altKey?: number;
-  key?: string;
-  target?: HTMLElement;
-  value?: string | number | boolean;
-  face?: IFace;
-}
-
 interface IMeshesEntry {
   mesh?: Mesh;
   children: {};
-}
-
-interface IPoint {
-  point: THREE.Vector3;
-  height?: number;
-  face?: IFace;
 }
 
 function makeTileLabel(face: ITile): string {

@@ -94,7 +94,7 @@ class WidgetBase {
   private shrinkGrow() {
     console.log("WidgetBase.shrinkGrow()", this.label, this.sizeState);
     this.sizeState = !this.sizeState;
-    localStorage.setItem(this.label + "__sizeState", this.sizeState);
+    localStorage.setItem(this.label + "__sizeState", "" + this.sizeState);
     this.setSize();
   }
 }

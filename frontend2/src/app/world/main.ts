@@ -21,6 +21,7 @@ function workerInit() {
   } else {
     throw(new Error("Your browser does not support Workers"));
   }
+
   worker.onerror = (err) => {
     console.log(err.message);
     worker.port.close();
