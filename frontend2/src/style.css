@@ -28,6 +28,7 @@ body {
 
 .widget.shrink {
   height: 0;
+  width: 0;
 }
 
 .widget .button {

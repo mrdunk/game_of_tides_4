@@ -1,3 +1,4 @@
+// Copyright 2017 duncan law (mrdunk@gmail.com)
 var __extends = (this && this.__extends) || (function () {
     var extendStatics = Object.setPrototypeOf ||
         ({ __proto__: [] } instanceof Array && function (d, b) { d.__proto__ = b; }) ||
@@ -8,6 +9,15 @@ var __extends = (this && this.__extends) || (function () {
         d.prototype = b === null ? Object.create(b) : (__.prototype = b.prototype, new __());
     };
 })();
+function elementSize(element) {
+    var copy = element.cloneNode(true);
+    copy.style.display = "inline-block";
+    document.body.appendChild(copy);
+    var w = copy.scrollWidth;
+    var h = copy.scrollHeight;
+    document.body.removeChild(copy);
+    return { w: w, h: h };
+}
 var WidgetBase = (function () {
     function WidgetBase(label, width, height) {
         this.label = label;
@@ -15,7 +25,11 @@ var WidgetBase = (function () {
         this.height = height;
         this.elementHeight = "";
         this.contentHeight = "";
+        this.elementWidth = "";
+        this.contentWidth = "";
         this.sizeState = true;
+        var sizeState = localStorage.getItem(this.label + "__sizeState");
+        this.sizeState = (sizeState === "true");
         this.element = document.getElementById(label);
         if (!this.element) {
             this.element = document.createElement("div");
@@ -29,29 +43,56 @@ var WidgetBase = (function () {
         this.content = document.createElement("div");
         this.element.appendChild(this.content);
         this.content.classList.add("content");
-        if (width !== undefined) {
-            this.element.style.width = "" + width + "px";
+        if (this.width !== undefined) {
+            this.elementWidth = "" + this.width + "px";
         }
-        if (height !== undefined) {
-            this.element.style.height = "" + height + "px";
+        if (this.height !== undefined) {
+            this.elementHeight = "" + this.height + "px";
         }
+        this.setSize();
     }
-    WidgetBase.prototype.shrinkGrow = function () {
+    WidgetBase.prototype.setSize = function () {
+        console.log("WidgetBase.setSize()", this.label, this.sizeState);
         if (this.sizeState) {
+            if (this.elementHeight !== "") {
+                this.element.style.height = this.elementHeight;
+            }
+            if (this.elementWidth !== "") {
+                this.element.style.width = this.elementWidth;
+            }
+            this.content.style.width = this.contentWidth;
+            this.content.style.height = this.contentHeight;
+        }
+        else {
             if (this.element.style.height !== "") {
                 this.elementHeight = this.element.style.height;
                 this.element.style.height = "0";
             }
-            this.contentHeight = this.content.style.height;
-            this.content.style.height = "0";
-        }
-        else {
-            if (this.elementHeight !== "") {
-                this.element.style.height = this.elementHeight;
+            if (this.content.style.height !== "") {
+                this.contentHeight = this.content.style.height;
             }
-            this.content.style.height = this.contentHeight;
+            else if (this.content.scrollHeight > 0) {
+                this.contentHeight = "" + this.content.scrollHeight + "px";
+            }
+            this.content.style.height = "0";
+            if (this.element.style.width !== "") {
+                this.elementWidth = this.element.style.width;
+                this.element.style.width = "0";
+            }
+            if (this.content.style.width !== "") {
+                this.contentWidth = this.content.style.width;
+            }
+            else if (this.content.scrollWidth > 0) {
+                this.contentWidth = "" + this.content.scrollWidth + "px";
+            }
+            this.content.style.width = "0";
         }
+    };
+    WidgetBase.prototype.shrinkGrow = function () {
+        console.log("WidgetBase.shrinkGrow()", this.label, this.sizeState);
         this.sizeState = !this.sizeState;
+        localStorage.setItem(this.label + "__sizeState", this.sizeState);
+        this.setSize();
     };
     return WidgetBase;
 }());
@@ -123,7 +164,7 @@ var CameraPositionWidget = (function (_super) {
 var MenuWidget = (function (_super) {
     __extends(MenuWidget, _super);
     function MenuWidget(label) {
-        var _this = _super.call(this, "Menu") || this;
+        var _this = _super.call(this, label) || this;
         _this.label = label;
         _this.userInput = [];
         _this.uiMenu = new UIMenu();
@@ -214,8 +255,6 @@ var MenuWidget = (function (_super) {
                 key: "14",
             },
         };
-        var container = document.createElement("div");
-        _this.content.appendChild(container);
         for (var id in content) {
             if (content.hasOwnProperty(id)) {
                 var newElement = document.createElement("div");
@@ -237,7 +276,7 @@ var MenuWidget = (function (_super) {
                 newInput.className = "inline";
                 newElement.appendChild(newLabel);
                 newElement.appendChild(newInput);
-                container.appendChild(newElement);
+                _this.content.appendChild(newElement);
                 newInput.onclick = _this.onClick.bind(_this);
             }
         }
@@ -364,9 +403,24 @@ var BrowserInfoWidget = (function (_super) {
     }
     BrowserInfoWidget.prototype.service = function () {
         this.content.innerHTML = this.browserInfo.returnHtml().innerHTML;
-        var lineCount = this.content.childElementCount;
+        this.setSize();
+    };
+    BrowserInfoWidget.prototype.setSize = function () {
         if (this.sizeState) {
+            var lineCount = this.content.childElementCount;
             this.content.style.height = "" + lineCount + "em";
+            var lineWidth_1 = 0;
+            this.content.childNodes.forEach(function (node) {
+                var w = elementSize(node).w;
+                if (w > lineWidth_1) {
+                    lineWidth_1 = w;
+                }
+            });
+            this.content.style.width = "" + lineWidth_1 + "px";
+        }
+        else {
+            this.content.style.height = "0";
+            this.content.style.width = "0";
         }
     };
     return BrowserInfoWidget;

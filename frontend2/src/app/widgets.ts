@@ -1,13 +1,30 @@
+// Copyright 2017 duncan law (mrdunk@gmail.com)
+
+function elementSize(element) {
+  const copy = element.cloneNode(true);
+  copy.style.display = "inline-block";
+  document.body.appendChild(copy);
+  const w = copy.scrollWidth;
+  const h = copy.scrollHeight;
+  document.body.removeChild(copy);
+  return {w, h};
+}
+
 class WidgetBase {
   public element: HTMLElement;
   protected content: HTMLElement;
   protected elementHeight: string = "";
   protected contentHeight: string = "";
+  protected elementWidth: string = "";
+  protected contentWidth: string = "";
   protected sizeState: boolean = true;
 
   constructor(public label: string,
               public width?: number,
               public height?: number) {
+    const sizeState = localStorage.getItem(this.label + "__sizeState");
+    this.sizeState = (sizeState === "true");
+
     this.element = document.getElementById(label);
     if(!this.element) {
       this.element = document.createElement("div");
@@ -24,29 +41,61 @@ class WidgetBase {
     this.element.appendChild(this.content);
     this.content.classList.add("content");
 
-    if(width !== undefined) {
-      this.element.style.width = "" + width + "px";
+    if(this.width !== undefined) {
+      this.elementWidth = "" + this.width + "px";
     }
-    if(height !== undefined) {
-      this.element.style.height = "" + height + "px";
+    if(this.height !== undefined) {
+      this.elementHeight = "" + this.height + "px";
     }
+
+    this.setSize();
   }
 
-  private shrinkGrow() {
+  protected setSize() {
+    console.log("WidgetBase.setSize()", this.label, this.sizeState);
     if(this.sizeState) {
+      if(this.elementHeight !== "") {
+        this.element.style.height = this.elementHeight;
+      }
+
+      if(this.elementWidth !== "") {
+        this.element.style.width = this.elementWidth;
+      }
+
+      this.content.style.width = this.contentWidth;
+      this.content.style.height = this.contentHeight;
+    } else {
       if(this.element.style.height !== "") {
         this.elementHeight = this.element.style.height;
         this.element.style.height = "0";
       }
-      this.contentHeight = this.content.style.height;
-      this.content.style.height = "0";
-    } else {
-      if(this.elementHeight !== "") {
-        this.element.style.height = this.elementHeight;
+
+      if(this.content.style.height !== "") {
+        this.contentHeight = this.content.style.height;
+      } else if(this.content.scrollHeight > 0) {
+        this.contentHeight = "" + this.content.scrollHeight + "px";
       }
-      this.content.style.height = this.contentHeight;
+      this.content.style.height = "0";
+
+      if(this.element.style.width !== "") {
+        this.elementWidth = this.element.style.width;
+        this.element.style.width = "0";
+      }
+
+      if(this.content.style.width !== "") {
+        this.contentWidth = this.content.style.width;
+      } else if(this.content.scrollWidth > 0) {
+        this.contentWidth = "" + this.content.scrollWidth + "px";
+      }
+      this.content.style.width = "0";
     }
+  }
+
+  private shrinkGrow() {
+    console.log("WidgetBase.shrinkGrow()", this.label, this.sizeState);
     this.sizeState = !this.sizeState;
+    localStorage.setItem(this.label + "__sizeState", this.sizeState);
+    this.setSize();
   }
 }
 
@@ -125,7 +174,7 @@ class MenuWidget extends WidgetBase {
   private uiMenu = new UIMenu();
 
   constructor(public label: string) {
-    super("Menu");
+    super(label);
     setInterval(this.service.bind(this), 1000);
 
     UIMaster.clientMessageQueues.push(this.userInput);
@@ -216,8 +265,6 @@ class MenuWidget extends WidgetBase {
       },
     };
 
-    const container = document.createElement("div");
-    this.content.appendChild(container);
     for(const id in content) {
       if(content.hasOwnProperty(id)) {
         const newElement = document.createElement("div");
@@ -243,7 +290,7 @@ class MenuWidget extends WidgetBase {
 
         newElement.appendChild(newLabel);
         newElement.appendChild(newInput);
-        container.appendChild(newElement);
+        this.content.appendChild(newElement);
 
         newInput.onclick = this.onClick.bind(this);
       }
@@ -380,9 +427,25 @@ class BrowserInfoWidget extends WidgetBase {
 
   public service() {
     this.content.innerHTML = this.browserInfo.returnHtml().innerHTML;
-    const lineCount = this.content.childElementCount;
+    this.setSize();
+  }
+
+  protected setSize() {
     if(this.sizeState) {
+      const lineCount = this.content.childElementCount;
       this.content.style.height = "" + lineCount + "em";
+
+      let lineWidth = 0;
+      this.content.childNodes.forEach((node) => {
+        const w = elementSize(node).w;
+        if(w > lineWidth) {
+          lineWidth = w;
+        }
+      });
+      this.content.style.width = "" + lineWidth + "px";
+    } else {
+      this.content.style.height = "0";
+      this.content.style.width = "0";
     }
   }
 }
