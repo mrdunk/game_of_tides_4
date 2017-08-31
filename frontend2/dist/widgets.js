@@ -416,9 +416,16 @@ class LoginWidget extends WidgetBase {
     }
     loginGoogle() {
         console.log("loginGoogle()");
+        console.log(this.browserInfo.db, this.browserInfo.client);
+        if (this.browserInfo.db === undefined) {
+            this.browserInfo.mongoLogin();
+        }
         this.browserInfo.client.authWithOAuth("google");
     }
     deleteAll() {
+        if (this.browserInfo.db === undefined) {
+            this.browserInfo.mongoLogin();
+        }
         this.browserInfo.db.collection("sessions").deleteMany({}).then(() => { console.log("done"); });
     }
 }

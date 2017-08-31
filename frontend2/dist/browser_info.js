@@ -29,10 +29,19 @@ class BrowserInfo {
         this.data.sessionId = guid();
         this.data.hardwareConcurrency = window.navigator.hardwareConcurrency;
         this.data.workerType = workerType;
+        if (window.location.hostname !== "localhost") {
+            this.mongoLogin();
+        }
+        setInterval(this.service.bind(this), 10000);
+    }
+    mongoLogin() {
         this.client = new stitch.StitchClient("got-yyggd");
         this.db = this.client.service("mongodb", "mongodb-atlas").db("got");
         this.client.login().then(() => {
             console.log(this.client.authedId(), this.client.userProfile());
+            if (window.location.hostname === "localhost") {
+                return;
+            }
             // If a previous session's data is in Localstorage, retrieve and push to DB.
             this.pullLocalStorage();
             // Push this session to DB.
@@ -45,7 +54,6 @@ class BrowserInfo {
             setTimeout(this.pushMongo.bind(this), 600000); // 10 minutes.
             window.addEventListener("beforeunload", this.unloadPage.bind(this));
         });
-        setInterval(this.service.bind(this), 10000);
     }
     update() {
         this.data["fps_frame"] = Math.round(MainLoop.FPS * 100) / 100;
@@ -77,8 +85,6 @@ class BrowserInfo {
                 div.innerHTML = key + ": " + this.data[key];
             }
         }
-        const authDiv = document.createElement("div");
-        content.appendChild(authDiv);
         return content;
     }
     returnJson() {

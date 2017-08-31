@@ -3,7 +3,7 @@
 declare function SharedWorker(url: string): void;
 
 const timeStep = 1000 / 60;
-let maxFps = 30;
+let maxFps = 60;
 let workerType;
 
 function workerInit() {

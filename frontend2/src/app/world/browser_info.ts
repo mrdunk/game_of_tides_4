@@ -48,10 +48,21 @@ class BrowserInfo {
     this.data.hardwareConcurrency = window.navigator.hardwareConcurrency;
     this.data.workerType = workerType;
 
+    if(window.location.hostname !== "localhost") {
+      this.mongoLogin();
+    }
+    setInterval(this.service.bind(this), 10000);
+  }
+
+  public mongoLogin() {
     this.client = new stitch.StitchClient("got-yyggd");
     this.db = this.client.service("mongodb", "mongodb-atlas").db("got");
     this.client.login().then(() => {
       console.log(this.client.authedId(), this.client.userProfile());
+
+      if(window.location.hostname === "localhost") {
+        return;
+      }
 
       // If a previous session's data is in Localstorage, retrieve and push to DB.
       this.pullLocalStorage();
@@ -67,7 +78,6 @@ class BrowserInfo {
       
       window.addEventListener("beforeunload", this.unloadPage.bind(this));
     });
-    setInterval(this.service.bind(this), 10000);
   }
 
   public update() {
@@ -103,9 +113,6 @@ class BrowserInfo {
         div.innerHTML = key + ": " + this.data[key];
       }
     }
-
-    const authDiv = document.createElement("div");
-    content.appendChild(authDiv);
 
     return content;
   }

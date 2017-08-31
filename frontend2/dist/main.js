@@ -1,6 +1,6 @@
 // Copyright 2017 duncan law (mrdunk@gmail.com)
 const timeStep = 1000 / 60;
-let maxFps = 30;
+let maxFps = 60;
 let workerType;
 function workerInit() {
     let worker;

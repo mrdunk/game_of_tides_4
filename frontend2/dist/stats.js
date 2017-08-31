@@ -24,6 +24,9 @@ function init() {
                             count: {
                                 $sum: 1
                             },
+                            run_time_average: {
+                                $avg: "$run_time"
+                            },
                             fps_frame_average: {
                                 $avg: "$fps_frame"
                             },
