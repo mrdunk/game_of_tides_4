@@ -399,3 +399,26 @@ class BrowserInfoWidget extends WidgetBase {
         }
     }
 }
+class LoginWidget extends WidgetBase {
+    // https://docs.mongodb.com/stitch/getting-started/todo-web/
+    constructor(browserInfo) {
+        super("BrowserInfo");
+        this.browserInfo = browserInfo;
+        const buttonGoogle = document.createElement("button");
+        this.content.appendChild(buttonGoogle);
+        buttonGoogle.innerHTML = "google";
+        buttonGoogle.addEventListener("click", this.loginGoogle.bind(this));
+        const buttonDeleteAll = document.createElement("button");
+        this.content.appendChild(buttonDeleteAll);
+        buttonDeleteAll.innerHTML = "deleteAll";
+        buttonDeleteAll.addEventListener("click", (e) => { console.log("deleteAll"); });
+        buttonDeleteAll.addEventListener("click", this.deleteAll.bind(this));
+    }
+    loginGoogle() {
+        console.log("loginGoogle()");
+        this.browserInfo.client.authWithOAuth("google");
+    }
+    deleteAll() {
+        this.browserInfo.db.collection("sessions").deleteMany({}).then(() => { console.log("done"); });
+    }
+}

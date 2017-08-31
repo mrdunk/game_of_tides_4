@@ -15,13 +15,13 @@ class BrowserInfo {
         this.start = Date.now();
         const keys = ["name", "manufacturer", "layout", "description", "version"];
         keys.forEach((key) => {
-            if (platform[key]) {
+            if (platform[key] !== undefined) {
                 this.data[key] = platform[key];
             }
         });
         const osKeys = ["architecture", "family", "version"];
         osKeys.forEach((key) => {
-            if (platform.os[key]) {
+            if (platform.os[key] !== undefined) {
                 this.data["os_" + key] = platform.os[key];
             }
         });
@@ -29,37 +29,36 @@ class BrowserInfo {
         this.data.sessionId = guid();
         this.data.hardwareConcurrency = window.navigator.hardwareConcurrency;
         this.data.workerType = workerType;
-        // GameAnalytics("setEnabledInfoLog", true);
-        // GameAnalytics("setEnabledVerboseLog", true);
-        // GameAnalytics("configureBuild", "0.0.1");
-        // GameAnalytics("initialize", GAME_KEY, SECRET_KEY);
-        // GameAnalytics("addProgressionEvent", "Start", "world01");
         this.client = new stitch.StitchClient("got-yyggd");
         this.db = this.client.service("mongodb", "mongodb-atlas").db("got");
-        this.client.login().then(function () {
+        this.client.login().then(() => {
             console.log(this.client.authedId(), this.client.userProfile());
-        }.bind(this));
-        // If a previous session's data is in Localstorage, retreive and push to DB.
-        this.pullLocalStorage();
-        // Push this session to DB.
-        this.data.state_starting = true;
-        this.pushMongo();
-        this.data.state_running = true;
-        setTimeout(this.pushMongo.bind(this), 10000); // 10 seconds.
-        setTimeout(this.pushMongo.bind(this), 60000); // 60 seconds.
-        setTimeout(this.pushMongo.bind(this), 600000); // 10 minutes.
-        window.addEventListener("beforeunload", this.unloadPage.bind(this));
+            // If a previous session's data is in Localstorage, retrieve and push to DB.
+            this.pullLocalStorage();
+            // Push this session to DB.
+            this.data["owner_id"] = this.client.authedId();
+            this.data.state = "starting";
+            this.pushMongo();
+            this.data.state = "running";
+            setTimeout(this.pushMongo.bind(this), 10000); // 10 seconds.
+            setTimeout(this.pushMongo.bind(this), 60000); // 60 seconds.
+            setTimeout(this.pushMongo.bind(this), 600000); // 10 minutes.
+            window.addEventListener("beforeunload", this.unloadPage.bind(this));
+        });
+        setInterval(this.service.bind(this), 10000);
     }
-    service() {
+    update() {
         this.data["fps_frame"] = Math.round(MainLoop.FPS * 100) / 100;
         this.data["fps_average"] = Math.round(MainLoop.averageFPS * 100) / 100;
         this.data["fps_long"] = Math.round(MainLoop.longAverageFPS * 100) / 100;
         this.data["run_time"] = Math.round((Date.now() - this.start) / 1000);
-        // GameAnalytics("addDesignEvent", "engine:FPS", this.data["fps"]);
+    }
+    service() {
+        this.update();
         this.pushLocalStorage();
     }
     displayText() {
-        this.service();
+        this.update();
         let returnString = "";
         for (const key in this.data) {
             if (this.data.hasOwnProperty(key) && this.data[key] !== undefined) {
@@ -69,7 +68,7 @@ class BrowserInfo {
         return returnString;
     }
     returnHtml() {
-        this.service();
+        this.update();
         const content = document.createElement("div");
         for (const key in this.data) {
             if (this.data.hasOwnProperty(key) && this.data[key] !== undefined) {
@@ -80,7 +79,6 @@ class BrowserInfo {
         }
         const authDiv = document.createElement("div");
         content.appendChild(authDiv);
-        authDiv.innerHTML = "MongoDB_authID: " + this.client.authedId();
         return content;
     }
     returnJson() {
@@ -94,9 +92,8 @@ class BrowserInfo {
             this.service();
             data = this.data;
         }
-        this.db.collection("sessions").insert({ owner_id: this.client.authedId(),
-            comment: data })
-            .then(() => { console.log("sent data"); }, () => { console.log("error"); });
+        this.db.collection("sessions").updateOne({ "sessionId": data.sessionId }, data, { upsert: true })
+            .then(() => { console.log("sent data"); }, (e) => { console.log("error:", e); });
     }
     pushLocalStorage() {
         localStorage.setItem("sessionData", JSON.stringify(this.data));
@@ -107,21 +104,19 @@ class BrowserInfo {
         const data = localStorage.getItem("sessionData");
         if (data !== undefined && data !== null) {
             const jsonData = JSON.parse(data);
-            console.log("Pushing previous session data to MongoDb.", jsonData);
-            if (jsonData.state_closing = true) {
+            console.log("Pushing previous session data to MongoDb.", data);
+            if (jsonData.state === "closing") {
                 jsonData.cleanShutdown = true;
             }
-            jsonData.state_closed = true;
+            jsonData.state = "closed";
             this.pushMongo(jsonData);
             localStorage.removeItem("sessionData");
         }
     }
     unloadPage() {
         console.log("BrowserInfo.unloadPage()");
-        // GameAnalytics("addProgressionEvent", "Complete", "world01");
-        // GameAnalytics("session_end");
-        this.data.state_closing = true;
-        this.pushLocalStorage();
+        this.data.state = "closing";
+        this.service();
         console.log("BrowserInfo.unloadPage() done");
     }
 }

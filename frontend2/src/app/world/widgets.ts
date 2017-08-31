@@ -415,9 +415,6 @@ class CursorPositionWidget extends WidgetBase {
 }
 
 class BrowserInfoWidget extends WidgetBase {
-  private container: HTMLElement;
-  private fpsContainer: HTMLElement;
-
   constructor(private browserInfo: BrowserInfo) {
     super("BrowserInfo");
     setInterval(this.service.bind(this), 10000);
@@ -447,6 +444,32 @@ class BrowserInfoWidget extends WidgetBase {
       this.content.style.height = "0";
       this.content.style.width = "0";
     }
+  }
+}
+
+class LoginWidget extends WidgetBase {
+  // https://docs.mongodb.com/stitch/getting-started/todo-web/
+  constructor(private browserInfo: BrowserInfo) {
+    super("BrowserInfo");
+    const buttonGoogle = document.createElement("button");
+    this.content.appendChild(buttonGoogle);
+    buttonGoogle.innerHTML = "google";
+    buttonGoogle.addEventListener("click", this.loginGoogle.bind(this));
+    
+    const buttonDeleteAll = document.createElement("button");
+    this.content.appendChild(buttonDeleteAll);
+    buttonDeleteAll.innerHTML = "deleteAll";
+    buttonDeleteAll.addEventListener("click", (e) => {console.log("deleteAll");});
+    buttonDeleteAll.addEventListener("click", this.deleteAll.bind(this));
+  }
+
+  private loginGoogle() {
+    console.log("loginGoogle()");
+    this.browserInfo.client.authWithOAuth("google");
+  }
+
+  private deleteAll() {
+    this.browserInfo.db.collection("sessions").deleteMany({}).then(() => {console.log("done");});
   }
 }
 

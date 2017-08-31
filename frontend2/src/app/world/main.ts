@@ -3,7 +3,7 @@
 declare function SharedWorker(url: string): void;
 
 const timeStep = 1000 / 60;
-const maxFps = 30;
+let maxFps = 30;
 let workerType;
 
 function workerInit() {
@@ -57,6 +57,7 @@ function init() {
   const cameraWidget = new CameraPositionWidget(camera);
   const cursorWidget = new CursorPositionWidget(scene);
   const browserInfoWidget = new BrowserInfoWidget(browserInfo);
+  const loginWidget = new LoginWidget(browserInfo);
   const widgetContainer = document.createElement("div");
   widgetContainer.className = "widget-container";
   widgetContainer.appendChild(menuWidget.element);
@@ -64,6 +65,7 @@ function init() {
   widgetContainer.appendChild(cameraWidget.element);
   widgetContainer.appendChild(cursorWidget.element);
   widgetContainer.appendChild(browserInfoWidget.element);
+  widgetContainer.appendChild(loginWidget.element);
   renderer.element.appendChild(widgetContainer);
 }
 
