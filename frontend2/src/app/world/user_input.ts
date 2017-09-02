@@ -1,14 +1,18 @@
 
 class UIMaster {
-  public static clientMessageQueues = [];
-
-  public static registerListiner(listiner: UIBase) {
+  /* Register an input which can be polled for events in it's "newData". */
+  public static registerInput(listiner: UIBase) {
     UIMaster.listiners.push(listiner);
+  }
+
+  /* Register a client that needs it's "userInput" property populated with input
+   * events. */
+  public static registerClient(client) {
+    UIMaster.clientMessageQueues.push(client.userInput);
   }
 
   public static service(now: number) {
     UIMaster.listiners.forEach((listiner) => {
-      // console.log(listiner.newData);
       listiner.service(now);
       UIMaster.clientMessageQueues.forEach((queue) => {
         const newData = listiner.newData.slice();  // Copy array.
@@ -18,6 +22,7 @@ class UIMaster {
     });
   }
 
+  private static clientMessageQueues = [];
   private static listiners: UIBase[] = [];
 
   private static visibilityCallback =
@@ -44,13 +49,25 @@ abstract class UIBase {
   public newData: Array<KeyboardEvent | ICustomInputEvent> = [];
 
   constructor() {
-    UIMaster.registerListiner(this);
+    UIMaster.registerInput(this);
   }
 
   public abstract service(now: number): void;
   public abstract resetListinerKeys(): void;
 }
 
+
+class UIMixin extends UIBase {
+  public service(now: number) {
+  }
+
+  public resetListinerKeys() {
+  }
+
+  public eventPush(event: ICustomInputEvent) {
+    this.newData.push(event);
+  }
+}
 
 class UIKeyboard extends UIBase {
   private currentlyDown: {} = {};

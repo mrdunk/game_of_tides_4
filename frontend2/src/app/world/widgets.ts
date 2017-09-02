@@ -177,7 +177,7 @@ class MenuWidget extends WidgetBase {
     super(label);
     setInterval(this.service.bind(this), 1000);
 
-    UIMaster.clientMessageQueues.push(this.userInput);
+    UIMaster.registerClient(this);
 
     const content = {
       worldLevelGenerate: {
@@ -455,28 +455,30 @@ class LoginWidget extends WidgetBase {
     this.content.appendChild(buttonGoogle);
     buttonGoogle.innerHTML = "google";
     buttonGoogle.addEventListener("click", this.loginGoogle.bind(this));
-    
+
     const buttonDeleteAll = document.createElement("button");
     this.content.appendChild(buttonDeleteAll);
     buttonDeleteAll.innerHTML = "deleteAll";
-    buttonDeleteAll.addEventListener("click", (e) => {console.log("deleteAll");});
+    buttonDeleteAll.addEventListener("click",
+                                     (e) => {console.log("deleteAll");});
     buttonDeleteAll.addEventListener("click", this.deleteAll.bind(this));
   }
 
   private loginGoogle() {
     console.log("loginGoogle()");
     console.log(this.browserInfo.db, this.browserInfo.client);
-    if(this.browserInfo.db === undefined){
+    if(this.browserInfo.db === undefined) {
       this.browserInfo.mongoLogin();
     }
     this.browserInfo.client.authWithOAuth("google");
   }
 
   private deleteAll() {
-    if(this.browserInfo.db === undefined){
+    if(this.browserInfo.db === undefined) {
       this.browserInfo.mongoLogin();
     }
-    this.browserInfo.db.collection("sessions").deleteMany({}).then(() => {console.log("done");});
+    this.browserInfo.db.collection("sessions").deleteMany({})
+      .then(() => {console.log("done");});
   }
 }
 

@@ -151,7 +151,7 @@ class MenuWidget extends WidgetBase {
         this.userInput = [];
         this.uiMenu = new UIMenu();
         setInterval(this.service.bind(this), 1000);
-        UIMaster.clientMessageQueues.push(this.userInput);
+        UIMaster.registerClient(this);
         const content = {
             worldLevelGenerate: {
                 label: "cursor size:",
@@ -426,6 +426,7 @@ class LoginWidget extends WidgetBase {
         if (this.browserInfo.db === undefined) {
             this.browserInfo.mongoLogin();
         }
-        this.browserInfo.db.collection("sessions").deleteMany({}).then(() => { console.log("done"); });
+        this.browserInfo.db.collection("sessions").deleteMany({})
+            .then(() => { console.log("done"); });
     }
 }

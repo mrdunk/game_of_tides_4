@@ -11,6 +11,10 @@ const earthRadius = 6371;  // km.
 const cameraInitialDistance = 10000 * 1;
 const skyColor = 0x90A0C0;
 
+interface IFogExtended extends THREE.IFog {
+  far: number;
+}
+
 interface IMeshesEntry {
   mesh?: Mesh;
   children: {};
@@ -47,15 +51,18 @@ class Camera extends THREE.PerspectiveCamera {
   private animateChanged: number = 0;
   private surfaceHeight: number = earthRadius;
   private faceOver: IFace;
+  private uiMixin: UIMixin;
 
-  constructor(public label: string) {
+  constructor(public label: string, public worker) {
     super( 75,
            window.innerWidth / window.innerHeight,
            100,
            cameraInitialDistance * 2 );
     this.position.z = this.distance + this.surfaceHeight;
 
-    this.updatePos();
+    this.uiMixin = new UIMixin();
+
+    this.getFaceAbove();
   }
 
   public service(): void {
@@ -75,9 +82,11 @@ class Camera extends THREE.PerspectiveCamera {
             if(input.shiftKey) {
               this.yaw -= 0.01;
               this.updatePos();
+              this.getFaceAbove();
             } else {
               this.lon += this.distance / cameraInitialDistance;
               this.updatePos();
+              this.getFaceAbove();
             }
           }
           break;
@@ -86,9 +95,11 @@ class Camera extends THREE.PerspectiveCamera {
             if(input.shiftKey) {
               this.yaw += 0.01;
               this.updatePos();
+              this.getFaceAbove();
             } else {
               this.lon -= this.distance / cameraInitialDistance;
               this.updatePos();
+              this.getFaceAbove();
             }
           }
           break;
@@ -100,9 +111,11 @@ class Camera extends THREE.PerspectiveCamera {
             }else if(input.ctrlKey) {
               this.distance /= 1.1;
               this.updatePos();
+              this.getFaceAbove();
             } else {
               this.lat += this.distance / cameraInitialDistance;
               this.updatePos();
+              this.getFaceAbove();
             }
           }
           break;
@@ -114,9 +127,11 @@ class Camera extends THREE.PerspectiveCamera {
             }else if(input.ctrlKey) {
               this.distance *= 1.1;
               this.updatePos();
+              this.getFaceAbove();
             } else {
               this.lat -= this.distance / cameraInitialDistance;
               this.updatePos();
+              this.getFaceAbove();
             }
           }
           break;
@@ -177,6 +192,21 @@ class Camera extends THREE.PerspectiveCamera {
     this.near = this.distance / 4;
     this.far = Math.max(this.distance * 2, 2000);
     this.updateProjectionMatrix();
+
+    const event: ICustomInputEvent = {
+      type: "cameraPosSet",
+      origin: this.position.toArray(),
+      direction: [this.yaw, this.pitch],
+      face: this.faceOver,
+      size: this.distance,
+    };
+    this.uiMixin.eventPush(event);
+  }
+
+  private getFaceAbove() {
+    // TODO: pass recursion level to camera.
+    this.worker.postMessage(
+      ["getSurfaceUnderPoint", "cameraabove", this.position, 15]);
   }
 }
 
@@ -202,7 +232,7 @@ class Renderer extends THREE.WebGLRenderer {
     this.element = document.getElementById(label);
     this.element.appendChild(this.domElement);
 
-    UIMaster.clientMessageQueues.push(this.userInput);
+    UIMaster.registerClient(this);
 
     window.onresize = this.changeSize.bind(this);
   }
@@ -258,7 +288,7 @@ class Renderer extends THREE.WebGLRenderer {
       }
     }
 
-    this.getCameraAbovePoint();
+    //this.getCameraAbovePoint();
 
     // Update dependants.
     if(this.scene && this.camera) {
@@ -288,20 +318,6 @@ class Renderer extends THREE.WebGLRenderer {
                        raycaster.ray.direction.y,
                        raycaster.ray.direction.z];
     return {type: "mouseray", origin, direction};
-  }
-
-  // Will be delegated to WebWorker. Result will be announced on the input bus.
-  private getCameraAbovePoint(): void {
-    if(this.camera === undefined) {
-      return;
-    }
-    if(this.lastCameraPos.equals(this.camera.position)) {
-      return;
-    }
-    this.lastCameraPos.copy(this.camera.position);
-    this.scene.getSurfaceUnderPoint("cameraabove",
-                                    this.camera.position,
-                                    this.scene.cursorSize);
   }
 
   private initWorker(): void {
@@ -401,7 +417,7 @@ class Scene extends THREE.Scene {
     const fogDistance = 20 * distance;
     if(fogDistance !== this.fogDistance) {
       this.fogDistance = fogDistance;
-      this.fog.far = fogDistance;
+      (this.fog as IFogExtended).far = fogDistance;
     }
   }
 
@@ -422,25 +438,12 @@ class Scene extends THREE.Scene {
 
     while (this.userInput.length) {
       const input = this.userInput.pop();
+      console.log(input.key || input.type);
       switch(input.key || input.type) {
         case "mousedown":
-          // TESTING
           console.log("mouseclick", input);
           if(this.faceUnderMouse) {
-            let high;
-            let low;
-            [high, low] =
-              Module.IndexAtRecursion(this.faceUnderMouse.indexHigh,
-                                      this.faceUnderMouse.indexLow,
-                                      this.generateTileLevel);
-            this.addGenerateTileTask({indexHigh: high,
-                                      indexLow: low,
-                                      recursion: this.generateTileLevel,
-                                      parent: true,
-                                      neighbours: true,
-                                      children: true});
-            this.doTask();
-            }
+          }
           break;
         case "0":
         case "1":
@@ -475,6 +478,31 @@ class Scene extends THREE.Scene {
         case "mouseray":
           this.getFaceUnderMouse(input as ICustomInputEvent, this.cursorSize);
           break;
+        case "cameraPosSet":
+          console.log(input);
+          const height = Math.min(
+            15,
+            Math.round(70 / Math.log((input as ICustomInputEvent).size * 6))
+          );
+          console.log(height);
+          this.cursorSize = this.generateTileLevel = height;
+          const face = (input as ICustomInputEvent).face;
+          if(face !== undefined) {
+            let high;
+            let low;
+            [high, low] =
+              Module.IndexAtRecursion(face.indexHigh,
+                                      face.indexLow,
+                                      this.generateTileLevel);
+            this.addGenerateTileTask({indexHigh: high,
+                                      indexLow: low,
+                                      recursion: this.generateTileLevel,
+                                      parent: true,
+                                      neighbours: true,
+                                      children: true});
+            this.doTask();
+          }
+          break;
       }
     }
   }
@@ -485,12 +513,12 @@ class Scene extends THREE.Scene {
 
   /* Get a point on surface directly below the specified one.
    * WebWorker calculates this and returns result on input bus.*/
-  public getSurfaceUnderPoint(label: string,
+  /*public getSurfaceUnderPoint(label: string,
                               point: THREE.Vector3,
                               recursion: number): void {
     this.worker.postMessage(
       ["getSurfaceUnderPoint", label, point, recursion]);
-  }
+  }*/
 
   /* WebWorker calculates this and returns result on input bus.*/
   private getFaceUnderMouse(mouseRay: ICustomInputEvent,

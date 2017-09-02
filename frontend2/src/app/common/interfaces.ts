@@ -36,6 +36,7 @@ interface ICustomInputEvent {
   type: string;
   origin?: number[];
   direction?: number[];
+  size?: number;
   shiftKey?: number;
   ctrlKey?: number;
   altKey?: number;

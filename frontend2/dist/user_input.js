@@ -1,10 +1,15 @@
 class UIMaster {
-    static registerListiner(listiner) {
+    /* Register an input which can be polled for events in it's "newData". */
+    static registerInput(listiner) {
         UIMaster.listiners.push(listiner);
+    }
+    /* Register a client that needs it's "userInput" property populated with input
+     * events. */
+    static registerClient(client) {
+        UIMaster.clientMessageQueues.push(client.userInput);
     }
     static service(now) {
         UIMaster.listiners.forEach((listiner) => {
-            // console.log(listiner.newData);
             listiner.service(now);
             UIMaster.clientMessageQueues.forEach((queue) => {
                 const newData = listiner.newData.slice(); // Copy array.
@@ -32,7 +37,16 @@ UIMaster.blurCallback = window.addEventListener("blur", UIMaster.resetListinerKe
 class UIBase {
     constructor() {
         this.newData = [];
-        UIMaster.registerListiner(this);
+        UIMaster.registerInput(this);
+    }
+}
+class UIMixin extends UIBase {
+    service(now) {
+    }
+    resetListinerKeys() {
+    }
+    eventPush(event) {
+        this.newData.push(event);
     }
 }
 class UIKeyboard extends UIBase {

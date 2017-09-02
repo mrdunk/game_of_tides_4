@@ -37,7 +37,7 @@ function workerInit() {
 function init() {
   const worker = workerInit();
 
-  const camera = new Camera("camera_1");
+  const camera = new Camera("camera_1", worker);
   const scene = new Scene("mesh1", worker);
   const renderer = new Renderer("renderer1");
 

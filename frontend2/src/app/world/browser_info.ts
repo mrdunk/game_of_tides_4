@@ -64,7 +64,8 @@ class BrowserInfo {
         return;
       }
 
-      // If a previous session's data is in Localstorage, retrieve and push to DB.
+      // If a previous session's data is in Localstorage, retrieve and push to
+      // DB.
       this.pullLocalStorage();
 
       // Push this session to DB.
@@ -75,7 +76,7 @@ class BrowserInfo {
       setTimeout(this.pushMongo.bind(this), 10000);  // 10 seconds.
       setTimeout(this.pushMongo.bind(this), 60000);  // 60 seconds.
       setTimeout(this.pushMongo.bind(this), 600000);  // 10 minutes.
-      
+
       window.addEventListener("beforeunload", this.unloadPage.bind(this));
     });
   }
@@ -131,7 +132,7 @@ class BrowserInfo {
     }
 
     this.db.collection("sessions").updateOne(
-      {"sessionId": data.sessionId},
+      {sessionId: data.sessionId},
       data,
       {upsert: true})
       .then(() => {console.log("sent data");},

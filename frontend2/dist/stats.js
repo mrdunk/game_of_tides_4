@@ -6,7 +6,7 @@ function init() {
     db = client.service("mongodb", "mongodb-atlas").db("got");
     client.login().then(() => {
         console.log("authenticated");
-        let sessions = db.collection("sessions");
+        const sessions = db.collection("sessions");
         client.executePipeline({
             service: "mongodb-atlas",
             action: "aggregate",
@@ -22,40 +22,42 @@ function init() {
                                 version: "$version",
                             },
                             count: {
-                                $sum: 1
+                                $sum: 1,
                             },
                             run_time_average: {
-                                $avg: "$run_time"
+                                $avg: "$run_time",
                             },
                             fps_frame_average: {
-                                $avg: "$fps_frame"
+                                $avg: "$fps_frame",
                             },
                             fps_frame_stdDevPop: {
-                                $stdDevPop: "$fps_frame"
+                                $stdDevPop: "$fps_frame",
                             },
                             fps_frame_stdDevSamp: {
-                                $stdDevSamp: "$fps_frame"
+                                $stdDevSamp: "$fps_frame",
                             },
                             fps_long_average: {
-                                $avg: "$fps_long"
+                                $avg: "$fps_long",
                             },
                             fps_long_stdDevPop: {
-                                $stdDevPop: "$fps_long"
+                                $stdDevPop: "$fps_long",
                             },
                             fps_long_stdDevSamp: {
-                                $stdDevSamp: "$fps_long"
+                                $stdDevSamp: "$fps_long",
                             },
-                        }
+                        },
                     },
                 ],
-            }
-        }, { allowDiskUse: true })
+            },
+        }, {
+            allowDiskUse: true,
+        })
             .then((result) => {
-            console.log('success: ', result);
+            console.log("success: ", result);
             displayData(result);
         })
             .catch((e) => {
-            console.log('error: ', e);
+            console.log("error: ", e);
         });
     });
 }
@@ -65,27 +67,28 @@ function displayData(data) {
 }
 // https://stackoverflow.com/questions/4810841/how-can-i-pretty-print-json-using-javascript
 function syntaxHighlight(json) {
-    if (typeof json != 'string') {
+    if (typeof json !== "string") {
         json = JSON.stringify(json, undefined, 2);
     }
-    json = json.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
-    return json.replace(/("(\\u[a-zA-Z0-9]{4}|\\[^u]|[^\\"])*"(\s*:)?|\b(true|false|null)\b|-?\d+(?:\.\d*)?(?:[eE][+\-]?\d+)?)/g, function (match) {
-        var cls = 'number';
+    json = json.replace(/&/g, "&amp;")
+        .replace(/</g, "&lt;").replace(/>/g, "&gt;");
+    return json.replace(/("(\\u[a-zA-Z0-9]{4}|\\[^u]|[^\\"])*"(\s*:)?|\b(true|false|null)\b|-?\d+(?:\.\d*)?(?:[eE][+\-]?\d+)?)/g, (match) => {
+        let cls = "number";
         if (/^"/.test(match)) {
             if (/:$/.test(match)) {
-                cls = 'key';
+                cls = "key";
             }
             else {
-                cls = 'string';
+                cls = "string";
             }
         }
         else if (/true|false/.test(match)) {
-            cls = 'boolean';
+            cls = "boolean";
         }
         else if (/null/.test(match)) {
-            cls = 'null';
+            cls = "null";
         }
-        return '<span class="' + cls + '">' + match + '</span>';
+        return "<span class=\"" + cls + "\">" + match + "</span>";
     });
 }
 window.onload = () => {

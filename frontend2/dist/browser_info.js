@@ -42,7 +42,8 @@ class BrowserInfo {
             if (window.location.hostname === "localhost") {
                 return;
             }
-            // If a previous session's data is in Localstorage, retrieve and push to DB.
+            // If a previous session's data is in Localstorage, retrieve and push to
+            // DB.
             this.pullLocalStorage();
             // Push this session to DB.
             this.data["owner_id"] = this.client.authedId();
@@ -98,7 +99,7 @@ class BrowserInfo {
             this.service();
             data = this.data;
         }
-        this.db.collection("sessions").updateOne({ "sessionId": data.sessionId }, data, { upsert: true })
+        this.db.collection("sessions").updateOne({ sessionId: data.sessionId }, data, { upsert: true })
             .then(() => { console.log("sent data"); }, (e) => { console.log("error:", e); });
     }
     pushLocalStorage() {
