@@ -5,11 +5,13 @@
 // Helpful diagram showing how Threejs components fits together:
 // http://davidscottlyons.com/threejs/presentations/frontporch14/#slide-16
 
+const tileDetail = 4;
 const heightMultiplier = 2;
 const sealevel = 0.001;  // Ratio of planets diameter.
 const earthRadius = 6371;  // km.
 const cameraInitialDistance = 10000 * 1;
 const skyColor = 0x90A0C0;
+const maxTileRecursion = 15;
 
 interface IFogExtended extends THREE.IFog {
   far: number;
@@ -18,6 +20,13 @@ interface IFogExtended extends THREE.IFog {
 interface IMeshesEntry {
   mesh?: Mesh;
   children: {};
+}
+
+function heightToRecursion(height) {
+  return Math.min(
+    maxTileRecursion,
+    Math.abs(Math.round( 70 / Math.log(height * 100))),
+  );
 }
 
 function makeTileLabel(face: ITile): string {
@@ -82,7 +91,6 @@ class Camera extends THREE.PerspectiveCamera {
             if(input.shiftKey) {
               this.yaw -= 0.01;
               this.updatePos();
-              this.getFaceAbove();
             } else {
               this.lon += this.distance / cameraInitialDistance;
               this.updatePos();
@@ -95,7 +103,6 @@ class Camera extends THREE.PerspectiveCamera {
             if(input.shiftKey) {
               this.yaw += 0.01;
               this.updatePos();
-              this.getFaceAbove();
             } else {
               this.lon -= this.distance / cameraInitialDistance;
               this.updatePos();
@@ -193,6 +200,11 @@ class Camera extends THREE.PerspectiveCamera {
     this.far = Math.max(this.distance * 2, 2000);
     this.updateProjectionMatrix();
 
+    this.announcePos();
+  }
+
+
+  private announcePos() {
     const event: ICustomInputEvent = {
       type: "cameraPosSet",
       origin: this.position.toArray(),
@@ -204,9 +216,9 @@ class Camera extends THREE.PerspectiveCamera {
   }
 
   private getFaceAbove() {
-    // TODO: pass recursion level to camera.
+    const recursion = heightToRecursion(this.distance);
     this.worker.postMessage(
-      ["getSurfaceUnderPoint", "cameraabove", this.position, 15]);
+      ["getSurfaceUnderPoint", "cameraabove", this.position, recursion]);
   }
 }
 
@@ -355,8 +367,9 @@ class Scene extends THREE.Scene {
   private fogDistance: number = 0;
   private materialIndex: number = 0;
   private setMaterialDabounce: number = 0;
-  private taskTimer: number;
+  private workTimer: number;
   private batchCounter: number = 0;
+  private face: IFace = {indexHigh: -1, indexLow: -1, recursion: -1};
 
   constructor(public label: string, public worker) {
     super();
@@ -471,25 +484,25 @@ class Scene extends THREE.Scene {
         case "c":
           this.setMaterial();
           break;
-        case "generateLevel":
-          const generate = (input as ICustomInputEvent).value as string;
-          this.generateTileLevel = parseInt(generate, 10);
-          this.cursorSize = this.generateTileLevel;
-          console.log(this.generateTileLevel, typeof this.generateTileLevel);
-          break;
         case "mouseray":
           this.getFaceUnderMouse(input as ICustomInputEvent, this.cursorSize);
           break;
         case "cameraPosSet":
-          const recursionLevel = Math.min(
-            15,
-            Math.round(70 / Math.log((input as ICustomInputEvent).size * 6)),
-          );
-          // console.log(recursionLevel);
+          const recursionLevel =
+            heightToRecursion((input as ICustomInputEvent).size);
+          console.log(recursionLevel);
           this.cursorSize = this.generateTileLevel = recursionLevel;
           const face = (input as ICustomInputEvent).face;
-          if(face !== undefined) {
+          if(face !== undefined &&
+             (face.indexHigh !== this.face.indexHigh ||
+               face.indexLow !== this.face.indexLow ||
+               face.recursion !== this.face.recursion)) {
+            this.face.indexHigh = face.indexHigh;
+            this.face.indexLow = face.indexLow;
+            this.face.recursion = face.recursion;
+
             this.workQueue = [];  // Clear the workQueue.
+            window.clearTimeout(this.workTimer);
             this.batchCounter++;
             let high;
             let low;
@@ -537,16 +550,13 @@ class Scene extends THREE.Scene {
     const toRemove = [];
     for(const meshLabel in this.activeMeshes) {
       if(this.activeMeshes.hasOwnProperty(meshLabel)) {
-        // TODO: Work out why neighbouring tiles are not getting the correct
-        // batch value applied.
-        // Fix that here for now.
         const m = this.activeMeshes[meshLabel];
         let highestBatch = m.batch;
-        for(const neighbour of m.userData.neighbours) {
-          const n = this.activeMeshes[makeTileLabel(neighbour)];
-          if(m.parentTile && n && n.parentTile) {
-
-            if(m.parentTile.label === n.parentTile.label) {
+        if(m.parentTile) {
+          for(const neighbour of m.userData.neighbours) {
+            const n = this.activeMeshes[makeTileLabel(neighbour)];
+            if(n && n.parentTile && m.parentTile.label === n.parentTile.label) {
+              // Don't clean neighbours belonging to same parent.
               highestBatch = Math.max(highestBatch, n.batch);
             }
           }
@@ -559,7 +569,7 @@ class Scene extends THREE.Scene {
 
     while(toRemove.length) {
       let mesh = toRemove.pop();
-      if(mesh) {
+      if(mesh && mesh.batch < this.batchCounter) {
         this.remove(mesh);
         mesh.geometry.dispose();
         mesh.material.dispose();
@@ -584,7 +594,7 @@ class Scene extends THREE.Scene {
   /* Set correct visibility for parent of specified tile. */
   private setParentTileVisibility(meshLabel: string): void {
     const mesh = this.activeMeshes[meshLabel];
-    console.log(mesh.userData.parentLabel, meshLabel);
+    // console.log(mesh.userData.parentLabel, meshLabel);
     this.setTileVisibility(mesh.userData.parentLabel);
   }
 
@@ -655,7 +665,7 @@ class Scene extends THREE.Scene {
     this.workQueue.forEach(testFunc);
     console.log("doTask()", testStr);
 
-    window.clearTimeout(this.taskTimer);
+    window.clearTimeout(this.workTimer);
 
     if(this.lockWorkQueue) {
       return;
@@ -664,6 +674,8 @@ class Scene extends THREE.Scene {
     if(job === undefined) {
       // Queue empty.
       this.cleanUpOldTiles();
+
+      console.log(performance.now());
       return;
     }
     this.lockWorkQueue = true;
@@ -671,7 +683,7 @@ class Scene extends THREE.Scene {
     const tileLabel = makeTileLabel(job);
     const tile = this.findMesh(tileLabel);
     if(tile === undefined) {
-      console.log("  generate tile", tileLabel, job);
+      // console.log("  generate tile", tileLabel, job);
       const parentLabel = getParentLabel(job);
       const parentTile = this.activeMeshes[parentLabel];
       this.generateTile(parentTile, job);
@@ -679,7 +691,7 @@ class Scene extends THREE.Scene {
       this.addGenerateTileTask(job);
     } else if(tile.userData.neighbours.length === 0 ||
               tile.userData.complete !== true) {
-      console.log("  Waiting to complete", tileLabel);
+      // console.log("  Waiting to complete", tileLabel);
       // Since it is still pending, put this back in to the queue.
       tile.batch = job.batch;
       this.addGenerateTileTask(job);
@@ -691,16 +703,14 @@ class Scene extends THREE.Scene {
       if(job.neighbours) {
         this.generateNeighbours(tile, job);
       }
-      if(job.children && this.generateTileLevel > job.recursion) {
+      if(job.children) {
         this.generateChildren(job);
       }
     }
 
-    this.taskTimer =
+    this.workTimer =
       window.setTimeout(function(){ this.doTask(); }.bind(this), 10);
     this.lockWorkQueue = false;
-
-    // console.log(performance.now());
   }
 
   private generateParent(job: IGenerateTileTask): void {
@@ -726,8 +736,8 @@ class Scene extends THREE.Scene {
     for(const neighbour of tile.userData.neighbours) {
       const neighbourLabel = makeTileLabel(neighbour);
       const neighbourTile = this.findMesh(neighbourLabel);
-      if(neighbourTile === undefined) {
-        console.log("  generate neighbour", neighbourLabel);
+      if(neighbourTile === undefined || neighbourTile.batch !== job.batch) {
+        // console.log("  generate neighbour", neighbourLabel);
         const task: IGenerateTileTask = {indexHigh: neighbour.indexHigh,
                                          indexLow: neighbour.indexLow,
                                          recursion: neighbour.recursion,
@@ -736,36 +746,42 @@ class Scene extends THREE.Scene {
                                          children: false,
                                          batch: job.batch};
         this.addGenerateTileTask(task);
-      } else {
-        neighbourTile.batch = job.batch;
-        this.generateParent(job);
+      // } else {
+        // parent tiles will not get added to the work queue so we need to
+        // check batch of neighbours belonging to same parent when deleting
+        // tiles.
+        // The alternative (slower) would be to do the following here:
+        //   this.generateParent(job);
       }
     }
   }
 
-  private generateChildren(parent: ITile): void {
+  private generateChildren(job: ITile): void {
+    if(this.generateTileLevel <= job.recursion) {
+      return;
+    }
     for(let c = 0; c < 4; c++) {
       const child =
-        Module.IndexOfChild(parent.indexHigh,
-                            parent.indexLow,
-                            parent.recursion,
+        Module.IndexOfChild(job.indexHigh,
+                            job.indexLow,
+                            job.recursion,
                             c);
       const childLabel = makeTileLabel({indexHigh: child[0],
                                              indexLow: child[1],
-                                             recursion: parent.recursion +1});
+                                             recursion: job.recursion +1});
       const childTile = this.findMesh(childLabel);
       if(childTile === undefined) {
-        console.log("  generate child", childLabel, child);
+        // console.log("  generate child", childLabel, child);
         const task: IGenerateTileTask = {indexHigh: child[0],
                                          indexLow: child[1],
-                                         recursion: parent.recursion +1,
+                                         recursion: job.recursion +1,
                                          parent: false,
                                          neighbours: false,
                                          children: false,
-                                         batch: parent.batch};
+                                         batch: job.batch};
         this.addGenerateTileTask(task);
       } else {
-        childTile.batch = parent.batch;
+        childTile.batch = job.batch;
       }
     }
   }
@@ -777,22 +793,12 @@ class Scene extends THREE.Scene {
   }
 
   private generateTile(parentTile: WorldTile, job: ITile): void {
-    // [indexHigh, indexLow] =
-    //     Module.IndexAtRecursion(indexHigh, indexLow, recursion);
-
-    const depth = job.recursion + 4;
-    // if(recursion >= 12) {
-    //  depth = recursion + 5;
-    // }
-    // if(recursion === 0) {
-    //  depth = 0;
-    // }
-
+    const depth = job.recursion + tileDetail;
     const label = makeTileLabel(job);
     let mesh = this.findMesh(label);
     if(mesh) {
       mesh.batch = job.batch;
-      console.log("Already created: ", label);
+      // console.log("Already created: ", label);
       return;
     }
 
@@ -843,7 +849,9 @@ class Scene extends THREE.Scene {
                                         indexLow: event.data[2],
                                         recursion: event.data[3]});
         tileMesh = this.findMesh(tileLabel);
-        tileMesh.userData.neighbours = event.data[4];
+        if(tileMesh !== undefined) {
+          tileMesh.userData.neighbours = event.data[4];
+        }
         break;
       case "generateTerrain":
         // console.log("callback: generateTerrain");

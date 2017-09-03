@@ -180,14 +180,6 @@ class MenuWidget extends WidgetBase {
     UIMaster.registerClient(this);
 
     const content = {
-      worldLevelGenerate: {
-        label: "cursor size:",
-        type: "range",
-        key: "generateLevel",
-        value: 6,
-        min: 1,
-        max: 16,
-      },
       worldLevel0: {
         label: "0",
         type: "checkbox",
