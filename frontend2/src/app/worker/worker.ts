@@ -250,8 +250,12 @@ onmessage = (e: MessageEvent) => {
       break;
     case "getFaceUnderMouse":
       const face = worldTileWorker.getFaceUnderMouse(e.data[1], e.data[2]);
-
       reply.push(face);
+
+      const faceMaxDetail =
+        worldTileWorker.getFaceUnderMouse(e.data[1], e.data[3]);
+      reply.push(faceMaxDetail);
+
       socket.postMessage(reply);
       break;
     case "ping":

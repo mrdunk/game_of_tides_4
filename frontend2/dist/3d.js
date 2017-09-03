@@ -9,7 +9,8 @@ const sealevel = 0.001; // Ratio of planets diameter.
 const earthRadius = 6371; // km.
 const cameraInitialDistance = 10000 * 1;
 const skyColor = 0x90A0C0;
-const maxTileRecursion = 15;
+const maxTileRecursion = 14;
+let startupTime = 0; // Global
 function heightToRecursion(height) {
     return Math.min(maxTileRecursion, Math.abs(Math.round(70 / Math.log(height * 100))));
 }
@@ -211,6 +212,7 @@ class Renderer extends THREE.WebGLRenderer {
         this.height = height;
         this.userInput = [];
         this.lastCameraPos = new THREE.Vector3(0, 0, 0);
+        this.throttleMousemove = 0;
         if (!this.width) {
             this.width = window.innerWidth;
         }
@@ -265,7 +267,10 @@ class Renderer extends THREE.WebGLRenderer {
             const input = userInput.pop();
             switch (input.key || input.type) {
                 case "mousemove":
-                    this.userInput.push(this.getMouseRay(input));
+                    if (Date.now() - this.throttleMousemove > 100) {
+                        this.throttleMousemove = Date.now();
+                        this.userInput.push(this.getMouseRay(input));
+                    }
                     break;
             }
         }
@@ -334,6 +339,8 @@ class Scene extends THREE.Scene {
         this.setMaterialDabounce = 0;
         this.batchCounter = 0;
         this.face = { indexHigh: -1, indexLow: -1, recursion: -1 };
+        this.activeObjects = {};
+        this.throttleMouseclick = 0;
         const light = new THREE.PointLight(0xffffff);
         light.position.set(0, 0, 2 * cameraInitialDistance);
         this.add(light);
@@ -404,8 +411,11 @@ class Scene extends THREE.Scene {
             switch (input.key || input.type) {
                 case "mousedown":
                     console.log("mouseclick", input);
-                    // if(this.faceUnderMouse) {
-                    // }
+                    if (this.faceUnderMouse &&
+                        Date.now() - this.throttleMouseclick > 200) {
+                        this.throttleMouseclick = Date.now();
+                        this.createBox(this.faceUnderMouseMaxDetail);
+                    }
                     break;
                 case "0":
                 case "1":
@@ -432,7 +442,7 @@ class Scene extends THREE.Scene {
                     this.setMaterial();
                     break;
                 case "mouseray":
-                    this.getFaceUnderMouse(input, this.cursorSize);
+                    this.getFaceUnderMouse(input, this.cursorSize, maxTileRecursion + tileDetail);
                     break;
                 case "cameraPosSet":
                     const recursionLevel = heightToRecursion(input.size);
@@ -480,9 +490,34 @@ class Scene extends THREE.Scene {
       this.worker.postMessage(
         ["getSurfaceUnderPoint", label, point, recursion]);
     }*/
+    createBox(face) {
+        // const label = makeTileLabel(face);
+        // const tile = this.findMesh(label);
+        console.log(face);
+        const a = face.points[0].point;
+        const b = face.points[1].point;
+        const c = face.points[2].point;
+        let center = new THREE.Vector3();
+        center.add(a);
+        center.add(b);
+        center.add(c);
+        const height = Math.max(sealevel, (face.points[0].height +
+            face.points[1].height +
+            face.points[2].height) / 3);
+        center.divideScalar(3);
+        center.multiplyScalar(1 + (height * heightMultiplier));
+        console.log(a, center);
+        const box = new Box("test_box");
+        box.position.set(center.x, center.y, center.z);
+        box.lookAt(new THREE.Vector3(0, 0, 0));
+        this.add(box);
+    }
     /* WebWorker calculates this and returns result on input bus.*/
-    getFaceUnderMouse(mouseRay, recursion) {
-        this.worker.postMessage(["getFaceUnderMouse", mouseRay, recursion]);
+    getFaceUnderMouse(mouseRay, recursion, maxRecursion) {
+        this.worker.postMessage(["getFaceUnderMouse",
+            mouseRay,
+            recursion,
+            maxRecursion]);
     }
     cleanUpOldTiles() {
         const toRemove = [];
@@ -600,6 +635,7 @@ class Scene extends THREE.Scene {
         if (job === undefined) {
             // Queue empty.
             this.cleanUpOldTiles();
+            startupTime = performance.now();
             console.log(performance.now());
             return;
         }
@@ -773,7 +809,8 @@ class Scene extends THREE.Scene {
                 // this.setAllTileVisibility();
                 break;
             case "getFaceUnderMouse":
-                this.faceUnderMouse = event.data[3];
+                this.faceUnderMouse = event.data[4];
+                this.faceUnderMouseMaxDetail = event.data[5];
                 this.setCursor(this.faceUnderMouse);
                 break;
         }
@@ -948,8 +985,14 @@ class Mesh extends THREE.Mesh {
 class Box extends Mesh {
     constructor(label) {
         super(label);
-        this.geometry = new THREE.BoxGeometry(1, 1, 1);
-        this.setMaterial();
+        const size = Math.pow(10, Box.randomSize) / 1000;
+        Box.randomSize++;
+        if (Box.randomSize > 3) {
+            Box.randomSize = 1;
+        }
+        this.geometry = new THREE.BoxGeometry(size, size, size);
+        const m = new THREE.MeshLambertMaterial({ color: 0xAAAAAA });
+        this.material = m;
     }
     service() {
         while (this.userInput.length) {
@@ -962,6 +1005,7 @@ class Box extends Mesh {
         }
     }
 }
+Box.randomSize = 1;
 class WorldTile extends Mesh {
     constructor(label, worker, indexHigh, indexLow, recursion, requiredDepth, materialIndex, parentTile, batch) {
         super(label);

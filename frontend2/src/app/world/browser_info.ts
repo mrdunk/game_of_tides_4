@@ -82,6 +82,7 @@ class BrowserInfo {
   }
 
   public update() {
+    this.data.startupTime = Math.round(startupTime);
     this.data["fps_frame"] = Math.round(MainLoop.FPS * 100) / 100;
     this.data["fps_average"] = Math.round(MainLoop.averageFPS * 100) / 100;
     this.data["fps_long"] = Math.round(MainLoop.longAverageFPS * 100) / 100;
