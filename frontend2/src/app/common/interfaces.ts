@@ -19,6 +19,7 @@ interface ITile {
   indexHigh: number;
   indexLow: number;
   recursion: number;
+  batch?: number;
 }
 
 interface IGenerateTileTask extends ITile {
