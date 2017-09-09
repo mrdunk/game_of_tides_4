@@ -1,7 +1,10 @@
 // Copyright 2017 duncan law (mrdunk@gmail.com)
 
 
-declare var platform;
+declare var stitch;
+import * as platform from "platform";
+import {Globals} from "./globals";
+import {MainLoop} from "./main_loop";
 
 interface ISystemData {
   sessionId?: string;
@@ -9,6 +12,7 @@ interface ISystemData {
   workerType?: string;
   state?: string;
   cleanShutdown?: boolean;
+  startupTime?: number;
 }
 
 // https://stackoverflow.com/a/105074/2669284
@@ -22,7 +26,7 @@ function guid() {
     s4() + "-" + s4() + s4() + s4();
 }
 
-class BrowserInfo {
+export class BrowserInfo {
   public client;
   public db;
   private data: ISystemData = {};
@@ -46,7 +50,7 @@ class BrowserInfo {
     this.data["start_time"] = Date();
     this.data.sessionId = guid();
     this.data.hardwareConcurrency = window.navigator.hardwareConcurrency;
-    this.data.workerType = workerType;
+    this.data.workerType = Globals.workerType;
 
     if(window.location.hostname !== "localhost") {
       this.mongoLogin();
@@ -82,7 +86,7 @@ class BrowserInfo {
   }
 
   public update() {
-    this.data.startupTime = Math.round(startupTime);
+    this.data.startupTime = Math.round(Globals.startupTime);
     this.data["fps_frame"] = Math.round(MainLoop.FPS * 100) / 100;
     this.data["fps_average"] = Math.round(MainLoop.averageFPS * 100) / 100;
     this.data["fps_long"] = Math.round(MainLoop.longAverageFPS * 100) / 100;
@@ -123,7 +127,7 @@ class BrowserInfo {
     return JSON.stringify(this.data);
   }
 
-  private pushMongo(data?: {}) {
+  private pushMongo(data?: ISystemData) {
     if(window.location.hash.includes("no_mongo")) {
       return;
     }

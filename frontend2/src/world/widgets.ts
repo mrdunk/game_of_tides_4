@@ -1,5 +1,12 @@
 // Copyright 2017 duncan law (mrdunk@gmail.com)
 
+import * as THREE from "three";
+import {ICustomInputEvent} from "../common/interfaces";
+import {Camera, Renderer, Scene} from "./3d";
+import {BrowserInfo} from "./browser_info";
+import {Globals} from "./globals";
+import {MainLoop} from "./main_loop";
+
 function elementSize(element) {
   const copy = element.cloneNode(true);
   copy.style.display = "inline-block";
@@ -99,7 +106,7 @@ class WidgetBase {
   }
 }
 
-class StatusWidget extends WidgetBase {
+export class StatusWidget extends WidgetBase {
   private message: HTMLElement;
 
   constructor() {
@@ -121,7 +128,7 @@ class StatusWidget extends WidgetBase {
     const bar = document.createElement("div");
     bar.classList.add("bar");
     if(Date.now() - MainLoop.lastDrawFrame <= 1000) {
-      const height = 0.8 * this.height * MainLoop.FPS / maxFps;
+      const height = 0.8 * this.height * MainLoop.FPS / Globals.maxFps;
       bar.style.background = "cadetblue";
       bar.style.height = "" + Math.round(height) + "px";
     }
@@ -133,7 +140,7 @@ class StatusWidget extends WidgetBase {
   }
 }
 
-class CameraPositionWidget extends WidgetBase {
+export class CameraPositionWidget extends WidgetBase {
   constructor(private camera: Camera) {
     super("CameraPos", 180, 50);
     setInterval(this.service.bind(this), 20);
@@ -169,15 +176,16 @@ class CameraPositionWidget extends WidgetBase {
   }
 }
 
-class MenuWidget extends WidgetBase {
+export class MenuWidget extends WidgetBase {
   public userInput: Array<KeyboardEvent | ICustomInputEvent> = [];
-  private uiMenu = new UIMenu();
 
-  constructor(public label: string) {
+  constructor(public label: string,
+              private uIMaster,
+              private uIMenu) {
     super(label);
     setInterval(this.service.bind(this), 1000);
 
-    UIMaster.registerClient(this);
+    // uIMaster.registerClient(this);
 
     const content = {
       worldLevel0: {
@@ -343,11 +351,11 @@ class MenuWidget extends WidgetBase {
                    key: target.name,
                    value: target.value};
     }
-    this.uiMenu.changes[target.value] = menuEvent;
+    this.uIMenu.changes[target.value] = menuEvent;
   }
 }
 
-class CursorPositionWidget extends WidgetBase {
+export class CursorPositionWidget extends WidgetBase {
   private container: HTMLElement;
 
   constructor(private scene: Scene) {
@@ -406,7 +414,7 @@ class CursorPositionWidget extends WidgetBase {
   }
 }
 
-class BrowserInfoWidget extends WidgetBase {
+export class BrowserInfoWidget extends WidgetBase {
   constructor(private browserInfo: BrowserInfo) {
     super("BrowserInfo");
     setInterval(this.service.bind(this), 10000);
@@ -439,7 +447,7 @@ class BrowserInfoWidget extends WidgetBase {
   }
 }
 
-class LoginWidget extends WidgetBase {
+export class LoginWidget extends WidgetBase {
   // https://docs.mongodb.com/stitch/getting-started/todo-web/
   constructor(private browserInfo: BrowserInfo) {
     super("BrowserInfo");

@@ -1,13 +1,19 @@
 // Copyright 2017 duncan law (mrdunk@gmail.com)
 
-declare var Module: {
-  IndexAtRecursion: (iHigh: number, iLow: number, r: number) => number[];
-  IndexOfChild:
-    (iHigh: number, iLow: number, recursion: number, child: number) => number[];
-  DataSourceGenerate: () => void;
-};
+declare global {
+  interface Window {
+    Module: {
+      IndexAtRecursion: (iHigh: number, iLow: number, r: number) => number[];
+      IndexOfChild: (iHigh: number,
+                     iLow: number,
+                     recursion: number,
+                     child: number) => number[];
+      DataSourceGenerate: () => void;
+    }
+  }
+}
 
-interface IFace {
+export interface IFace {
   indexHigh: number;
   indexLow: number;
   recursion: number;
@@ -15,25 +21,25 @@ interface IFace {
   points?: IPoint[];
 }
 
-interface ITile {
+export interface ITile {
   indexHigh: number;
   indexLow: number;
   recursion: number;
   batch?: number;
 }
 
-interface IGenerateTileTask extends ITile {
+export interface IGenerateTileTask extends ITile {
   type?: string;
   parent?: boolean;
   neighbours?: boolean;
   children?: boolean;
 }
 
-interface ITileTaskHash {
+export interface ITileTaskHash {
   [tileLabel: string]: IGenerateTileTask;
 }
 
-interface ICustomInputEvent {
+export interface ICustomInputEvent {
   type: string;
   origin?: number[];
   direction?: number[];
@@ -47,7 +53,7 @@ interface ICustomInputEvent {
   face?: IFace;
 }
 
-interface IPoint {
+export interface IPoint {
   point: THREE.Vector3;
   height?: number;
   face?: IFace;

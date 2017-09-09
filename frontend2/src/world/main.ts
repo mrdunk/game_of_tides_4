@@ -1,22 +1,40 @@
 // Copyright 2017 duncan law (mrdunk@gmail.com)
 
+import {Camera, Renderer, Scene} from "./3d";
+import {BrowserInfo} from "./browser_info";
+import {Globals} from "./globals";
+import {MainLoop} from "./main_loop";
+import {UIKeyboard, UIMaster, UIMenu, UIMixin, UIMouse} from "./user_input";
+import {
+  BrowserInfoWidget,
+  CameraPositionWidget,
+  CursorPositionWidget,
+  LoginWidget,
+  MenuWidget,
+  StatusWidget,
+} from "./widgets";
+
 declare function SharedWorker(url: string): void;
 
-const timeStep = 1000 / 60;
-let maxFps = 60;
-let workerType;
+declare global {
+  // tslint:disable-next-line:interface-name no-namespace
+  interface Window {
+    Worker: any;
+    SharedWorker: any;
+  }
+}
 
 function workerInit() {
   let worker;
   console.log("workerInit()");
   if(window.SharedWorker !== undefined) {
     console.log("Spawining SharedWorker");
-    workerType = "SharedWorker";
+    Globals.workerType = "SharedWorker";
     worker = new SharedWorker("worker.js");
     worker.port.start();
   } else if(window.Worker !== undefined) {
     console.log("Spawining Worker");
-    workerType = "Worker";
+    Globals.workerType = "Worker";
     worker = new Worker("worker.js");
   } else {
     throw(new Error("Your browser does not support Workers"));
@@ -37,9 +55,13 @@ function workerInit() {
 function init() {
   const worker = workerInit();
 
-  const camera = new Camera("camera_1", worker);
+  const uiMixin = new UIMixin();
+  const keyboard = new UIKeyboard();
+  const mouse = new UIMouse();
+
+  const camera = new Camera("camera_1", worker, uiMixin);
   const scene = new Scene("mesh1", worker);
-  const renderer = new Renderer("renderer1");
+  const renderer = new Renderer("renderer1", UIMaster);
 
   renderer.setScene(scene);
   renderer.setCamera(camera);
@@ -47,12 +69,9 @@ function init() {
   MainLoop.renderers.push(renderer);
   MainLoop.startRendering();
 
-  const keyboard = new UIKeyboard();
-  const mouse = new UIMouse();
-
   const browserInfo = new BrowserInfo();
 
-  const menuWidget = new MenuWidget("world_tiles");
+  const menuWidget = new MenuWidget("world_tiles", UIMaster, new UIMenu());
   const fpsWidget = new StatusWidget();
   const cameraWidget = new CameraPositionWidget(camera);
   const cursorWidget = new CursorPositionWidget(scene);

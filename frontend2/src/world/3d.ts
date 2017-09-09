@@ -1,6 +1,23 @@
 // Copyright 2017 duncan law (mrdunk@gmail.com)
-/// <reference path='../../../node_modules/@types/three/index.d.ts' />
-/// <reference path='../../../build/wrap_terrain.js' />
+
+import * as THREE from "three";
+import {
+  ICustomInputEvent,
+  IFace,
+  IGenerateTileTask,
+  ITile,
+  ITileTaskHash,
+} from "../common/interfaces";
+import {Globals} from "./globals";
+
+// Cannot import the following due to circular dependency.
+//   import {UIMaster, UIMixin) from "./user_input";
+declare class UIMaster {
+  public registerClient(all): void;
+}
+declare class UIMixin {
+  public eventPush(event: ICustomInputEvent): void;
+}
 
 // Helpful diagram showing how Threejs components fits together:
 // http://davidscottlyons.com/threejs/presentations/frontporch14/#slide-16
@@ -12,8 +29,6 @@ const earthRadius = 6371;  // km.
 const cameraInitialDistance = 10000 * 1;
 const skyColor = 0x90A0C0;
 const maxTileRecursion = 14;
-
-let startupTime: number = 0;  // Global
 
 interface IFogExtended extends THREE.IFog {
   far: number;
@@ -44,14 +59,14 @@ function getParentLabel(face: ITile): string {
   let indexHigh;
   let indexLow;
   [indexHigh, indexLow] =
-    Module.IndexAtRecursion(face.indexHigh,
-                            face.indexLow,
-                            face.recursion - 1);
+    self.Module.IndexAtRecursion(face.indexHigh,
+                                 face.indexLow,
+                                 face.recursion - 1);
   return makeTileLabel(
     {indexHigh, indexLow, recursion: face.recursion - 1});
 }
 
-class Camera extends THREE.PerspectiveCamera {
+export class Camera extends THREE.PerspectiveCamera {
   public lat: number = 0;
   public lon: number = 0;
   public pitch: number = 0;
@@ -62,16 +77,13 @@ class Camera extends THREE.PerspectiveCamera {
   private animateChanged: number = 0;
   private surfaceHeight: number = earthRadius;
   private faceOver: IFace;
-  private uiMixin: UIMixin;
 
-  constructor(public label: string, public worker) {
+  constructor(public label: string, public worker, private uiMixin: UIMixin) {
     super( 75,
            window.innerWidth / window.innerHeight,
            100,
            cameraInitialDistance * 2 );
     this.position.z = this.distance + this.surfaceHeight;
-
-    this.uiMixin = new UIMixin();
 
     this.getFaceAbove();
   }
@@ -224,7 +236,7 @@ class Camera extends THREE.PerspectiveCamera {
   }
 }
 
-class Renderer extends THREE.WebGLRenderer {
+export class Renderer extends THREE.WebGLRenderer {
   public element: HTMLElement;
   public userInput: Array<KeyboardEvent | ICustomInputEvent> = [];
   private scene: Scene;
@@ -233,6 +245,7 @@ class Renderer extends THREE.WebGLRenderer {
   private throttleMousemove: number = 0;
 
   constructor(public label: string,
+              private uIMaster: UIMaster,
               public width?: number,
               public height?: number) {
     super({antialias: true});
@@ -247,7 +260,7 @@ class Renderer extends THREE.WebGLRenderer {
     this.element = document.getElementById(label);
     this.element.appendChild(this.domElement);
 
-    UIMaster.registerClient(this);
+    uIMaster.registerClient(this);
 
     window.onresize = this.changeSize.bind(this);
   }
@@ -359,7 +372,7 @@ class Renderer extends THREE.WebGLRenderer {
   }
 }
 
-class Scene extends THREE.Scene {
+export class Scene extends THREE.Scene {
   public faceUnderMouse: IFace;
   public faceUnderMouseMaxDetail: IFace;
   public generateTileLevel: number = 6;
@@ -450,8 +463,8 @@ class Scene extends THREE.Scene {
       console.log("ERROR: Scene last update more than 1 second ago.");
       this.lastUpdate = now;
     }
-    while(this.lastUpdate < now - timeStep) {
-      this.lastUpdate += timeStep;
+    while(this.lastUpdate < now - Globals.timeStep) {
+      this.lastUpdate += Globals.timeStep;
       for(const mesh in this.activeMeshes) {
         if(this.activeMeshes.hasOwnProperty(mesh) && this.activeMeshes[mesh]) {
           this.activeMeshes[mesh].userInput = this.userInput.slice();  // Copy.
@@ -522,7 +535,7 @@ class Scene extends THREE.Scene {
             let low;
             for(let r = 0; r <= this.generateTileLevel; r++) {
               [high, low] =
-                Module.IndexAtRecursion(face.indexHigh,
+                self.Module.IndexAtRecursion(face.indexHigh,
                                         face.indexLow,
                                         r);
               const task = {indexHigh: high,
@@ -562,7 +575,7 @@ class Scene extends THREE.Scene {
     const b = face.points[1].point as THREE.Vector3;
     const c = face.points[2].point as THREE.Vector3;
 
-    let center: THREE.Vector3 = new THREE.Vector3();
+    const center: THREE.Vector3 = new THREE.Vector3();
     center.add(a);
     center.add(b);
     center.add(c);
@@ -721,7 +734,7 @@ class Scene extends THREE.Scene {
       // Queue empty.
       this.cleanUpOldTiles();
 
-      startupTime = performance.now();
+      Globals.startupTime = performance.now();
       console.log(performance.now());
       return;
     }
@@ -766,7 +779,7 @@ class Scene extends THREE.Scene {
     }
     let indexHigh;
     let indexLow;
-    [indexHigh, indexLow] = Module.IndexAtRecursion(job.indexHigh,
+    [indexHigh, indexLow] = self.Module.IndexAtRecursion(job.indexHigh,
                                                     job.indexLow,
                                                     job.recursion -1);
     const task: IGenerateTileTask = {indexHigh,
@@ -809,7 +822,7 @@ class Scene extends THREE.Scene {
     }
     for(let c = 0; c < 4; c++) {
       const child =
-        Module.IndexOfChild(job.indexHigh,
+        self.Module.IndexOfChild(job.indexHigh,
                             job.indexLow,
                             job.recursion,
                             c);
@@ -867,7 +880,7 @@ class Scene extends THREE.Scene {
     // TODO: Refactor into getCildLabels() method.
     for(let c = 0; c < 4; c++) {
       const child =
-        Module.IndexOfChild(job.indexHigh,
+        self.Module.IndexOfChild(job.indexHigh,
                             job.indexLow,
                             job.recursion,
                             c);
@@ -1138,14 +1151,14 @@ abstract class Mesh extends THREE.Mesh {
 }
 
 class Box extends Mesh {
-  private static randomSize: number = 1;
+  private static randomSize: number = 0;
 
   constructor(label: string) {
     super(label);
     const size = Math.pow(10, Box.randomSize) / 1000;
     Box.randomSize++;
     if(Box.randomSize > 3) {
-      Box.randomSize = 1;
+      Box.randomSize = 0;
     }
 
     this.geometry = new THREE.BoxGeometry(size, size, size);

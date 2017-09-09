@@ -1,5 +1,9 @@
+// Copyright 2017 duncan law (mrdunk@gmail.com)
 
-class UIMaster {
+import {ICustomInputEvent} from "../common/interfaces";
+import {Globals} from "./globals";
+
+export class UIMaster {
   /* Register an input which can be polled for events in it's "newData". */
   public static registerInput(listiner: UIBase) {
     UIMaster.listiners.push(listiner);
@@ -7,7 +11,7 @@ class UIMaster {
 
   /* Register a client that needs it's "userInput" property populated with input
    * events. */
-  public static registerClient(client) {
+  public static registerClient(client): void {
     UIMaster.clientMessageQueues.push(client.userInput);
   }
 
@@ -57,19 +61,21 @@ abstract class UIBase {
 }
 
 
-class UIMixin extends UIBase {
+export class UIMixin extends UIBase {
   public service(now: number) {
+    // Pass
   }
 
   public resetListinerKeys() {
+    // Pass
   }
 
-  public eventPush(event: ICustomInputEvent) {
+  public eventPush(event: ICustomInputEvent): void {
     this.newData.push(event);
   }
 }
 
-class UIKeyboard extends UIBase {
+export class UIKeyboard extends UIBase {
   private currentlyDown: {} = {};
   private lastUpdate: number = Date.now();
 
@@ -80,10 +86,10 @@ class UIKeyboard extends UIBase {
   }
 
   public service(now: number) {
-    while(this.lastUpdate < now - timeStep) {
+    while(this.lastUpdate < now - Globals.timeStep) {
       // Need to do normalize the number of key presses for the actual frame
       // length.
-      this.lastUpdate += timeStep;
+      this.lastUpdate += Globals.timeStep;
       for(const key in this.currentlyDown) {
         if(this.currentlyDown.hasOwnProperty(key)) {
           this.newData.push(this.currentlyDown[key]);
@@ -106,7 +112,7 @@ class UIKeyboard extends UIBase {
 }
 
 
-class UIMouse extends UIBase {
+export class UIMouse extends UIBase {
   private currentlyDown: {} = {};
 
   constructor() {
@@ -144,7 +150,7 @@ class UIMouse extends UIBase {
 }
 
 
-class UIMenu extends UIBase {
+export class UIMenu extends UIBase {
   public changes: {} = {};
 
   constructor() {

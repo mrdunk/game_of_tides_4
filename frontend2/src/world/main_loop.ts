@@ -1,5 +1,9 @@
+// Copyright 2017 duncan law (mrdunk@gmail.com)
 
-class MainLoop {
+import {Globals} from "./globals";
+import {UIMaster} from "./user_input";
+
+export class MainLoop {
   public static FPS = 0;
   public static averageFPS = 0;
   public static longAverageFPS = 0;
@@ -12,8 +16,8 @@ class MainLoop {
       return;
     }
 
-    this.averageFPS = maxFps;
-    this.longAverageFPS = maxFps;
+    this.averageFPS = Globals.maxFps;
+    this.longAverageFPS = Globals.maxFps;
     MainLoop.lastDrawFrame = Date.now();
     MainLoop.startSecond = MainLoop.lastDrawFrame;
     MainLoop.framesInSecond = 0;
@@ -30,9 +34,10 @@ class MainLoop {
 
     const now = Date.now();
     let diff = now - MainLoop.lastDrawFrame;
-    if(diff >= 1000 / maxFps ||
-       (MainLoop.averageFPS < maxFps * 0.95 && MainLoop.FPS < maxFps * 0.95)) {
-      diff %= (1000 / maxFps);
+    if(diff >= 1000 / Globals.maxFps ||
+       (MainLoop.averageFPS < Globals.maxFps * 0.95 &&
+        MainLoop.FPS < Globals.maxFps * 0.95)) {
+      diff %= (1000 / Globals.maxFps);
       MainLoop.lastDrawFrame = now - diff;
 
       for(const renderer in MainLoop.renderers) {

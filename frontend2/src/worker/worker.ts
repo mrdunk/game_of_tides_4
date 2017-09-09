@@ -1,9 +1,16 @@
 // Copyright 2017 duncan law (mrdunk@gmail.com)
 
+import * as THREE from "three";
+import {
+  ICustomInputEvent,
+  IFace,
+  IGenerateTileTask,
+  IPoint,
+} from "../common/interfaces";
 
 declare function importScripts(...urls: string[]): void;
 
-importScripts("wrap_terrain.js", "three.js");
+importScripts("wrap_terrain.js");
 
 class WorldTileWorker {
   private sealevel = 0.001;  // Ratio of planets diameter.
@@ -194,7 +201,7 @@ class WorldTileWorker {
 
   private init() {
     try {
-      this.terrainGenerator = new Module.DataSourceGenerate();
+      this.terrainGenerator = new self.Module.DataSourceGenerate();
       this.terrainGenerator.MakeCache();
     } catch(err) {
       // Memory still in use from previous page load.
@@ -206,19 +213,19 @@ class WorldTileWorker {
   }
 }
 
-let worldTileWorker = new WorldTileWorker();
+const worldTileWorker = new WorldTileWorker();
 let socket = self;
 
 // Used by SharedWorker.
-let onconnect = (event: MessageEvent) => {
+const onconnect = (event: MessageEvent) => {
   console.log("onconnect", event.ports);
   socket = event.ports[0];
 
   socket.onmessage = onmessage;
 };
-this.addEventListener("connect", onconnect);
+self.addEventListener("connect", onconnect);
 
-onmessage = (e: MessageEvent) => {
+self.onmessage = (e: MessageEvent) => {
   const workerResult = "Recieved: " + e.data[0];
   console.log(workerResult);
 
