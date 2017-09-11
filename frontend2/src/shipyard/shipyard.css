@@ -1,0 +1,13 @@
+.drawPanel {
+  margin: 2px;
+  background: antiquewhite;
+  width: 400px;
+  height: 400px;
+}
+
+#crossSection {
+}
+
+#sideView {
+  width: 1200px;
+}

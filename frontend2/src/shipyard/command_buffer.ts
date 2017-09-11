@@ -8,13 +8,12 @@ const coalesceTime = 10000;  // ms.
 export interface ICommand {
   action: string;
   name: string;
+  rib: number;
   time: number;
   xa?: number;
   ya?: number;
-  za?: number;
   xb?: number;
   yb?: number;
-  zb?: number;
 }
 
 export class CommandBuffer {
@@ -47,7 +46,7 @@ export class CommandBuffer {
     return output;
   }
 
-  public static undo(stages: [Konva.Stage]) {
+  public static undo(layers: [Konva.Layer]) {
     CommandBuffer.pointer--;
     if(CommandBuffer.pointer < 0) {
       CommandBuffer.pointer = 0;
@@ -57,8 +56,8 @@ export class CommandBuffer {
     console.assert(lastCommand !== undefined,
                    "invalid command at " + CommandBuffer.pointer);
 
-    stages.forEach((stage) => {
-      const lines = stage.find("." + lastCommand.name);
+    layers.forEach((layer) => {
+      const lines = layer.find("." + lastCommand.name);
       if(lastCommand.action === "lineNew") {
         lines.each((line) => {
           if(line) {
@@ -69,20 +68,50 @@ export class CommandBuffer {
           }
         });
       } else if(lastCommand.action === "lineMove") {
-        console.log(lastCommand.action);
         lines.each((line) => {
-          console.log(line.name());
           if(line && (line as Line).setPosition) {
             const previousCommand =
               CommandBuffer.findPrevious(lastCommand.name);
             if(previousCommand) {
-              console.log(previousCommand);
               (line as Line).setPosition(previousCommand);
             }
           }
         });
       }
-      stage.draw();
+      layer.draw();
+    });
+  }
+
+  public static redo(layers: [Konva.Layer]) {
+    CommandBuffer.pointer++;
+    if(CommandBuffer.pointer > CommandBuffer.buffer.length) {
+      CommandBuffer.pointer = CommandBuffer.buffer.length;
+      return;
+    }
+
+    const nextCommand = CommandBuffer.buffer[CommandBuffer.pointer -1];
+    console.assert(nextCommand !== undefined,
+                   "invalid command at " + (CommandBuffer.pointer -1));
+
+    layers.forEach((layer) => {
+      const lines = layer.find("." + nextCommand.name);
+      if(nextCommand.action === "lineNew") {
+        const line = new Line(nextCommand.rib, nextCommand.name);
+        layer.add(line);
+      } else if(nextCommand.action === "lineMove") {
+        console.log(nextCommand.action);
+        lines.each((line) => {
+          console.log(line.name());
+          if(line && (line as Line).setPosition) {
+            const previousCommand =
+              CommandBuffer.findPrevious(nextCommand.name);
+            if(previousCommand) {
+              (line as Line).setPosition(previousCommand);
+            }
+          }
+        });
+      }
+      layer.draw();
     });
   }
 
@@ -100,12 +129,12 @@ export class CommandBuffer {
     }
     CommandBuffer.buffer[CommandBuffer.pointer] = command;
     CommandBuffer.pointer++;
+    CommandBuffer.buffer.splice(CommandBuffer.pointer);
   }
 
   private static findPrevious(name: string) {
     for(let i = CommandBuffer.pointer -1; i >= 0; --i) {
       if(CommandBuffer.buffer[i].name === name) {
-        console.log(i);
         return CommandBuffer.buffer[i];
       }
     }

@@ -2,6 +2,9 @@
 
 import * as Konva from "konva";
 import {CommandBuffer, ICommand} from "./command_buffer";
+import {ComponentBuffer, IComponent} from "./component_buffer";
+
+const snapDistance = 10;
 
 export class ControlPanel extends Konva.Group {
   private usedWidth: number = 0;
@@ -59,10 +62,10 @@ class Button extends Konva.Rect {
   }
 }
 
-class LineEnd extends Konva.Circle {
+class LineCap extends Konva.Circle {
   constructor(private end: number, private line: Line) {
     super({
-      radius: 10,
+      radius: 6,
       stroke: "black",
       strokeWidth: 2,
       fill: "lightblue",
@@ -103,7 +106,7 @@ class LineEnd extends Konva.Circle {
   }
 
   private updateLine() {
-    this.line.movedEnd(this.end, this.x(), this.y());
+    this.line.movedEnd();
   }
 }
 
@@ -152,15 +155,14 @@ class LineLine extends Konva.Line {
   }
 
   public moving(state: boolean) {
+    this.moveToBottom();
     if(state) {
       this.dash([10, 5]);
-      this.moveToBottom();
       this.draw();
       return;
     }
 
     this.dash([]);
-    this.moveToBottom();
     this.draw();
   }
 
@@ -185,18 +187,22 @@ class LineLine extends Konva.Line {
 
 export class Line extends Konva.Group {
   private static counter: number = 0;
-  public a: LineEnd;
-  public b: LineEnd;
+  public a: LineCap;
+  public b: LineCap;
   public line: LineLine;
 
-  constructor() {
+  constructor(private rib: number, private overideName?: string) {
     super();
-    this.name("line_" + Line.counter);
-    Line.counter++;
+    if(overideName) {
+      this.name(overideName);
+    } else {
+      this.name("line_" + Line.counter);
+      Line.counter++;
+    }
 
     this.line = new LineLine(this);
-    this.a = new LineEnd(0, this);
-    this.b = new LineEnd(1, this);
+    this.a = new LineCap(0, this);
+    this.b = new LineCap(1, this);
     this.line.points([20, 20, 20, 120]);
     this.a.x(20);
     this.a.y(20);
@@ -207,7 +213,14 @@ export class Line extends Konva.Group {
     this.add(this.b);
     this.line.moveToBottom();
 
-    this.store("lineNew");
+    if(!overideName) {
+      this.storeAction("lineNew");
+    }
+  }
+
+  public destroy() {
+    ComponentBuffer.remove(this.rib, this.name());
+    return super.destroy();
   }
 
   public moved(dx: number, dy: number) {
@@ -222,15 +235,17 @@ export class Line extends Konva.Group {
     points[2] = this.b.x();
     points[3] = this.b.y();
 
-    this.store("lineMove");
+    this.storeAction("lineMove");
   }
 
-  public movedEnd(end: number, dx: number, dy: number) {
+  public movedEnd() {
+    this.snap();
     const points = this.line.points();
-    points[2 * end] = dx;
-    points[2 * end +1] = dy;
-
-    this.store("lineMove");
+    points[0] = this.a.x();
+    points[1] = this.a.y();
+    points[2] = this.b.x();
+    points[3] = this.b.y();
+    this.storeAction("lineMove");
   }
 
   public getPoints() {
@@ -238,7 +253,6 @@ export class Line extends Konva.Group {
   }
 
   public setPosition(command: ICommand) {
-    console.log(this.a.x(), command.xa);
     this.a.x(command.xa);
     this.a.y(command.ya);
     this.b.x(command.xb);
@@ -249,21 +263,134 @@ export class Line extends Konva.Group {
     points[1] = this.a.y();
     points[2] = this.b.x();
     points[3] = this.b.y();
+
+    this.storeComponent();
   }
 
-  private store(actionType: string) {
+  private snap() {
+    this.a.x(snapDistance * Math.round(this.a.x() / snapDistance));
+    this.a.y(snapDistance * Math.round(this.a.y() / snapDistance));
+    this.b.x(snapDistance * Math.round(this.b.x() / snapDistance));
+    this.b.y(snapDistance * Math.round(this.b.y() / snapDistance));
+
+    for(const key in ComponentBuffer.buffer[this.rib]) {
+      if(!ComponentBuffer.buffer[this.rib].hasOwnProperty(key)) {
+        continue;
+      }
+      const component = ComponentBuffer.buffer[this.rib][key];
+      if(component.name === this.name()) {
+        continue;
+      } else if(Math.abs(component.xa - this.a.x()) +
+                 Math.abs(component.ya - this.a.y()) < snapDistance *2) {
+        this.a.x(component.xa);
+        this.a.y(component.ya);
+        break;
+      } else if(Math.abs(component.xb - this.a.x()) +
+                Math.abs(component.yb - this.a.y()) < snapDistance *2) {
+        this.a.x(component.xb);
+        this.a.y(component.yb);
+        break;
+      } else if(Math.abs(component.xa - this.b.x()) +
+                Math.abs(component.ya - this.b.y()) < snapDistance *2) {
+        this.b.x(component.xa);
+        this.b.y(component.ya);
+        break;
+      } else if(Math.abs(component.xb - this.b.x()) +
+                Math.abs(component.yb - this.b.y()) < snapDistance *2) {
+        this.b.x(component.xb);
+        this.b.y(component.yb);
+        break;
+      }
+    }
+  }
+
+  private storeAction(actionType: string) {
     const command: ICommand = {
       action: actionType,
       name: this.name(),
+      rib: this.rib,
       time: Date.now(),
       xa: this.a.x(),
       ya: this.a.y(),
-      za: 0,
       xb: this.b.x(),
       yb: this.b.y(),
-      zb: 0,
     };
     CommandBuffer.push(command);
+
+    this.storeComponent();
+  }
+
+  private storeComponent() {
+    const component: IComponent = {
+      name: this.name(),
+      rib: this.rib,
+      xa: this.a.x(),
+      ya: this.a.y(),
+      xb: this.b.x(),
+      yb: this.b.y(),
+    };
+    ComponentBuffer.push(component);
+  }
+}
+
+export class Scale extends Konva.Group {
+  constructor() {
+    super();
+    this.listening(false);
+  }
+
+  public draw(): Konva.Node {
+    this.destroyChildren();
+
+    const stage = this.getStage();
+    this.width(stage.width());
+    this.height(stage.height());
+
+    const water = new Konva.Rect({
+      width: this.width(),
+      height: this.height() / 2,
+      y: 0,
+      x: - this.width() / 2,
+      fill: "#88C0CA",
+    });
+    this.add(water);
+
+    const sky = new Konva.Rect({
+      width: this.width(),
+      height: this.height() / 2,
+      y: - this.height() / 2,
+      x: - this.width() / 2,
+      fill: "#C4E0E5",
+    });
+    this.add(sky);
+
+    const gridSize = 50;
+    const xStart = -Math.round(this.width() / 2 / gridSize) * gridSize;
+    const YStart = -Math.round(this.height() / 2 / gridSize) * gridSize;
+    for(let x = xStart; x < this.width() / 2; x += gridSize) {
+      const vertical = new Konva.Line({
+        points: [x, - this.height() / 2, x, this.height() / 2],
+        stroke: "darkGrey",
+      });
+      this.add(vertical);
+    }
+    for(let y = YStart; y < this.height() / 2; y += gridSize) {
+      const horizontal = new Konva.Line({
+        points: [- this.width() / 2, y, this.width() / 2, y],
+        stroke: "darkGrey",
+      });
+      this.add(horizontal);
+    }
+
+    this.moveToBottom();
+    const centre = new Konva.Circle({
+      radius: 10,
+      stroke: "black",
+      strokeWidth: 2,
+    });
+    this.add(centre);
+
+    return this;
   }
 }
 
