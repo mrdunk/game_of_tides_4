@@ -8,10 +8,17 @@ const snapDistance = 10;
 
 export class ControlPanel extends Konva.Group {
   private usedWidth: number = 0;
-  private buttons: [Button] = [] as [Button];
+  private buttons: [Konva.Node] = [] as [Konva.Node];
   private readonly padding: number = 5;
   constructor() {
     super();
+  }
+
+  public draw(): Konva.Node {
+    this.buttons.forEach((button) => {
+      button.draw();
+    });
+    return super.draw();
   }
 
   public addButton(name: string, callback: (buttonName: string)=>void, color) {
@@ -22,6 +29,16 @@ export class ControlPanel extends Konva.Group {
     this.usedWidth += button.width() + this.padding;
 
     this.add(button);
+  }
+
+  public addText(parentObject, variable: string, color) {
+    const text = new TextDisplay(parentObject, variable, color);
+    text.x(this.usedWidth + text.width() / 2);
+    text.y(text.height() / 2);
+    this.buttons.push(text);
+    this.usedWidth += text.width() + this.padding;
+
+    this.add(text);
   }
 }
 
@@ -58,7 +75,45 @@ class Button extends Konva.Rect {
       this.draw();
       document.body.style.cursor = "default";
     });
+  }
+}
 
+class TextDisplay extends Konva.Group {
+  private text: Konva.Text;
+  private background: Konva.Rect;
+
+  constructor(private parentObject, private variable, private color) {
+    super();
+    this.width(60);
+    this.height(30);
+    this.text = new Konva.Text({
+      width: 60,
+      height: 30,
+      text: "rib: " + parentObject[variable](),
+      fontSize: 18,
+      fontFamily: "Calibri",
+      fill: "black",
+      align: "center",
+      padding: 5,
+    });
+    this.background = new Konva.Rect({
+      width: 60,
+      height: 30,
+      stroke: "black",
+      strokeWidth: 2,
+      fill: color,
+      draggable: false,
+    });
+
+    this.add(this.background);
+    this.add(this.text);
+  }
+
+  public draw(): Konva.Node {
+    console.log(typeof this.parentObject[this.variable]);
+    console.log(this.parentObject[this.variable]());
+    this.text.text("rib: " + this.parentObject[this.variable]());
+    return super.draw();
   }
 }
 

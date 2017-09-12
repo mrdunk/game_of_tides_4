@@ -38,7 +38,5 @@ export class ComponentBuffer {
   public static show() {
     return ComponentBuffer.buffer;
   }
-
-  private static callbacks: [(component: IComponent) => void];
 }
 

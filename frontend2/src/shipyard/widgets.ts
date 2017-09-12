@@ -6,6 +6,9 @@ import {ComponentBuffer} from "./component_buffer";
 import {ControlPanel, Line, Scale} from "./primatives";
 
 export class CrossSection extends Konva.Stage {
+  private ribValue: number;
+  private controlPannel: ControlPanel;
+
   constructor() {
     const container = document.getElementById("crossSection");
     super({
@@ -13,6 +16,8 @@ export class CrossSection extends Konva.Stage {
       width: container.offsetWidth,
       height: container.offsetHeight,
     });
+
+    this.rib(0);
 
     const drawLayer = new Konva.Layer();
     drawLayer.offsetX(- container.offsetWidth / 2);
@@ -25,32 +30,51 @@ export class CrossSection extends Konva.Stage {
 
     const controlLayer = new Konva.Layer();
     this.add(controlLayer);
-    const pannel = new ControlPanel();
-    pannel.addButton("test", (buttonName) => {
+    this.controlPannel = new ControlPanel();
+    this.controlPannel.addButton("test", (buttonName) => {
       drawLayer.add(new Line(1));
       drawLayer.draw();
     }, "red");
-    pannel.addButton("test2", (buttonName) => {
+    this.controlPannel.addButton("test2", (buttonName) => {
       console.log(CommandBuffer.summary());
       console.log(ComponentBuffer.show());
     }, "green");
-    pannel.addButton("test3", (buttonName) => {
+    this.controlPannel.addButton("test3", (buttonName) => {
       CommandBuffer.undo([drawLayer]);
     }, "yellow");
-    pannel.addButton("test4", (buttonName) => {
+    this.controlPannel.addButton("test4", (buttonName) => {
       CommandBuffer.redo([drawLayer]);
     }, "yellow");
-    controlLayer.add(pannel);
+    this.controlPannel.addText(this, "rib", "lightgreen");
+    controlLayer.add(this.controlPannel);
 
     drawLayer.draw();
     controlLayer.draw();
+
+    CommandBuffer.pushCallback(this.callback.bind(this));
+  }
+
+  public callback(command: ICommand): void {
+    if(command.action === "changeRib") {
+      this.rib(command.rib);
+      this.controlPannel.draw();
+    }
+  }
+
+  private rib(rib: number) {
+    if(rib === undefined) {
+      console.log("rib (get): ", this.ribValue);
+      return this.ribValue;
+    }
+    console.log("rib (set): ", rib);
+    this.ribValue = rib;
   }
 }
 
 export class SideView extends Konva.Stage {
+  private static snapDistance: number = 50;
   private cursor: Konva.Line;
   private background: Scale;
-  private static snapDistance: number = 50;
 
   constructor() {
     const container = document.getElementById("sideView");
@@ -83,12 +107,25 @@ export class SideView extends Konva.Stage {
     drawLayer.add(this.cursor);
 
     this.on("contentClick", () => {
-      console.log("SideView.click");
+      const mousePos = this.getStage().getPointerPosition();
+      this.setRib(mousePos.x + this.offsetX());
     });
     this.on("contentMousemove", () => {
       const mousePos = this.getStage().getPointerPosition();
       this.setCursor(mousePos.x + this.offsetX(), mousePos.y + this.offsetY());
     });
+  }
+
+  private setRib(posX) {
+    const rib = Math.round(posX / SideView.snapDistance);
+    console.log(rib);
+    const command: ICommand = {
+      action: "changeRib",
+      name: "changeRib",
+      rib,
+      time: Date.now(),
+    };
+    CommandBuffer.push(command);
   }
 
   private setCursor(posX, posY) {

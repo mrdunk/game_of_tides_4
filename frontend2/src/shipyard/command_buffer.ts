@@ -18,6 +18,10 @@ export interface ICommand {
 
 export class CommandBuffer {
   public static push(command: ICommand) {
+    CommandBuffer.callbacks.forEach((callback) => {
+      callback(command);
+    });
+
     const lastCommand = CommandBuffer.buffer[CommandBuffer.pointer -1];
     if(lastCommand &&
        lastCommand.name === command.name &&
@@ -32,6 +36,10 @@ export class CommandBuffer {
       return;
     }
     CommandBuffer.bufferPush(command);
+  }
+
+  public static pushCallback(callback: (command: ICommand) => void) {
+    CommandBuffer.callbacks.push(callback);
   }
 
   public static summary(): [string] {
@@ -77,6 +85,19 @@ export class CommandBuffer {
             }
           }
         });
+      } else if(lastCommand.action === "changeRib") {
+        let previousCommand = CommandBuffer.findPrevious(lastCommand.name);
+        if(previousCommand === undefined) {
+          previousCommand = {
+            action: "changeRib",
+            name: "changeRib",
+            time: CommandBuffer.buffer[0].time,
+            rib: 0,
+          };
+        }
+        CommandBuffer.callbacks.forEach((callback) => {
+          callback(previousCommand);
+        });
       }
       layer.draw();
     });
@@ -103,12 +124,12 @@ export class CommandBuffer {
         lines.each((line) => {
           console.log(line.name());
           if(line && (line as Line).setPosition) {
-            const previousCommand =
-              CommandBuffer.findPrevious(nextCommand.name);
-            if(previousCommand) {
-              (line as Line).setPosition(previousCommand);
-            }
+            (line as Line).setPosition(nextCommand);
           }
+        });
+      } else if(nextCommand.action === "changeRib") {
+        CommandBuffer.callbacks.forEach((callback) => {
+          callback(nextCommand);
         });
       }
       layer.draw();
@@ -117,6 +138,8 @@ export class CommandBuffer {
 
   private static buffer: [ICommand] = [] as [ICommand];
   private static pointer: number = 0;
+  private static callbacks: [(command: ICommand) => void] =
+    [] as [(command: ICommand) => void];
 
   private static bufferPush(command: ICommand) {
     console.assert(CommandBuffer.pointer <= CommandBuffer.buffer.length,
