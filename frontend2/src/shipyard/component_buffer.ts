@@ -1,7 +1,6 @@
 // Copyright 2017 duncan law (mrdunk@gmail.com)
 
 import * as Konva from "konva";
-// import {Line} from "./primatives";
 
 export interface IComponent {
   name: string;
