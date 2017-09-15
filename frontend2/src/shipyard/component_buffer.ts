@@ -9,6 +9,7 @@ export interface IComponent {
   ya?: number;
   xb?: number;
   yb?: number;
+  options?: [string];
 }
 
 interface IComponentDB {

@@ -3,7 +3,12 @@
 import * as Konva from "konva";
 import {CommandBuffer, ICommand} from "./command_buffer";
 import {ComponentBuffer} from "./component_buffer";
-import {ControlPanel, MovableLine, Scale, StaticLine} from "./primatives";
+import {
+  Button2,
+  ControlPanel,
+  MovableLine,
+  Scale,
+  StaticLine} from "./primatives";
 
 interface ICrossSectionBuffer {
   [rib: number]: {
@@ -16,6 +21,34 @@ interface ISideViewBuffer {
     [name: string]: StaticLine;
   };
 }
+
+export class Controls extends Konva.Stage {
+  private drawLayer: Konva.Layer;
+
+  constructor(private callbacks: [(key: string, value: any) => void]) {
+    super({
+      container: "crossSectionControls",
+      width: 100,
+      height: 100,
+    });
+    const container = document.getElementById("crossSectionControls");
+    this.width(container.offsetWidth);
+    this.height(container.offsetHeight);
+
+    this.drawLayer = new Konva.Layer();
+    this.add(this.drawLayer);
+
+    const controlLayer = new Konva.Layer();
+    this.add(controlLayer);
+
+    const button = new Button2("b", this.callbacks, "red", "unused");
+    button.x(5);
+    button.y(5);
+    controlLayer.add(button);
+    controlLayer.draw();
+  }
+}
+
 
 export class CrossSection extends Konva.Stage {
   private ribValue: number;
@@ -33,6 +66,7 @@ export class CrossSection extends Konva.Stage {
 
     this.buffer = {};
     this.rib(0);
+    this.buffer[this.rib()] = {};
 
     this.drawLayer = new Konva.Layer();
     this.drawLayer.offsetX(- container.offsetWidth / 2);
@@ -85,6 +119,10 @@ export class CrossSection extends Konva.Stage {
     CommandBuffer.pushCallback(this.callback.bind(this));
   }
 
+  public controlCallback(key: string, value: any) {
+    console.log("controlCallback(key: ", key, ", value: ", value, ")");
+  }
+
   public callback(command: ICommand): void {
     if(command.action === "changeRib") {
       this.clearDisplay();
@@ -106,7 +144,8 @@ export class CrossSection extends Konva.Stage {
     if(rib === undefined) {
       rib = this.rib();
     }
-    const newLine = new MovableLine(rib, name, options);
+    const newLine =
+      new MovableLine(rib, this.buffer[this.rib()], name, options);
     this.drawLayer.add(newLine);
     this.drawLayer.draw();
     if(!this.buffer[rib]) {
@@ -139,7 +178,6 @@ export class CrossSection extends Konva.Stage {
     console.log("clearDisplay()", this.rib());
     for(const name in this.buffer[this.rib()]) {
       if(this.buffer[this.rib()].hasOwnProperty(name)) {
-        console.log("removing: ", this.rib(), name);
         const component = this.buffer[this.rib()][name];
         component.remove();
       }
@@ -210,6 +248,10 @@ export class SideView extends Konva.Stage {
     });
   }
 
+  public controlCallback(key: string, value: any) {
+    console.log("controlCallback(key: ", key, ", value: ", value, ")");
+  }
+
   public callback(command: ICommand): void {
     if(command.action === "lineNew" || command.action === "lineMove" ) {
       this.addLine(command);
@@ -253,6 +295,10 @@ export class SideView extends Konva.Stage {
       time: Date.now(),
     };
     CommandBuffer.push(command);
+    this.background.rib = rib;
+    this.background.draw();
+    this.cursor.visible(false);
+    this.background.getLayer().draw();
   }
 
   private setCursor(posX, posY) {
@@ -260,7 +306,6 @@ export class SideView extends Konva.Stage {
     this.cursor.points([posX, -this.height() /2, posX, this.height() /2]);
     this.cursor.visible(true);
     this.background.getLayer().draw();
-    this.cursor.draw();
   }
 }
 

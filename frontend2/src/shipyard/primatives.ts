@@ -48,7 +48,7 @@ export class ControlPanel extends Konva.Group {
   }
 }
 
-class Button extends Konva.Rect {
+export class Button extends Konva.Rect {
   constructor(private nameP: string,
               private callback: (buttonName: string) => void,
               private color) {
@@ -121,6 +121,67 @@ class TextDisplay extends Konva.Group {
   }
 }
 
+export class Button2 extends Konva.Group {
+  private text: Konva.Text;
+  private background: Konva.Rect;
+
+  constructor(private nameP: string,
+              private callbacks: [(key: string, value: any) => void],
+              private color: string,
+              private label) {
+    super();
+    this.name(nameP);
+    this.width(30);
+    this.height(30);
+    this.text = new Konva.Text({
+      width: 30,
+      height: 30,
+      text: label,
+      fontSize: 16,
+      fontFamily: "Calibri",
+      fill: "black",
+      align: "center",
+      padding: 5,
+    });
+    this.background = new Konva.Rect({
+      width: 30,
+      height: 30,
+      stroke: "black",
+      strokeWidth: 2,
+      fill: color,
+      draggable: false,
+    });
+
+    this.add(this.background);
+    this.add(this.text);
+
+    this.on("click", () => {
+      console.log("Button.mouseclick");
+      this.callbacks.forEach((callback) => {
+        callback(this.name(), this.clickValue());
+      });
+    });
+    this.on("mouseover", () => {
+      this.background.stroke("darkgrey");
+      this.background.strokeWidth(5);
+      this.draw();
+      document.body.style.cursor = "pointer";
+    });
+    this.on("mouseout", () => {
+      this.background.stroke("white");
+      this.background.draw();
+      this.background.stroke("black");
+      this.background.strokeWidth(2);
+      this.draw();
+      document.body.style.cursor = "default";
+    });
+  }
+
+  private clickValue() {
+    return 1;
+  }
+}
+
 class MovableLineCap extends Konva.Circle {
   constructor(private capNo: number, private line: MovableLine) {
     super({
@@ -131,43 +192,46 @@ class MovableLineCap extends Konva.Circle {
       draggable: true,
     });
 
+    const mirrorSide: number = capNo <= 1 ? 0:1;
+
     let name = this.line.name();
     name += (this.capNo > 0) ? "_a" : "_b";
     name += (this.capNo > 1) ? "" : "2";
     this.name(name);
 
     this.on("mouseover", () => {
-      this.line.highlight(true);
+      this.line.highlight(true, mirrorSide);
       this.fill("red");
       this.draw();
       document.body.style.cursor = "pointer";
     });
     this.on("mouseout", () => {
-      this.line.highlight(false);
+      this.line.highlight(false, mirrorSide);
       document.body.style.cursor = "default";
     });
     this.on("dragstart", () => {
-      console.log(this.name());
+      console.log(this.name(), capNo, mirrorSide);
       this.fill("yellow");
       this.draw();
-      this.line.moving(true);
+      this.line.moving(true, mirrorSide);
+      this.line.unSelectAll();
     });
     this.on("dragend", () => {
       this.fill("lightblue");
       this.draw();
-      this.line.movedCap(capNo);
-      this.line.moving(false);
+      this.line.movedCap(mirrorSide);
+      this.line.moving(false, mirrorSide);
     });
     this.on("dragmove", () => {
       this.fill("yellow");
       this.draw();
-      this.line.movedCap(capNo);
+      this.line.movedCap(mirrorSide);
     });
   }
 }
 
 class MovableLineLine extends Konva.Line {
-  constructor(private line: MovableLine) {
+  constructor(private mirrorSide: number, private line: MovableLine) {
     super({
       points: [],
       stroke: "black",
@@ -178,10 +242,13 @@ class MovableLineLine extends Konva.Line {
     this.name(line.name());
 
     this.on("mouseover", () => {
-      this.line.highlight(true);
+      this.line.highlight(true, mirrorSide);
     });
     this.on("mouseout", () => {
-      this.line.highlight(false);
+      this.line.highlight(false, mirrorSide);
+    });
+    this.on("click", () => {
+      this.line.select(mirrorSide);
     });
   }
 
@@ -204,20 +271,19 @@ export class MovableLine extends Konva.Group {
   public mirrored: boolean;
 
   constructor(private rib: number,
+              private neighbours: {[name: string]: MovableLine},
               private overideName?: string,
               private options?: [string]) {
     super();
-    console.log("MovableLine(", rib, overideName, options, ")",
-                CommandBuffer.buffer);
     if(overideName) {
       this.name(overideName);
     } else {
       this.name(MovableLine.makeName());
     }
+    this.options = this.options || ([] as [string]);
+    this.mirrored = this.options && this.options.indexOf("mirror") >= 0;
 
-    this.mirrored = options && options.indexOf("mirror") >= 0;
-
-    this.line = new MovableLineLine(this);
+    this.line = new MovableLineLine(0, this);
     this.a = new MovableLineCap(0, this);
     this.b = new MovableLineCap(1, this);
     this.line.points(defaultNewLinePos.slice());
@@ -230,7 +296,7 @@ export class MovableLine extends Konva.Group {
     this.add(this.b);
 
     if(this.mirrored) {
-      this.line2 = new MovableLineLine(this);
+      this.line2 = new MovableLineLine(1, this);
       this.a2 = new MovableLineCap(2, this);
       this.b2 = new MovableLineCap(3, this);
       this.syncroniseMirroring();
@@ -245,9 +311,9 @@ export class MovableLine extends Konva.Group {
     return super.destroy();
   }
 
-  public movedCap(capNo: number) {
-    this.snap();
-    this.storeAction("lineMove", capNo);
+  public movedCap(mirrorSide: number) {
+    this.snap(mirrorSide);
+    this.storeAction("lineMove", mirrorSide);
   }
 
   public getPoints() {
@@ -281,47 +347,109 @@ export class MovableLine extends Konva.Group {
     this.storeComponent();
   }
 
-  public highlight(state: boolean) {
-    this.line.moveToBottom();
-    if(state) {
-      this.line.stroke("darkorange");
-      this.a.fill("darkorange");
-      this.b.fill("darkorange");
-      this.line.draw();
-      this.a.draw();
-      this.b.draw();
+  public select(mirrorSide: number) {
+    console.log("click");
+    this.unSelectAll();
+    if(this.options.indexOf("selected") < 0) {
+      this.options.push("selected");
+    }
+    this.line.stroke("red");
+    this.line.draw();
+    if(this.mirrored) {
+      this.line2.stroke("red");
+      this.line2.draw();
+    }
+  }
+
+  public unSelectAll() {
+    for(const key in this.neighbours) {
+      if(!this.neighbours.hasOwnProperty(key)) {
+        continue;
+      }
+      const neighbour = this.neighbours[key];
+      const optionsIndex = neighbour.options.indexOf("selected");
+      if(optionsIndex >= 0) {
+        neighbour.options.splice(optionsIndex, 1);
+        neighbour.highlight(false, 0);
+        neighbour.highlight(false, 1);
+      }
+    }
+  }
+
+  public highlight(state: boolean, mirrorSide: number) {
+    if(mirrorSide > 0 && !this.mirrored) {
       return;
     }
 
-    this.line.stroke("black");
-    this.a.fill("lightblue");
-    this.b.fill("lightblue");
-    this.line.draw();
-    this.a.draw();
-    this.b.draw();
-  }
+    let line = this.line;
+    let a = this.a;
+    let b = this.b;
+    if(mirrorSide > 0) {
+      line = this.line2;
+      a = this.a2;
+      b = this.b2;
+    }
 
-  public moving(state: boolean) {
-    this.line.moveToBottom();
-    if(state) {
-      this.line.dash([10, 5]);
-      this.line.draw();
-      this.a.draw();
-      this.b.draw();
+    if(this.options.indexOf("selected") >= 0) {
       return;
     }
 
-    this.line.dash([]);
-    this.line.draw();
-    this.a.draw();
-    this.b.draw();
+    if(state) {
+      line.stroke("darkorange");
+      a.fill("darkorange");
+      b.fill("darkorange");
+      line.draw();
+      a.draw();
+      b.draw();
+      return;
+    }
+
+    line.stroke("black");
+    a.fill("lightblue");
+    b.fill("lightblue");
+    line.draw();
+    a.draw();
+    b.draw();
   }
 
-  private snap() {
-    this.a.x(snapDistance * Math.round(this.a.x() / snapDistance));
-    this.a.y(snapDistance * Math.round(this.a.y() / snapDistance));
-    this.b.x(snapDistance * Math.round(this.b.x() / snapDistance));
-    this.b.y(snapDistance * Math.round(this.b.y() / snapDistance));
+  public moving(state: boolean, mirrorSide: number) {
+    let line = this.line;
+    let a = this.a;
+    let b = this.b;
+    if(mirrorSide > 0) {
+      line = this.line2;
+      a = this.a2;
+      b = this.b2;
+    }
+
+    if(state) {
+      line.dash([10, 5]);
+      line.draw();
+      a.draw();
+      b.draw();
+      return;
+    }
+
+    line.dash([]);
+    line.draw();
+    a.draw();
+    b.draw();
+  }
+
+  private snap(mirrorSide: number) {
+    let line = this.line;
+    let a = this.a;
+    let b = this.b;
+    if(mirrorSide > 0) {
+      line = this.line2;
+      a = this.a2;
+      b = this.b2;
+    }
+
+    a.x(snapDistance * Math.round(a.x() / snapDistance));
+    a.y(snapDistance * Math.round(a.y() / snapDistance));
+    b.x(snapDistance * Math.round(b.x() / snapDistance));
+    b.y(snapDistance * Math.round(b.y() / snapDistance));
 
     for(const key in ComponentBuffer.buffer[this.rib]) {
       if(!ComponentBuffer.buffer[this.rib].hasOwnProperty(key)) {
@@ -330,25 +458,25 @@ export class MovableLine extends Konva.Group {
       const component = ComponentBuffer.buffer[this.rib][key];
       if(component.name === this.name()) {
         continue;
-      } else if(Math.abs(component.xa - this.a.x()) +
-                 Math.abs(component.ya - this.a.y()) < snapDistance *2) {
-        this.a.x(component.xa);
-        this.a.y(component.ya);
+      } else if(Math.abs(component.xa - a.x()) +
+                 Math.abs(component.ya - a.y()) < snapDistance *2) {
+        a.x(component.xa);
+        a.y(component.ya);
         break;
-      } else if(Math.abs(component.xb - this.a.x()) +
-                Math.abs(component.yb - this.a.y()) < snapDistance *2) {
-        this.a.x(component.xb);
-        this.a.y(component.yb);
+      } else if(Math.abs(component.xb - a.x()) +
+                Math.abs(component.yb - a.y()) < snapDistance *2) {
+        a.x(component.xb);
+        a.y(component.yb);
         break;
-      } else if(Math.abs(component.xa - this.b.x()) +
-                Math.abs(component.ya - this.b.y()) < snapDistance *2) {
-        this.b.x(component.xa);
-        this.b.y(component.ya);
+      } else if(Math.abs(component.xa - b.x()) +
+                Math.abs(component.ya - b.y()) < snapDistance *2) {
+        b.x(component.xa);
+        b.y(component.ya);
         break;
-      } else if(Math.abs(component.xb - this.b.x()) +
-                Math.abs(component.yb - this.b.y()) < snapDistance *2) {
-        this.b.x(component.xb);
-        this.b.y(component.yb);
+      } else if(Math.abs(component.xb - b.x()) +
+                Math.abs(component.yb - b.y()) < snapDistance *2) {
+        b.x(component.xb);
+        b.y(component.yb);
         break;
       }
     }
@@ -371,12 +499,16 @@ export class MovableLine extends Konva.Group {
   /* Saves command to buffer and call callbacks which are interested in command.
    * This class is one of those callbacks so a command originating in this
    * class still has to go through this method. */
-  private storeAction(actionType: string, capNo: number) {
+  private storeAction(actionType: string, mirrorSide: number) {
     let xa = this.a.x();
     let xb = this.b.x();
-    if(capNo > 1) {
-      xa = -this.a.x();
-      xb = -this.b.x();
+    let ya = this.a.y();
+    let yb = this.b.y();
+    if(mirrorSide > 0) {
+      xa = -this.a2.x();
+      xb = -this.b2.x();
+      ya = this.a2.y();
+      yb = this.b2.y();
     }
 
     const command: ICommand = {
@@ -384,10 +516,7 @@ export class MovableLine extends Konva.Group {
       name: this.name(),
       rib: this.rib,
       time: Date.now(),
-      xa,
-      ya: this.a.y(),
-      xb,
-      yb: this.b.y(),
+      xa, ya, xb, yb,
     };
     CommandBuffer.push(command);
   }
@@ -400,6 +529,7 @@ export class MovableLine extends Konva.Group {
       ya: this.a.y(),
       xb: this.b.x(),
       yb: this.b.y(),
+      options: this.options,
     };
     ComponentBuffer.push(component);
   }
@@ -450,9 +580,12 @@ export class StaticLine extends Konva.Group {
 }
 
 export class Scale extends Konva.Group {
+  public rib: number;
+
   constructor() {
     super();
     this.listening(false);
+    this.rib = 0;
   }
 
   public draw(): Konva.Node {
@@ -483,9 +616,12 @@ export class Scale extends Konva.Group {
     const xStart = -Math.round(this.width() / 2 / gridSize) * gridSize;
     const YStart = -Math.round(this.height() / 2 / gridSize) * gridSize;
     for(let x = xStart; x < this.width() / 2; x += gridSize) {
+      const stroke = (x === this.rib * gridSize) ? "orange":"darkgrey";
+      const strokeWidth = (x === this.rib * gridSize) ? 5:1;
       const vertical = new Konva.Line({
         points: [x, - this.height() / 2, x, this.height() / 2],
-        stroke: "darkGrey",
+        stroke,
+        strokeWidth,
       });
       this.add(vertical);
     }
@@ -505,7 +641,7 @@ export class Scale extends Konva.Group {
     });
     this.add(centre);
 
-    return this;
+    return super.draw();
   }
 }
 

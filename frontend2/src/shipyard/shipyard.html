@@ -5,9 +5,20 @@
         <title>Hello Boat!</title>
         <link href="reset.css" rel="stylesheet" type="text/css">
         <link href="shipyard.css" rel="stylesheet" type="text/css">
+        <link href="font-awesome.min.css" rel="stylesheet">
+        <link href="bootstrap.min.css" rel="stylesheet">
         <script type="text/javascript" src="shipyard.js"></script>
     </head>
     <body>
+			<div id="crossSectionControls" class="controlPanel" oncontextmenu="return false;">
+        <div class="btn-group">
+        <a class="btn btn-danger btn-sm" href="#"> <i class="fa fa-trash-o fa-lg"></i></a>
+        <a class="btn btn-default btn-sm" href="#"><i class="fa fa-undo"></i></a>
+        <a class="btn btn-default btn-sm" href="#"><i class="fa fa-repeat"></i></a>
+        <a class="btn btn-default btn-sm" href="#"><i class="fa fa-remove"></i></a>
+        <a class="btn btn-default btn-sm" href="#"><i class="fa fa-arrows-h" aria-hidden="true"></i></a>
+        </div>
+      </div>
 			<div id="crossSection" class="drawPanel" oncontextmenu="return false;"></div>
 			<div id="sideView" class="drawPanel"></div>
     </body>
