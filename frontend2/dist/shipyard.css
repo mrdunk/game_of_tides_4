@@ -2,7 +2,7 @@
   margin: 2px;
   background: antiquewhite;
   width: 400px;
-  height: 40px;
+  height: auto;
 }
 
 .drawPanel {
@@ -19,3 +19,10 @@
   width: 1200px;
 }
 
+.pure-button-group .pure-button {
+  border-radius: 5px;
+}
+
+.button-small {
+  font-size: 85%;
+}

@@ -9,6 +9,5 @@ console.log("shipyard.ts");
 window.onload = () => {
   const crossSection = new CrossSection();
   const sideView = new SideView();
-  // const controls = new Controls([crossSection.controlCallback,
-  //                               sideView.controlCallback]);
+  const controls = new Controls();
 };

@@ -26,7 +26,6 @@ export class ComponentBuffer {
       ComponentBuffer.buffer[component.rib] = {};
     }
     ComponentBuffer.buffer[component.rib][component.name] = component;
-
   }
 
   public static remove(rib: number, name: string) {

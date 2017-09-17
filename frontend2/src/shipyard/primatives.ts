@@ -270,7 +270,9 @@ export class MovableLine extends Konva.Group {
   public line2: MovableLineLine;
   public mirrored: boolean;
 
-  constructor(private rib: number,
+  constructor(private lineSelectCallback: (lineName: string,
+                                           value: boolean)=>void,
+              private rib: number,
               private neighbours: {[name: string]: MovableLine},
               private overideName?: string,
               private options?: [string]) {
@@ -304,6 +306,7 @@ export class MovableLine extends Konva.Group {
       this.add(this.a2);
       this.add(this.b2);
     }
+    this.storeComponent();
   }
 
   public destroy() {
@@ -321,6 +324,9 @@ export class MovableLine extends Konva.Group {
   }
 
   public setPosition(command: ICommand) {
+    if(command.options) {
+      this.options = command.options;
+    }
     if(command.xa === undefined || command.ya === undefined ||
        command.xb === undefined || command.yb === undefined) {
       this.a.x(defaultNewLinePos[0]);
@@ -359,6 +365,7 @@ export class MovableLine extends Konva.Group {
       this.line2.stroke("red");
       this.line2.draw();
     }
+    this.lineSelectCallback(this.name(), true);
   }
 
   public unSelectAll() {
@@ -372,6 +379,7 @@ export class MovableLine extends Konva.Group {
         neighbour.options.splice(optionsIndex, 1);
         neighbour.highlight(false, 0);
         neighbour.highlight(false, 1);
+        this.lineSelectCallback(neighbour.name(), false);
       }
     }
   }

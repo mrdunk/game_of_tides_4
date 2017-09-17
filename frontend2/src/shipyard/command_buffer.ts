@@ -43,8 +43,8 @@ export class CommandBuffer {
     CommandBuffer.callbacks.push(callback);
   }
 
-  public static summary(): [string] {
-    const output: [string] = [] as [string];
+  public static summary()/*: [string]*/ {
+    /*const output: [string] = [] as [string];
     CommandBuffer.buffer.forEach((command, index) => {
       let out = command.action + " " + command.name;
       if(index === CommandBuffer.pointer -1) {
@@ -52,7 +52,8 @@ export class CommandBuffer {
       }
       output.push(out);
     });
-    return output;
+    return output;*/
+    return CommandBuffer.buffer;
   }
 
   public static undo() {

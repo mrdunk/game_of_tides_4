@@ -22,30 +22,101 @@ interface ISideViewBuffer {
   };
 }
 
-export class Controls extends Konva.Stage {
-  private drawLayer: Konva.Layer;
+const UserInterfaceClickCallbacks = [];
 
-  constructor(private callbacks: [(key: string, value: any) => void]) {
-    super({
-      container: "crossSectionControls",
-      width: 100,
-      height: 100,
+export class Controls {
+  private rib: number;
+  private buttons: HTMLCollectionOf<Element>;
+  constructor() {
+    this.rib = 0;
+    this.buttons = document.getElementsByClassName("pure-button");
+    [].forEach.call(this.buttons, (button) => {
+      const buttonLabel = button.getAttribute("data-balloon");
+      console.log(buttonLabel);
+      switch(buttonLabel) {
+        case "Undo":
+          button.addEventListener("click", CommandBuffer.undo);
+          break;
+        case "Redo":
+          button.addEventListener("click", CommandBuffer.redo);
+          break;
+        default:
+          // Any button clicks that are not used here should be sent on to all
+          // other registered listeners.
+          button.addEventListener("click",
+                                  () => {this.sendToListiners(buttonLabel);});
+          break;
+      }
     });
-    const container = document.getElementById("crossSectionControls");
-    this.width(container.offsetWidth);
-    this.height(container.offsetHeight);
 
-    this.drawLayer = new Konva.Layer();
-    this.add(this.drawLayer);
+    this.enableLineSpecific(false);
 
-    const controlLayer = new Konva.Layer();
-    this.add(controlLayer);
+    CommandBuffer.pushCallback(this.callback.bind(this));
+    UserInterfaceClickCallbacks.push(this.controlCallback.bind(this));
+  }
 
-    const button = new Button2("b", this.callbacks, "red", "unused");
-    button.x(5);
-    button.y(5);
-    controlLayer.add(button);
-    controlLayer.draw();
+  public callback(command: ICommand): void {
+    if(command.action === "changeRib") {
+      this.rib = command.rib;
+    } else if(command.action === "lineMove" || command.action === "lineNew") {
+      const line = ComponentBuffer.buffer[this.rib][command.name];
+      this.setSelected("Mirror line", line.options.indexOf("mirror") >= 0);
+    }
+  }
+
+  public controlCallback(key: string, value: any) {
+    console.log("controlCallback(key: ", key, ", value: ", value, ")");
+
+    if(key.startsWith("line_")) {
+      const line = ComponentBuffer.buffer[this.rib][key];
+      this.enableLineSpecific(value);
+
+      this.setSelected("Mirror line", line.options.indexOf("mirror") >= 0);
+
+      return;
+    }
+  }
+
+  private enableLineSpecific(value: boolean) {
+    [].forEach.call(this.buttons, (button) => {
+      const buttonLabel = button.getAttribute("data-balloon");
+      switch(buttonLabel) {
+        case "Delete":
+        case "Mirror line":
+          if(value) {
+            button.classList.remove("pure-button-disabled");
+          } else {
+            button.classList.add("pure-button-disabled");
+          }
+      }
+    });
+  }
+
+  private setSelected(buttonLabel: string, value: boolean) {
+    const button = this.getButton(buttonLabel);
+    if(value) {
+      button.classList.add("pure-button-active");
+    } else {
+      button.classList.remove("pure-button-active");
+    }
+  }
+
+  private getButton(buttonLabel: string): Element {
+    let returnVal: Element;
+    [].forEach.call(this.buttons, (button) => {
+      if(buttonLabel === button.getAttribute("data-balloon")) {
+        returnVal = button;
+      }
+    });
+    return returnVal;
+  }
+
+  private sendToListiners(buttonLabel: string) {
+    const button = this.getButton(buttonLabel);
+    const value = !button.classList.contains("pure-button-active");
+    UserInterfaceClickCallbacks.forEach((callback) => {
+      callback(buttonLabel, value);
+    });
   }
 }
 
@@ -55,6 +126,7 @@ export class CrossSection extends Konva.Stage {
   private controlPannel: ControlPanel;
   private drawLayer: Konva.Layer;
   private buffer: ICrossSectionBuffer;
+  private selectedLine: MovableLine;
 
   constructor() {
     const container = document.getElementById("crossSection");
@@ -99,12 +171,6 @@ export class CrossSection extends Konva.Stage {
       };
       CommandBuffer.push(command);
     }, "red");
-    this.controlPannel.addButton("test3", (buttonName) => {
-      CommandBuffer.undo();
-    }, "yellow");
-    this.controlPannel.addButton("test4", (buttonName) => {
-      CommandBuffer.redo();
-    }, "yellow");
     this.controlPannel.addText(this, "rib", "lightgreen");
     this.controlPannel.addButton("test2", (buttonName) => {
       console.log(CommandBuffer.summary());
@@ -117,10 +183,33 @@ export class CrossSection extends Konva.Stage {
     controlLayer.draw();
 
     CommandBuffer.pushCallback(this.callback.bind(this));
+    UserInterfaceClickCallbacks.push(this.controlCallback.bind(this));
   }
 
   public controlCallback(key: string, value: any) {
     console.log("controlCallback(key: ", key, ", value: ", value, ")");
+
+    switch(key) {
+      case "Mirror line":
+        const options: [string] = [] as [string];
+        if(value) {
+          options.push("mirror");
+        }
+
+        const command: ICommand = {
+          action: "lineMove",
+          name: this.selectedLine.name(),
+          rib: this.rib(),
+          time: Date.now(),
+          xa: this.selectedLine.a.x(),
+          ya: this.selectedLine.a.y(),
+          xb: this.selectedLine.b.x(),
+          yb: this.selectedLine.b.y(),
+          options,
+        };
+        CommandBuffer.push(command);
+        break;
+    }
   }
 
   public callback(command: ICommand): void {
@@ -139,13 +228,27 @@ export class CrossSection extends Konva.Stage {
     this.drawLayer.draw();
   }
 
+  public lineSelectCallback(lineName: string, value: boolean) {
+    console.log(lineName);
+
+    this.selectedLine = this.buffer[this.rib()][lineName];
+
+    UserInterfaceClickCallbacks.forEach((callback) => {
+      callback(lineName, value);
+    });
+  }
+
   private addLine(rib: number, name?: string, options?: [string]) {
     console.log(rib, name);
     if(rib === undefined) {
       rib = this.rib();
     }
     const newLine =
-      new MovableLine(rib, this.buffer[this.rib()], name, options);
+      new MovableLine(this.lineSelectCallback.bind(this),
+                      rib,
+                      this.buffer[this.rib()],
+                      name,
+                      options);
     this.drawLayer.add(newLine);
     this.drawLayer.draw();
     if(!this.buffer[rib]) {
@@ -237,6 +340,7 @@ export class SideView extends Konva.Stage {
     this.drawLayer.add(this.cursor);
 
     CommandBuffer.pushCallback(this.callback.bind(this));
+    UserInterfaceClickCallbacks.push(this.controlCallback.bind(this));
 
     this.on("contentClick", () => {
       const mousePos = this.getStage().getPointerPosition();
@@ -253,7 +357,12 @@ export class SideView extends Konva.Stage {
   }
 
   public callback(command: ICommand): void {
-    if(command.action === "lineNew" || command.action === "lineMove" ) {
+    if(command.action === "changeRib") {
+      this.background.rib = command.rib;
+      this.background.draw();
+      this.cursor.visible(false);
+      this.background.getLayer().draw();
+    } else if(command.action === "lineNew" || command.action === "lineMove" ) {
       this.addLine(command);
     } else if(command.action === "lineDelete") {
       this.deleteLine(command.rib, command.name);

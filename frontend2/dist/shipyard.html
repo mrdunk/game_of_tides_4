@@ -3,20 +3,30 @@
     <head>
         <meta charset="UTF-8" />
         <title>Hello Boat!</title>
-        <link href="reset.css" rel="stylesheet" type="text/css">
-        <link href="shipyard.css" rel="stylesheet" type="text/css">
-        <link href="font-awesome.min.css" rel="stylesheet">
-        <link href="bootstrap.min.css" rel="stylesheet">
+        <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/4.7.0/css/font-awesome.min.css" rel="stylesheet">
+        <link rel="stylesheet" href="https://unpkg.com/purecss@1.0.0/build/pure-min.css" integrity="sha384-nn4HPE8lTHyVtfCBi5yW9d20FjT8BJwUXyWZT9InLYax14RDjBj46LmSztkmNP9w" crossorigin="anonymous">
+        <link href="https://cdnjs.cloudflare.com/ajax/libs/balloon-css/0.5.0/balloon.min.css" rel="stylesheet">
         <script type="text/javascript" src="shipyard.js"></script>
+        <link href="shipyard.css" rel="stylesheet" type="text/css">
     </head>
     <body>
 			<div id="crossSectionControls" class="controlPanel" oncontextmenu="return false;">
-        <div class="btn-group">
-        <a class="btn btn-danger btn-sm" href="#"> <i class="fa fa-trash-o fa-lg"></i></a>
-        <a class="btn btn-default btn-sm" href="#"><i class="fa fa-undo"></i></a>
-        <a class="btn btn-default btn-sm" href="#"><i class="fa fa-repeat"></i></a>
-        <a class="btn btn-default btn-sm" href="#"><i class="fa fa-remove"></i></a>
-        <a class="btn btn-default btn-sm" href="#"><i class="fa fa-arrows-h" aria-hidden="true"></i></a>
+        <div class="" role="toolbar">
+          <div class="button-small pure-button" data-balloon="Undo" data-balloon-pos="down">
+            <i class="fa fa-undo"></i>
+          </div>
+          <div class="button-small pure-button" data-balloon="Redo" data-balloon-pos="down">
+            <i class="fa fa-repeat"></i>
+          </div>
+          <div class="button-small pure-button" data-balloon="Clear all" data-balloon-pos="down">
+            <i class="fa fa-trash-o fa-lg"></i>
+          </div>
+          <div class="button-small pure-button" data-balloon="Delete" data-balloon-pos="down">
+            <i class="fa fa-remove"></i>
+          </div>
+          <div class="button-small pure-button" data-balloon="Mirror line" data-balloon-pos="down">
+            <i class="fa fa-arrows-h" aria-hidden="true"></i>
+          </div>
         </div>
       </div>
 			<div id="crossSection" class="drawPanel" oncontextmenu="return false;"></div>
