@@ -26,9 +26,11 @@ const UserInterfaceClickCallbacks = [];
 
 export class Controls {
   private rib: number;
+  private selectedComponent: string;
   private buttons: HTMLCollectionOf<Element>;
   constructor() {
     this.rib = 0;
+    this.selectedComponent = "";
     this.buttons = document.getElementsByClassName("pure-button");
     [].forEach.call(this.buttons, (button) => {
       const buttonLabel = button.getAttribute("data-balloon");
@@ -59,8 +61,11 @@ export class Controls {
     if(command.action === "changeRib") {
       this.rib = command.rib;
     } else if(command.action === "lineMove" || command.action === "lineNew") {
-      const line = ComponentBuffer.buffer[this.rib][command.name];
-      this.setSelected("Mirror line", line.options.indexOf("mirror") >= 0);
+      console.log(command.options);
+      const line = ComponentBuffer.buffer[this.rib][this.selectedComponent];
+      if(line) {
+        this.setSelected("Mirror line", line.options.indexOf("mirror") >= 0);
+      }
     }
   }
 
@@ -71,7 +76,11 @@ export class Controls {
       const line = ComponentBuffer.buffer[this.rib][key];
       this.enableLineSpecific(value);
 
-      this.setSelected("Mirror line", line.options.indexOf("mirror") >= 0);
+      this.selectedComponent = "";
+      if(value) {
+        this.selectedComponent = key;
+        this.setSelected("Mirror line", line.options.indexOf("mirror") >= 0);
+      }
 
       return;
     }

@@ -226,6 +226,10 @@ class MovableLineCap extends Konva.Circle {
       this.fill("yellow");
       this.draw();
       this.line.movedCap(mirrorSide);
+      this.line.select(mirrorSide);
+    });
+    this.on("click", () => {
+      this.line.select(mirrorSide);
     });
   }
 }
@@ -243,9 +247,11 @@ class MovableLineLine extends Konva.Line {
 
     this.on("mouseover", () => {
       this.line.highlight(true, mirrorSide);
+      document.body.style.cursor = "pointer";
     });
     this.on("mouseout", () => {
       this.line.highlight(false, mirrorSide);
+      document.body.style.cursor = "default";
     });
     this.on("click", () => {
       this.line.select(mirrorSide);
@@ -297,15 +303,7 @@ export class MovableLine extends Konva.Group {
     this.add(this.a);
     this.add(this.b);
 
-    if(this.mirrored) {
-      this.line2 = new MovableLineLine(1, this);
-      this.a2 = new MovableLineCap(2, this);
-      this.b2 = new MovableLineCap(3, this);
-      this.syncroniseMirroring();
-      this.add(this.line2);
-      this.add(this.a2);
-      this.add(this.b2);
-    }
+    this.syncroniseMirroring();
     this.storeComponent();
   }
 
@@ -324,9 +322,21 @@ export class MovableLine extends Konva.Group {
   }
 
   public setPosition(command: ICommand) {
-    if(command.options) {
-      this.options = command.options;
+    console.log(this.options, command.options);
+    const index = this.options.indexOf("mirror");
+    if(index < 0 &&
+       command.options &&
+       command.options.indexOf("mirror") >= 0) {
+      this.options.push("mirror");
+    } else if(index >= 0 &&
+              command.options &&
+              command.options.indexOf("mirror") < 0) {
+      this.options.splice(index, 1);
     }
+    console.log(this.options, command.options);
+
+    this.mirrored = this.options.indexOf("mirror") >= 0;
+
     if(command.xa === undefined || command.ya === undefined ||
        command.xb === undefined || command.yb === undefined) {
       this.a.x(defaultNewLinePos[0]);
@@ -492,8 +502,27 @@ export class MovableLine extends Konva.Group {
 
   private syncroniseMirroring() {
     if(!this.mirrored) {
+      if(this.line2 !== undefined) {
+        this.line2.visible(false);
+        this.a2.visible(false);
+        this.b2.visible(false);
+      }
       return;
     }
+
+    if(this.line2 === undefined) {
+      this.line2 = new MovableLineLine(1, this);
+      this.a2 = new MovableLineCap(2, this);
+      this.b2 = new MovableLineCap(3, this);
+      this.syncroniseMirroring();
+      this.add(this.line2);
+      this.add(this.a2);
+      this.add(this.b2);
+    }
+    this.line2.visible(true);
+    this.a2.visible(true);
+    this.b2.visible(true);
+
     this.a2.x(-this.a.x());
     this.a2.y(this.a.y());
     this.b2.x(-this.b.x());
