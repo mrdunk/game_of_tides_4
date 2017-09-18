@@ -24,5 +24,7 @@
 }
 
 .button-small {
-  font-size: 85%;
+  font-size: 90%;
+  padding-left: 0.5em;
+  padding-right: 0.5em;
 }

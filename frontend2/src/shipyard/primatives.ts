@@ -322,7 +322,6 @@ export class MovableLine extends Konva.Group {
   }
 
   public setPosition(command: ICommand) {
-    console.log(this.options, command.options);
     const index = this.options.indexOf("mirror");
     if(index < 0 &&
        command.options &&
@@ -333,7 +332,6 @@ export class MovableLine extends Konva.Group {
               command.options.indexOf("mirror") < 0) {
       this.options.splice(index, 1);
     }
-    console.log(this.options, command.options);
 
     this.mirrored = this.options.indexOf("mirror") >= 0;
 
@@ -357,9 +355,7 @@ export class MovableLine extends Konva.Group {
     points[3] = this.b.y();
 
     this.syncroniseMirroring();
-
     this.draw();
-
     this.storeComponent();
   }
 
@@ -548,12 +544,17 @@ export class MovableLine extends Konva.Group {
       yb = this.b2.y();
     }
 
+    const options: [string] = [] as [string];
+    if(this.mirrored) {
+      options.push("mirror");
+    }
     const command: ICommand = {
       action: actionType,
       name: this.name(),
       rib: this.rib,
       time: Date.now(),
       xa, ya, xb, yb,
+      options,
     };
     CommandBuffer.push(command);
   }

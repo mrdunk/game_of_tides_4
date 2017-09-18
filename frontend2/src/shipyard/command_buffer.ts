@@ -18,6 +18,34 @@ export interface ICommand {
 }
 
 export class CommandBuffer {
+  public static init() {
+    const storage = window.localStorage;
+    if(storage === undefined) {
+      console.warn("window.localStorage not avaliable");
+      return;
+    }
+
+    const commands = storage.getItem("commandBuffer");
+    if(!commands) {
+      console.warn("No commandBuffer in window.localStorage");
+      return;
+    }
+
+    CommandBuffer.buffer = JSON.parse(commands);
+  }
+
+  public static save() {
+    const storage = window.localStorage;
+    if(storage === undefined) {
+      return;
+    }
+
+    storage.removeItem("commandBuffer");
+    const data = JSON.stringify(CommandBuffer.buffer);
+    console.log("saving: ", data);
+    storage.setItem("commandBuffer", data);
+  }
+
   public static push(command: ICommand) {
     const lastCommand = CommandBuffer.buffer[CommandBuffer.pointer -1];
     if(lastCommand &&
@@ -58,8 +86,8 @@ export class CommandBuffer {
 
   public static undo() {
     CommandBuffer.pointer--;
-    if(CommandBuffer.pointer <= 0) {
-      CommandBuffer.pointer = 1;
+    if(CommandBuffer.pointer < 0) {
+      CommandBuffer.pointer = 0;
       return;
     }
     const lastCommand = CommandBuffer.buffer[CommandBuffer.pointer];
@@ -76,6 +104,10 @@ export class CommandBuffer {
     } else if(lastCommand.action === "lineMove") {
       const previousCommand = CommandBuffer.findPrevious(lastCommand.name);
       console.log(previousCommand);
+      let options: string[] = [] as string[];
+      if(previousCommand.options !== undefined) {
+        options = previousCommand.options.slice();
+      }
       targetCommand = {
         action: "lineMove",
         name: lastCommand.name,
@@ -85,6 +117,7 @@ export class CommandBuffer {
         ya: previousCommand.ya,
         xb: previousCommand.xb,
         yb: previousCommand.yb,
+        options,
       };
     } else if(lastCommand.action === "changeRib") {
       targetCommand = CommandBuffer.findPrevious(lastCommand.name);
@@ -115,6 +148,14 @@ export class CommandBuffer {
     CommandBuffer.callbacks.forEach((callback) => {
       callback(nextCommand);
     });
+  }
+
+  public static undoAvaliable() {
+    return CommandBuffer.pointer > 0;
+  }
+
+  public static redoAvaliable() {
+    return CommandBuffer.pointer < CommandBuffer.buffer.length;
   }
 
   private static buffer: [ICommand] = [] as [ICommand];

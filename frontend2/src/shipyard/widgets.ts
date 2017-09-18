@@ -34,13 +34,27 @@ export class Controls {
     this.buttons = document.getElementsByClassName("pure-button");
     [].forEach.call(this.buttons, (button) => {
       const buttonLabel = button.getAttribute("data-balloon");
-      console.log(buttonLabel);
       switch(buttonLabel) {
         case "Undo":
           button.addEventListener("click", CommandBuffer.undo);
           break;
         case "Redo":
           button.addEventListener("click", CommandBuffer.redo);
+          break;
+        case "Add line":
+          button.addEventListener("click", (buttonName) => {
+            const command: ICommand = {
+              action: "lineNew",
+              name: MovableLine.makeName(),
+              rib: this.rib,
+              time: Date.now(),
+              options: ["mirror"],
+            };
+            CommandBuffer.push(command);
+          });
+          break;
+        case "Upload":
+          button.addEventListener("click", CommandBuffer.save);
           break;
         default:
           // Any button clicks that are not used here should be sent on to all
@@ -51,6 +65,7 @@ export class Controls {
       }
     });
 
+    this.enableButtons();
     this.enableLineSpecific(false);
 
     CommandBuffer.pushCallback(this.callback.bind(this));
@@ -58,10 +73,10 @@ export class Controls {
   }
 
   public callback(command: ICommand): void {
+    this.enableButtons();
     if(command.action === "changeRib") {
       this.rib = command.rib;
     } else if(command.action === "lineMove" || command.action === "lineNew") {
-      console.log(command.options);
       const line = ComponentBuffer.buffer[this.rib][this.selectedComponent];
       if(line) {
         this.setSelected("Mirror line", line.options.indexOf("mirror") >= 0);
@@ -72,6 +87,7 @@ export class Controls {
   public controlCallback(key: string, value: any) {
     console.log("controlCallback(key: ", key, ", value: ", value, ")");
 
+    this.enableButtons();
     if(key.startsWith("line_")) {
       const line = ComponentBuffer.buffer[this.rib][key];
       this.enableLineSpecific(value);
@@ -86,6 +102,28 @@ export class Controls {
     }
   }
 
+  private enableButtons() {
+    [].forEach.call(this.buttons, (button) => {
+      const buttonLabel = button.getAttribute("data-balloon");
+      switch(buttonLabel) {
+        case "Undo":
+          if(CommandBuffer.undoAvaliable()) {
+            button.classList.remove("pure-button-disabled");
+          } else {
+            button.classList.add("pure-button-disabled");
+          }
+          break;
+        case "Redo":
+          if(CommandBuffer.redoAvaliable()) {
+            button.classList.remove("pure-button-disabled");
+          } else {
+            button.classList.add("pure-button-disabled");
+          }
+          break;
+      }
+    });
+  }
+
   private enableLineSpecific(value: boolean) {
     [].forEach.call(this.buttons, (button) => {
       const buttonLabel = button.getAttribute("data-balloon");
@@ -97,6 +135,7 @@ export class Controls {
           } else {
             button.classList.add("pure-button-disabled");
           }
+          break;
       }
     });
   }
@@ -161,25 +200,6 @@ export class CrossSection extends Konva.Stage {
     const controlLayer = new Konva.Layer();
     this.add(controlLayer);
     this.controlPannel = new ControlPanel();
-    this.controlPannel.addButton("lineNew", (buttonName) => {
-      const command: ICommand = {
-        action: "lineNew",
-        name: MovableLine.makeName(),
-        rib: this.rib(),
-        time: Date.now(),
-      };
-      CommandBuffer.push(command);
-    }, "red");
-    this.controlPannel.addButton("lineNewMirror", (buttonName) => {
-      const command: ICommand = {
-        action: "lineNew",
-        name: MovableLine.makeName(),
-        rib: this.rib(),
-        time: Date.now(),
-        options: ["mirror"],
-      };
-      CommandBuffer.push(command);
-    }, "red");
     this.controlPannel.addText(this, "rib", "lightgreen");
     this.controlPannel.addButton("test2", (buttonName) => {
       console.log(CommandBuffer.summary());
@@ -276,6 +296,9 @@ export class CrossSection extends Konva.Stage {
 
   private setPositionLine(command: ICommand) {
     const line = this.buffer[command.rib][command.name];
+    if(line === undefined) {
+      return;
+    }
     line.setPosition(command);
   }
 
