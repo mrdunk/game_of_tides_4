@@ -8,8 +8,8 @@ console.log("shipyard.ts");
 
 
 window.onload = () => {
-  CommandBuffer.init();
   const crossSection = new CrossSection();
   const sideView = new SideView();
   const controls = new Controls();
+  CommandBuffer.init();
 };

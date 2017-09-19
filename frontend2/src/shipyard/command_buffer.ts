@@ -32,6 +32,10 @@ export class CommandBuffer {
     }
 
     CommandBuffer.buffer = JSON.parse(commands);
+
+    while(CommandBuffer.redoAvaliable()) {
+      CommandBuffer.redo();
+    }
   }
 
   public static save() {
@@ -103,6 +107,9 @@ export class CommandBuffer {
       };
     } else if(lastCommand.action === "lineMove") {
       const previousCommand = CommandBuffer.findPrevious(lastCommand.name);
+      if(!previousCommand) {
+        return;
+      }
       console.log(previousCommand);
       let options: string[] = [] as string[];
       if(previousCommand.options !== undefined) {
@@ -145,6 +152,11 @@ export class CommandBuffer {
     const nextCommand = CommandBuffer.buffer[CommandBuffer.pointer -1];
     console.assert(nextCommand !== undefined,
                    "invalid command at " + (CommandBuffer.pointer -1));
+    const nextIndex = parseInt(nextCommand.name.split("_")[1], 10);
+    console.log(nextCommand.name, nextIndex);
+    if(nextIndex >= MovableLine.counter) {
+      MovableLine.counter = nextIndex +1;
+    }
     CommandBuffer.callbacks.forEach((callback) => {
       callback(nextCommand);
     });

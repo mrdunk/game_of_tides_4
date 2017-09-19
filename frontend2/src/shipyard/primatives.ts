@@ -4,7 +4,7 @@ import * as Konva from "konva";
 import {CommandBuffer, ICommand} from "./command_buffer";
 import {ComponentBuffer, IComponent} from "./component_buffer";
 
-const snapDistance = 10;
+const snapDistance = 5;
 const gridSize = 50;
 const defaultNewLinePos = [20, 20, 20, 120];
 const defaultNewLinePos2 = [-defaultNewLinePos[0],
@@ -200,13 +200,13 @@ class MovableLineCap extends Konva.Circle {
     this.name(name);
 
     this.on("mouseover", () => {
-      this.line.highlight(true, mirrorSide);
+      this.line.hoverHighlight(true, mirrorSide);
       this.fill("red");
       this.draw();
       document.body.style.cursor = "pointer";
     });
     this.on("mouseout", () => {
-      this.line.highlight(false, mirrorSide);
+      this.line.hoverHighlight(false, mirrorSide);
       document.body.style.cursor = "default";
     });
     this.on("dragstart", () => {
@@ -214,7 +214,6 @@ class MovableLineCap extends Konva.Circle {
       this.fill("yellow");
       this.draw();
       this.line.moving(true, mirrorSide);
-      this.line.unSelectAll();
     });
     this.on("dragend", () => {
       this.fill("lightblue");
@@ -226,10 +225,10 @@ class MovableLineCap extends Konva.Circle {
       this.fill("yellow");
       this.draw();
       this.line.movedCap(mirrorSide);
-      this.line.select(mirrorSide);
+      this.line.select();
     });
     this.on("click", () => {
-      this.line.select(mirrorSide);
+      this.line.select();
     });
   }
 }
@@ -246,28 +245,29 @@ class MovableLineLine extends Konva.Line {
     this.name(line.name());
 
     this.on("mouseover", () => {
-      this.line.highlight(true, mirrorSide);
+      this.line.hoverHighlight(true, mirrorSide);
       document.body.style.cursor = "pointer";
     });
     this.on("mouseout", () => {
-      this.line.highlight(false, mirrorSide);
+      this.line.hoverHighlight(false, mirrorSide);
       document.body.style.cursor = "default";
     });
     this.on("click", () => {
-      this.line.select(mirrorSide);
+      this.line.select();
     });
   }
 
 }
 
 export class MovableLine extends Konva.Group {
+  public static counter: number = 0;
+
   public static makeName(): string {
     const returnValue = "line_" + MovableLine.counter;
     MovableLine.counter++;
     return returnValue;
   }
 
-  private static counter: number = 0;
   public a: MovableLineCap;
   public b: MovableLineCap;
   public line: MovableLineLine;
@@ -276,9 +276,8 @@ export class MovableLine extends Konva.Group {
   public line2: MovableLineLine;
   public mirrored: boolean;
 
-  constructor(private lineSelectCallback: (lineName: string,
-                                           value: boolean)=>void,
-              private rib: number,
+  constructor(private lineSelectCallback: (lineName: string)=>void,
+              public rib: number,
               private neighbours: {[name: string]: MovableLine},
               private overideName?: string,
               private options?: [string]) {
@@ -359,9 +358,11 @@ export class MovableLine extends Konva.Group {
     this.storeComponent();
   }
 
-  public select(mirrorSide: number) {
-    console.log("click");
-    this.unSelectAll();
+  public select() {
+    this.lineSelectCallback(this.name());
+  }
+
+  public selectHighlight(mirrorSide: number) {
     if(this.options.indexOf("selected") < 0) {
       this.options.push("selected");
     }
@@ -371,10 +372,19 @@ export class MovableLine extends Konva.Group {
       this.line2.stroke("red");
       this.line2.draw();
     }
-    this.lineSelectCallback(this.name(), true);
   }
 
-  public unSelectAll() {
+  public unSelectHighlight() {
+    console.log(this.line);
+    const optionsIndex = this.options.indexOf("selected");
+    if(optionsIndex >= 0) {
+      this.options.splice(optionsIndex, 1);
+      this.hoverHighlight(false, 0);
+      this.hoverHighlight(false, 1);
+    }
+  }
+
+  public unSelectHighlightAll() {
     for(const key in this.neighbours) {
       if(!this.neighbours.hasOwnProperty(key)) {
         continue;
@@ -383,14 +393,13 @@ export class MovableLine extends Konva.Group {
       const optionsIndex = neighbour.options.indexOf("selected");
       if(optionsIndex >= 0) {
         neighbour.options.splice(optionsIndex, 1);
-        neighbour.highlight(false, 0);
-        neighbour.highlight(false, 1);
-        this.lineSelectCallback(neighbour.name(), false);
+        neighbour.hoverHighlight(false, 0);
+        neighbour.hoverHighlight(false, 1);
       }
     }
   }
 
-  public highlight(state: boolean, mirrorSide: number) {
+  public hoverHighlight(state: boolean, mirrorSide: number) {
     if(mirrorSide > 0 && !this.mirrored) {
       return;
     }
@@ -679,6 +688,48 @@ export class Scale extends Konva.Group {
     });
     this.add(centre);
 
+    return super.draw();
+  }
+}
+
+export class AllRibs extends Konva.Group {
+  public rib: number;
+
+  constructor() {
+    super();
+    this.listening(false);
+    this.rib = 0;
+  }
+
+  public draw(): Konva.Node {
+    this.destroyChildren();
+
+    for(const rib in ComponentBuffer.buffer) {
+      if(!ComponentBuffer.buffer.hasOwnProperty(rib)) {
+        continue;
+      }
+      for(const name in ComponentBuffer.buffer[rib]) {
+        if(!ComponentBuffer.buffer[rib].hasOwnProperty(name)) {
+          continue;
+        }
+        const data = ComponentBuffer.buffer[rib][name];
+        const line = new Konva.Line({
+          points: [data.xa, data.ya, data.xb, data.yb],
+          stroke: "black",
+          strokeWidth: 1,
+        });
+        this.add(line);
+        if(data.options.indexOf("mirror") < 0) {
+          continue;
+        }
+        const line2 = new Konva.Line({
+          points: [-data.xa, data.ya, -data.xb, data.yb],
+          stroke: "black",
+          strokeWidth: 1,
+        });
+        this.add(line2);
+      }
+    }
     return super.draw();
   }
 }
