@@ -735,14 +735,15 @@ export class AllRibs extends Konva.Group {
 }
 
 export class Modal {
+  public element: HTMLDivElement;
   private background: HTMLDivElement;
-  private element: HTMLDivElement;
 
   constructor() {
-    this.background = <HTMLDivElement>document.getElementById("modalBackground");
-    this.element = <HTMLDivElement>document.getElementById("modalContent");
+    this.background =
+      document.getElementById("modalBackground") as HTMLDivElement;
+    this.element = document.getElementById("modalContent") as HTMLDivElement;
     this.background.addEventListener("click", this.hide.bind(this));
-    this.element.addEventListener("click", this.hide.bind(this));
+    // this.element.addEventListener("click", this.hide.bind(this));
     this.hide();
   }
 
@@ -756,4 +757,44 @@ export class Modal {
     this.background.style.display = "none";
     this.element.style.display = "none";
   }
+
+  public clear() {
+    while(this.element.firstChild) {
+      this.element.removeChild(this.element.firstChild);
+    }
+    // this.element.innerHTML = "";
+  }
+
+  public add(content: HTMLDivElement) {
+    this.element.appendChild(content);
+  }
 }
+
+export class BackgroundImage extends Konva.Group {
+  private element: HTMLDivElement;
+
+  constructor(resizeCallback: ()=>void) {
+    super();
+    this.element = document.createElement("div");
+    const imageObj = new Image();
+    imageObj.onload = () => {
+      console.log(imageObj.width, imageObj.height);
+      this.width(imageObj.width);
+      this.height(imageObj.height);
+
+      this.add(new Konva.Image({
+        x: 0,
+        y: 50,
+        image: imageObj,
+        width: imageObj.width,
+        height: imageObj.height,
+      }));
+      resizeCallback();
+      this.draw();
+    };
+    imageObj.src =
+      "https://upload.wikimedia.org/wikipedia/commons/" +
+      "9/91/Plan_of_HMS_Surprise.jpg";
+  }
+}
+

@@ -47,10 +47,13 @@ div.modalContent {
   width: 75%;
   left: 50%;
   margin-left: -37.5%;
-  height:100px;
   background-color: white;
   border: solid 4px black;
   border-color: black;
   z-index: 100;
   display: none;
+}
+
+#BackgroundPickerImage {
+  overflow-x: scroll;
 }

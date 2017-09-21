@@ -5,6 +5,7 @@ import {CommandBuffer, ICommand} from "./command_buffer";
 import {ComponentBuffer} from "./component_buffer";
 import {
   AllRibs,
+  BackgroundImage,
   Button2,
   ControlPanel,
   Modal,
@@ -65,7 +66,8 @@ export class Controls {
           button.addEventListener("click", this.modal.show.bind(this.modal));
           break;
         case "Background picture":
-          button.addEventListener("click", this.modal.show.bind(this.modal));
+          button.addEventListener("click",
+                                  this.onBackgroundPicture.bind(this));
           break;
         case "Clear all":
           button.addEventListener("click", this.modal.show.bind(this.modal));
@@ -118,6 +120,15 @@ export class Controls {
     }
 
     this.enableButtons();
+  }
+
+  private onBackgroundPicture() {
+    this.modal.clear();
+    this.modal.show();
+    const width = this.modal.element.offsetWidth;
+    const height = this.modal.element.offsetHeight;
+    const backgroundPicker = new BackgroundPicker(width, height);
+    this.modal.add(backgroundPicker.element);
   }
 
   private enableButtons() {
@@ -526,3 +537,41 @@ export class SideView extends Konva.Stage {
   }
 }
 
+class BackgroundPicker {
+  public element: HTMLDivElement;
+  private image: HTMLDivElement;
+  private stage: Konva.Stage;
+  private content: BackgroundImage;
+
+  constructor(width: number, height: number) {
+    this.element = document.createElement("div");
+
+    const template = document.querySelector("#BackgroundPickerTemplate");
+    // const buttons = template.content.querySelectorAll("div");
+    const clone = document.importNode(template.content, true);
+    this.element.appendChild(clone);
+
+
+    this.content = new BackgroundImage(this.resizeCallback.bind(this));
+    console.log(this.content.width(), this.content.height());
+
+    this.image = document.createElement("div");
+    this.image.id = "BackgroundPickerImage";
+    this.element.appendChild(this.image);
+
+    this.stage = new Konva.Stage({
+      container: this.image,
+      width: 800,  // Will resize when resizeCallback() is triggered.
+      height: 800,
+    });
+    const layer = new Konva.Layer();
+
+    layer.add(this.content);
+    this.stage.add(layer);
+  }
+
+  public resizeCallback() {
+    this.stage.width(this.content.width());
+    this.stage.height(this.content.height());
+  }
+}
