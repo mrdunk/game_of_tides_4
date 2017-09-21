@@ -280,7 +280,7 @@ export class MovableLine extends Konva.Group {
               public rib: number,
               private neighbours: {[name: string]: MovableLine},
               private overideName?: string,
-              private options?: [string]) {
+              public options?: [string]) {
     super();
     if(overideName) {
       this.name(overideName);
@@ -734,3 +734,26 @@ export class AllRibs extends Konva.Group {
   }
 }
 
+export class Modal {
+  private background: HTMLDivElement;
+  private element: HTMLDivElement;
+
+  constructor() {
+    this.background = <HTMLDivElement>document.getElementById("modalBackground");
+    this.element = <HTMLDivElement>document.getElementById("modalContent");
+    this.background.addEventListener("click", this.hide.bind(this));
+    this.element.addEventListener("click", this.hide.bind(this));
+    this.hide();
+  }
+
+  public show() {
+    console.log("Modal.show()");
+    this.background.style.display = "block";
+    this.element.style.display = "block";
+  }
+
+  public hide() {
+    this.background.style.display = "none";
+    this.element.style.display = "none";
+  }
+}

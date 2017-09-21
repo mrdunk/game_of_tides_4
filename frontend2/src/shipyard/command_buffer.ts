@@ -105,12 +105,14 @@ export class CommandBuffer {
         rib: lastCommand.rib,
         time: lastCommand.time,
       };
+      CommandBuffer.callbacks.forEach((callback) => {
+        callback(targetCommand);
+      });
     } else if(lastCommand.action === "lineMove") {
       const previousCommand = CommandBuffer.findPrevious(lastCommand.name);
       if(!previousCommand) {
         return;
       }
-      console.log(previousCommand);
       let options: string[] = [] as string[];
       if(previousCommand.options !== undefined) {
         options = previousCommand.options.slice();
@@ -126,6 +128,9 @@ export class CommandBuffer {
         yb: previousCommand.yb,
         options,
       };
+      CommandBuffer.callbacks.forEach((callback) => {
+        callback(targetCommand);
+      });
     } else if(lastCommand.action === "changeRib") {
       targetCommand = CommandBuffer.findPrevious(lastCommand.name);
       if(targetCommand === undefined) {
@@ -136,10 +141,31 @@ export class CommandBuffer {
           rib: 0,
         };
       }
+      CommandBuffer.callbacks.forEach((callback) => {
+        callback(targetCommand);
+      });
+    } else if(lastCommand.action === "lineDelete") {
+      targetCommand = {
+        action: "lineNew",
+        name: lastCommand.name,
+        rib: lastCommand.rib,
+        time: lastCommand.time,
+        xa: lastCommand.xa,
+        ya: lastCommand.ya,
+        xb: lastCommand.xb,
+        yb: lastCommand.yb,
+        options: lastCommand.options.slice(),
+      };
+      CommandBuffer.callbacks.forEach((callback) => {
+        callback(targetCommand);
+      });
+      targetCommand.action = "lineMove";
+      CommandBuffer.callbacks.forEach((callback) => {
+        callback(targetCommand);
+      });
+    } else {
+      return;
     }
-    CommandBuffer.callbacks.forEach((callback) => {
-      callback(targetCommand);
-    });
   }
 
   public static redo() {

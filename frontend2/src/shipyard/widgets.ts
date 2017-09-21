@@ -7,6 +7,7 @@ import {
   AllRibs,
   Button2,
   ControlPanel,
+  Modal,
   MovableLine,
   Scale,
   StaticLine} from "./primatives";
@@ -29,10 +30,13 @@ export class Controls {
   private rib: number;
   private selectedComponent: string;
   private buttons: HTMLCollectionOf<Element>;
+  private modal: Modal;
+
   constructor() {
     this.rib = 0;
     this.selectedComponent = "";
     this.buttons = document.getElementsByClassName("pure-button");
+    this.modal = new Modal();
     [].forEach.call(this.buttons, (button) => {
       const buttonLabel = button.getAttribute("data-balloon");
       switch(buttonLabel) {
@@ -56,6 +60,15 @@ export class Controls {
           break;
         case "Upload":
           button.addEventListener("click", CommandBuffer.save);
+          break;
+        case "Download":
+          button.addEventListener("click", this.modal.show.bind(this.modal));
+          break;
+        case "Background picture":
+          button.addEventListener("click", this.modal.show.bind(this.modal));
+          break;
+        case "Clear all":
+          button.addEventListener("click", this.modal.show.bind(this.modal));
           break;
         default:
           // Any button clicks that are not used here should be sent on to all
@@ -233,15 +246,29 @@ export class CrossSection extends Konva.Stage {
 
   public controlCallback(key: string, value: any) {
     console.log("controlCallback(key: ", key, ", value: ", value, ")");
-
+    let command: ICommand;
     switch(key) {
+      case "Delete line":
+        command = {
+          action: "lineDelete",
+          name: this.selectedLine.name(),
+          rib: this.rib(),
+          time: Date.now(),
+          xa: this.selectedLine.a.x(),
+          ya: this.selectedLine.a.y(),
+          xb: this.selectedLine.b.x(),
+          yb: this.selectedLine.b.y(),
+          options: this.selectedLine.options.slice() as [string],
+        };
+        CommandBuffer.push(command);
+        break;
       case "Mirror line":
         const options: [string] = [] as [string];
         if(value) {
           options.push("mirror");
         }
 
-        const command: ICommand = {
+        command = {
           action: "lineMove",
           name: this.selectedLine.name(),
           rib: this.rib(),
@@ -266,6 +293,7 @@ export class CrossSection extends Konva.Stage {
   }
 
   public callback(command: ICommand): void {
+    console.log(command);
     if(command.action === "changeRib") {
       if(this.selectedLine) {
         this.selectedLine.unSelectHighlight();
