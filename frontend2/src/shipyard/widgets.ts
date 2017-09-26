@@ -542,15 +542,33 @@ class BackgroundPicker {
   private image: HTMLDivElement;
   private stage: Konva.Stage;
   private content: BackgroundImage;
+  private buttons: [HTMLDivElement];
 
   constructor(width: number, height: number) {
     this.element = document.createElement("div");
+    this.buttons = [] as [HTMLDivElement];
 
     const template = document.querySelector("#BackgroundPickerTemplate");
-    // const buttons = template.content.querySelectorAll("div");
-    const clone = document.importNode(template.content, true);
-    this.element.appendChild(clone);
+    const buttons = template.querySelectorAll("div");
+    for(let index = 0; index < buttons.length; index++) {
+      const button = buttons[index];
+      const clone = document.importNode(button, true);
+      this.element.appendChild(clone);
+      this.buttons.push(clone);
 
+      const buttonLabel = clone.getAttribute("data-balloon");
+      switch(buttonLabel) {
+        case "Zoom in":
+          clone.addEventListener("click", this.zoomIn.bind(this));
+          break;
+        case "Zoom out":
+          clone.addEventListener("click", this.zoomOut.bind(this));
+          break;
+        case "Cross section":
+          clone.addEventListener("click", this.toggleCrossSection.bind(this));
+          break;
+      }
+    }
 
     this.content = new BackgroundImage(this.resizeCallback.bind(this));
     console.log(this.content.width(), this.content.height());
@@ -568,10 +586,38 @@ class BackgroundPicker {
 
     layer.add(this.content);
     this.stage.add(layer);
+    
+    this.setButton("Cross section", this.content.viewCrossSection());
   }
 
   public resizeCallback() {
     this.stage.width(this.content.width());
     this.stage.height(this.content.height());
+  }
+
+  private zoomIn() {
+    this.content.zoomIn();
+  }
+
+  private zoomOut() {
+    this.content.zoomOut();
+  }
+
+  private toggleCrossSection() {
+    this.content.viewCrossSection(!this.content.viewCrossSection());
+    this.setButton("Cross section", this.content.viewCrossSection());
+  }
+
+  private setButton(label: string, value: boolean) {
+    this.buttons.forEach((button) => {
+      const buttonLabel = button.getAttribute("data-balloon");
+      if(buttonLabel === label) {
+        if(value) {
+          button.classList.add("pure-button-active");
+        } else {
+          button.classList.remove("pure-button-active");
+        }
+      }
+    });
   }
 }

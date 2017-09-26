@@ -772,8 +772,10 @@ export class Modal {
 
 export class BackgroundImage extends Konva.Group {
   private element: HTMLDivElement;
+  private image: Konva.Image;
+  private boxCrossSection: Konva.Group;
 
-  constructor(resizeCallback: ()=>void) {
+  constructor(private resizeCallback: ()=>void) {
     super();
     this.element = document.createElement("div");
     const imageObj = new Image();
@@ -782,19 +784,88 @@ export class BackgroundImage extends Konva.Group {
       this.width(imageObj.width);
       this.height(imageObj.height);
 
-      this.add(new Konva.Image({
+      this.image = new Konva.Image({
         x: 0,
         y: 50,
         image: imageObj,
         width: imageObj.width,
         height: imageObj.height,
-      }));
+      });
+      this.add(this.image);
       resizeCallback();
       this.draw();
     };
     imageObj.src =
       "https://upload.wikimedia.org/wikipedia/commons/" +
       "9/91/Plan_of_HMS_Surprise.jpg";
+
+    this.boxCrossSection = new Konva.Group({
+      x: 0,
+      y: 50,
+      draggable: true,
+    });
+    const box = new Konva.Rect({
+      x: 0,
+      y: 0,
+      width: 400,
+      height: 400,
+      stroke: "red",
+      strokeWidth: 2,
+      draggable: false,
+    });
+    const midline = new Konva.Line({
+      points: [200, 0, 200, 400],
+      stroke: "red",
+      strokeWidth: 2,
+      draggable: false,
+    });
+    const waterline = new Konva.Line({
+      points: [0, 200, 400, 200],
+      stroke: "blue",
+      strokeWidth: 2,
+      draggable: false,
+    });
+    this.boxCrossSection.add(box);
+    this.boxCrossSection.add(midline);
+    this.boxCrossSection.add(waterline);
+    this.add(this.boxCrossSection);
+
+    this.boxCrossSection.on("dragstart", () => {
+      console.log("this.boxCrossSection.on dragstart");
+    });
+  }
+
+  public zoomIn() {
+    this.width(this.width() * 1.02);
+    this.height(this.height() * 1.02);
+    this.image.scaleX(this.image.scaleX() * 1.02);
+    this.image.scaleY(this.image.scaleY() * 1.02);
+    this.resizeCallback();
+    this.draw();
+  }
+
+  public zoomOut() {
+    this.width(this.width() / 1.02);
+    this.height(this.height() / 1.02);
+    this.image.scaleX(this.image.scaleX() / 1.02);
+    this.image.scaleY(this.image.scaleY() / 1.02);
+    this.resizeCallback();
+    this.draw();
+  }
+
+  public draw() {
+    const returnVal = super.draw();
+    this.boxCrossSection.moveToTop();
+    return returnVal;
+  }
+
+  public viewCrossSection(value?: boolean) {
+    if(value !== undefined) {
+      this.boxCrossSection.visible(value);
+      this.draw();
+    }
+
+    return this.boxCrossSection.visible();
   }
 }
 
