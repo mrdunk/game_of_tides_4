@@ -3,6 +3,7 @@
 import * as Konva from "konva";
 import {CommandBuffer, ICommand} from "./command_buffer";
 import {ComponentBuffer, IComponent} from "./component_buffer";
+import {ImageLoader} from "./image_loader";
 
 const snapDistance = 5;
 const gridSize = 50;
@@ -626,13 +627,54 @@ export class StaticLine extends Konva.Group {
   }
 }
 
+export interface IScaleBackgroundImage {
+  imageUrl?: string;
+  offsetX?: number;
+  offsetY?: number;
+  scaleX?: number;
+  scaleY?: number;
+}
+
 export class Scale extends Konva.Group {
   public rib: number;
+  private backgroundImage: Konva.Image;
 
-  constructor() {
+  constructor(private imageUrl: string) {
     super();
     this.listening(false);
     this.rib = 0;
+
+    this.updateBackgroundImage({imageUrl});
+  }
+
+  public updateBackgroundImage(imagePerams) {
+    if(imagePerams.imageUrl !== undefined) {
+      this.imageUrl = imagePerams.imageUrl;
+      ImageLoader.get(this.imageUrl, (imageObj) => {
+        this.backgroundImage = new Konva.Image({
+          x: this.width() / 2,
+          y: this.height() / 2,
+          image: imageObj,
+          width: imageObj.width,
+          height: imageObj.height,
+          opacity: 0.7,
+        });
+        this.draw();
+        this.getStage().draw();
+      });
+    }
+
+    if(this.backgroundImage &&
+       imagePerams.offsetX !== undefined &&
+       imagePerams.offsetY !== undefined) {
+      this.backgroundImage.x(-imagePerams.offsetX);
+      this.backgroundImage.y(-imagePerams.offsetY);
+      this.backgroundImage.scaleX(imagePerams.scaleX);
+      this.backgroundImage.scaleY(imagePerams.scaleY);
+
+      this.draw();
+      this.getStage().draw();
+    }
   }
 
   public draw(): Konva.Node {
@@ -659,6 +701,11 @@ export class Scale extends Konva.Group {
       fill: "#C4E0E5",
     });
     this.add(sky);
+
+    if(this.backgroundImage) {
+      this.add(this.backgroundImage);
+      this.backgroundImage.draw();
+    }
 
     const xStart = -Math.round(this.width() / 2 / gridSize) * gridSize;
     const YStart = -Math.round(this.height() / 2 / gridSize) * gridSize;
@@ -771,56 +818,58 @@ export class Modal {
 }
 
 export class BackgroundImage extends Konva.Group {
-  private element: HTMLDivElement;
-  private image: Konva.Image;
+  public image: Konva.Image;
   private boxCrossSection: Konva.Group;
+  private posX: number;
+  private posY: number;
+  private readonly boxWidth = 400;
+  private readonly boxHeight = 400;
 
-  constructor(private resizeCallback: ()=>void) {
+  constructor(private resizeCallback: (x: number, y: number)=>void) {
     super();
-    this.element = document.createElement("div");
-    const imageObj = new Image();
-    imageObj.onload = () => {
-      console.log(imageObj.width, imageObj.height);
+    this.posX = this.boxWidth / 2;
+    this.posY = this.boxHeight / 2;
+    const imageUrl =
+      "https://upload.wikimedia.org/wikipedia/commons/" +
+      "9/91/Plan_of_HMS_Surprise.jpg";
+    ImageLoader.get(imageUrl, (imageObj) => {
       this.width(imageObj.width);
       this.height(imageObj.height);
 
       this.image = new Konva.Image({
         x: 0,
-        y: 50,
+        y: 0,
         image: imageObj,
         width: imageObj.width,
         height: imageObj.height,
       });
       this.add(this.image);
-      resizeCallback();
+      resizeCallback(this.posX, this.posY);
       this.draw();
-    };
-    imageObj.src =
-      "https://upload.wikimedia.org/wikipedia/commons/" +
-      "9/91/Plan_of_HMS_Surprise.jpg";
+    });
 
     this.boxCrossSection = new Konva.Group({
       x: 0,
-      y: 50,
+      y: 0,
       draggable: true,
     });
     const box = new Konva.Rect({
       x: 0,
       y: 0,
-      width: 400,
-      height: 400,
+      width: this.boxWidth,
+      height: this.boxHeight,
       stroke: "red",
       strokeWidth: 2,
       draggable: false,
     });
     const midline = new Konva.Line({
-      points: [200, 0, 200, 400],
+      points: [this.boxWidth / 2, 0, this.boxWidth / 2, this.boxHeight],
       stroke: "red",
       strokeWidth: 2,
       draggable: false,
     });
     const waterline = new Konva.Line({
-      points: [0, 200, 400, 200],
+      points: [0, this.boxHeight / 2, this.boxWidth, this.boxHeight / 2],
       stroke: "blue",
       strokeWidth: 2,
       draggable: false,
@@ -833,6 +882,13 @@ export class BackgroundImage extends Konva.Group {
     this.boxCrossSection.on("dragstart", () => {
       console.log("this.boxCrossSection.on dragstart");
     });
+    this.boxCrossSection.on("dragmove", this.moveBox.bind(this));
+  }
+
+  public moveBox(event) {
+    this.posX = event.target.attrs.x + (this.boxWidth / 2);
+    this.posY = event.target.attrs.y + (this.boxHeight / 2);
+    this.resizeCallback(this.posX, this.posY);
   }
 
   public zoomIn() {
@@ -840,7 +896,7 @@ export class BackgroundImage extends Konva.Group {
     this.height(this.height() * 1.02);
     this.image.scaleX(this.image.scaleX() * 1.02);
     this.image.scaleY(this.image.scaleY() * 1.02);
-    this.resizeCallback();
+    this.resizeCallback(this.posX, this.posY);
     this.draw();
   }
 
@@ -849,11 +905,12 @@ export class BackgroundImage extends Konva.Group {
     this.height(this.height() / 1.02);
     this.image.scaleX(this.image.scaleX() / 1.02);
     this.image.scaleY(this.image.scaleY() / 1.02);
-    this.resizeCallback();
+    this.resizeCallback(this.posX, this.posY);
     this.draw();
   }
 
   public draw() {
+    this.getLayer().clear();
     const returnVal = super.draw();
     this.boxCrossSection.moveToTop();
     return returnVal;

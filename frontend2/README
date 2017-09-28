@@ -5,7 +5,7 @@ To view gulp targets:
   $ gulp -T
 
 To compile code and run test server:
-  $ gulp serve
+  $ gulp browser
 
 View latest version here:
   http://mrdunk.github.io/game_of_tides_4/frontend2/dist/index.html

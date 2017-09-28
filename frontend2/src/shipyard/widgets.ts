@@ -3,6 +3,7 @@
 import * as Konva from "konva";
 import {CommandBuffer, ICommand} from "./command_buffer";
 import {ComponentBuffer} from "./component_buffer";
+import {ImageLoader} from "./image_loader";
 import {
   AllRibs,
   BackgroundImage,
@@ -32,12 +33,17 @@ export class Controls {
   private selectedComponent: string;
   private buttons: HTMLCollectionOf<Element>;
   private modal: Modal;
+  private backgroundPicker: BackgroundPicker;
 
   constructor() {
     this.rib = 0;
     this.selectedComponent = "";
-    this.buttons = document.getElementsByClassName("pure-button");
     this.modal = new Modal();
+    const width = this.modal.element.offsetWidth;
+    const height = this.modal.element.offsetHeight;
+    this.backgroundPicker = new BackgroundPicker(width, height);
+
+    this.buttons = document.getElementsByClassName("pure-button");
     [].forEach.call(this.buttons, (button) => {
       const buttonLabel = button.getAttribute("data-balloon");
       switch(buttonLabel) {
@@ -101,7 +107,7 @@ export class Controls {
   }
 
   public controlCallback(key: string, value: any) {
-    console.log("controlCallback(key: ", key, ", value: ", value, ")");
+    // console.log("controlCallback(key: ", key, ", value: ", value, ")");
 
     if(key.startsWith("line_")) {
       this.selectedComponent = "";
@@ -125,10 +131,7 @@ export class Controls {
   private onBackgroundPicture() {
     this.modal.clear();
     this.modal.show();
-    const width = this.modal.element.offsetWidth;
-    const height = this.modal.element.offsetHeight;
-    const backgroundPicker = new BackgroundPicker(width, height);
-    this.modal.add(backgroundPicker.element);
+    this.modal.add(this.backgroundPicker.element);
   }
 
   private enableButtons() {
@@ -211,6 +214,7 @@ export class CrossSection extends Konva.Stage {
   private buffer: ICrossSectionBuffer;
   private selectedLine: MovableLine;
   private allRibs: AllRibs;
+  private background: Scale;
 
   constructor() {
     const container = document.getElementById("crossSection");
@@ -229,9 +233,12 @@ export class CrossSection extends Konva.Stage {
     this.drawLayer.offsetY(- container.offsetHeight / 2);
     this.add(this.drawLayer);
 
-    const scale = new Scale();
-    this.drawLayer.add(scale);
-    scale.draw();
+    const imageUrl =
+      "https://upload.wikimedia.org/wikipedia/commons/" +
+      "9/91/Plan_of_HMS_Surprise.jpg";
+    this.background = new Scale(imageUrl);
+    this.drawLayer.add(this.background);
+    this.background.draw();
 
     this.allRibs = new AllRibs();
     this.drawLayer.add(this.allRibs);
@@ -256,7 +263,7 @@ export class CrossSection extends Konva.Stage {
   }
 
   public controlCallback(key: string, value: any) {
-    console.log("controlCallback(key: ", key, ", value: ", value, ")");
+    // console.log("controlCallback(key: ", key, ", value: ", value, ")");
     let command: ICommand;
     switch(key) {
       case "Delete line":
@@ -298,6 +305,15 @@ export class CrossSection extends Konva.Stage {
         this.drawLayer.draw();
         UserInterfaceClickCallbacks.forEach((callback) => {
           callback("allRibs", this.allRibs.visible());
+        });
+        break;
+      case "backgroundMove":
+        console.log(value);
+        this.background.updateBackgroundImage({
+          offsetX: value[0],
+          offsetY: value[1],
+          scaleX: value[2],
+          scaleY: value[3],
         });
         break;
     }
@@ -440,11 +456,12 @@ export class SideView extends Konva.Stage {
     this.offsetY(- container.offsetHeight / 2);
 
     this.drawLayer = new Konva.Layer();
-    // this.drawLayer.offsetX(- container.offsetWidth / 2);
-    // this.drawLayer.offsetY(- container.offsetHeight / 2);
     this.add(this.drawLayer);
 
-    this.background = new Scale();
+    const imageUrl =
+      "https://upload.wikimedia.org/wikipedia/commons/" +
+      "9/91/Plan_of_HMS_Surprise.jpg";
+    this.background = new Scale(imageUrl);
     this.drawLayer.add(this.background);
     this.background.draw();
 
@@ -472,7 +489,17 @@ export class SideView extends Konva.Stage {
   }
 
   public controlCallback(key: string, value: any) {
-    console.log("controlCallback(key: ", key, ", value: ", value, ")");
+    /*switch(key) {
+      case "backgroundMove":
+        console.log(value);
+        this.background.updateBackgroundImage({
+          offsetX: value[0],
+          offsetY: value[1],
+          scaleX: value[2],
+          scaleY: value[3],
+        });
+        break;
+    }*/
   }
 
   public callback(command: ICommand): void {
@@ -515,7 +542,7 @@ export class SideView extends Konva.Stage {
 
   private setRib(posX) {
     const rib = Math.round(posX / SideView.snapDistance);
-    console.log(rib);
+    console.log("active rib: ", rib);
     const command: ICommand = {
       action: "changeRib",
       name: "changeRib",
@@ -546,6 +573,10 @@ class BackgroundPicker {
 
   constructor(width: number, height: number) {
     this.element = document.createElement("div");
+    this.element.id = "BackgroundPickerElement";
+    this.image = document.createElement("div");
+    this.image.id = "BackgroundPickerImage";
+
     this.buttons = [] as [HTMLDivElement];
 
     const template = document.querySelector("#BackgroundPickerTemplate");
@@ -570,12 +601,10 @@ class BackgroundPicker {
       }
     }
 
+    this.element.appendChild(this.image);
+
     this.content = new BackgroundImage(this.resizeCallback.bind(this));
     console.log(this.content.width(), this.content.height());
-
-    this.image = document.createElement("div");
-    this.image.id = "BackgroundPickerImage";
-    this.element.appendChild(this.image);
 
     this.stage = new Konva.Stage({
       container: this.image,
@@ -586,13 +615,20 @@ class BackgroundPicker {
 
     layer.add(this.content);
     this.stage.add(layer);
-    
+
     this.setButton("Cross section", this.content.viewCrossSection());
   }
 
-  public resizeCallback() {
+  public resizeCallback(posX: number, posY: number) {
+    console.log(this);
     this.stage.width(this.content.width());
     this.stage.height(this.content.height());
+    UserInterfaceClickCallbacks.forEach((callback) => {
+      callback(
+        "backgroundMove",
+        [posX, posY, this.content.image.scaleX(), this.content.image.scaleY()],
+      );
+    });
   }
 
   private zoomIn() {
