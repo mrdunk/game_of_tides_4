@@ -13,176 +13,6 @@ const defaultNewLinePos2 = [-defaultNewLinePos[0],
                             -defaultNewLinePos[2],
                             defaultNewLinePos[3]];
 
-export class ControlPanel extends Konva.Group {
-  private usedWidth: number = 0;
-  private buttons: [Konva.Node] = [] as [Konva.Node];
-  private readonly padding: number = 5;
-  constructor() {
-    super();
-  }
-
-  public draw(): Konva.Node {
-    this.buttons.forEach((button) => {
-      button.draw();
-    });
-    return super.draw();
-  }
-
-  public addButton(name: string, callback: (buttonName: string)=>void, color) {
-    const button = new Button(name, callback, color);
-    button.x(this.usedWidth + button.width() / 2);
-    button.y(button.height() / 2);
-    this.buttons.push(button);
-    this.usedWidth += button.width() + this.padding;
-
-    this.add(button);
-  }
-
-  public addText(parentObject, variable: string, color) {
-    const text = new TextDisplay(parentObject, variable, color);
-    text.x(this.usedWidth + text.width() / 2);
-    text.y(text.height() / 2);
-    this.buttons.push(text);
-    this.usedWidth += text.width() + this.padding;
-
-    this.add(text);
-  }
-}
-
-export class Button extends Konva.Rect {
-  constructor(private nameP: string,
-              private callback: (buttonName: string) => void,
-              private color) {
-    super({
-      width: 60,
-      height: 30,
-      stroke: "black",
-      strokeWidth: 2,
-      fill: color,
-      draggable: false,
-    });
-
-    this.name(nameP);
-
-    this.on("click", () => {
-      console.log("Button.mouseclick");
-      this.callback(this.name());
-    });
-    this.on("mouseover", () => {
-      this.stroke("darkgrey");
-      this.strokeWidth(5);
-      this.draw();
-      document.body.style.cursor = "pointer";
-    });
-    this.on("mouseout", () => {
-      this.stroke("white");
-      this.draw();
-      this.stroke("black");
-      this.strokeWidth(2);
-      this.draw();
-      document.body.style.cursor = "default";
-    });
-  }
-}
-
-class TextDisplay extends Konva.Group {
-  private text: Konva.Text;
-  private background: Konva.Rect;
-
-  constructor(private parentObject, private variable, private color) {
-    super();
-    this.width(60);
-    this.height(30);
-    this.text = new Konva.Text({
-      width: 60,
-      height: 30,
-      text: "rib: " + parentObject[variable](),
-      fontSize: 16,
-      fontFamily: "Calibri",
-      fill: "black",
-      align: "center",
-      padding: 5,
-    });
-    this.background = new Konva.Rect({
-      width: 60,
-      height: 30,
-      stroke: "black",
-      strokeWidth: 2,
-      fill: color,
-      draggable: false,
-    });
-
-    this.add(this.background);
-    this.add(this.text);
-  }
-
-  public draw(): Konva.Node {
-    this.text.text("rib: " + this.parentObject[this.variable]());
-    return super.draw();
-  }
-}
-
-export class Button2 extends Konva.Group {
-  private text: Konva.Text;
-  private background: Konva.Rect;
-
-  constructor(private nameP: string,
-              private callbacks: [(key: string, value: any) => void],
-              private color: string,
-              private label) {
-    super();
-    this.name(nameP);
-    this.width(30);
-    this.height(30);
-    this.text = new Konva.Text({
-      width: 30,
-      height: 30,
-      text: label,
-      fontSize: 16,
-      fontFamily: "Calibri",
-      fill: "black",
-      align: "center",
-      padding: 5,
-    });
-    this.background = new Konva.Rect({
-      width: 30,
-      height: 30,
-      stroke: "black",
-      strokeWidth: 2,
-      fill: color,
-      draggable: false,
-    });
-
-    this.add(this.background);
-    this.add(this.text);
-
-    this.on("click", () => {
-      console.log("Button.mouseclick");
-      this.callbacks.forEach((callback) => {
-        callback(this.name(), this.clickValue());
-      });
-    });
-    this.on("mouseover", () => {
-      this.background.stroke("darkgrey");
-      this.background.strokeWidth(5);
-      this.draw();
-      document.body.style.cursor = "pointer";
-    });
-    this.on("mouseout", () => {
-      this.background.stroke("white");
-      this.background.draw();
-      this.background.stroke("black");
-      this.background.strokeWidth(2);
-      this.draw();
-      document.body.style.cursor = "default";
-    });
-  }
-
-  private clickValue() {
-    return 1;
-  }
-}
-
 class MovableLineCap extends Konva.Circle {
   constructor(private capNo: number, private line: MovableLine) {
     super({
@@ -597,7 +427,7 @@ export class StaticLine extends Konva.Group {
       yb = defaultNewLinePos[3];
     }
 
-    const ribXPos = component.rib * gridSize;
+    const ribXPos = ComponentBuffer.positionRib[component.rib];
     const line = new Konva.Line({
       points: [ribXPos, ya, ribXPos, yb],
       stroke: "black",
@@ -636,18 +466,17 @@ export interface IScaleBackgroundImage {
 }
 
 export class Scale extends Konva.Group {
-  public rib: number;
   private backgroundImage: Konva.Image;
 
   constructor(private imageUrl: string) {
     super();
     this.listening(false);
-    this.rib = 0;
 
     this.updateBackgroundImage({imageUrl});
   }
 
   public updateBackgroundImage(imagePerams) {
+    console.log(imagePerams);
     if(imagePerams.imageUrl !== undefined) {
       this.imageUrl = imagePerams.imageUrl;
       ImageLoader.get(this.imageUrl, (imageObj) => {
@@ -710,8 +539,8 @@ export class Scale extends Konva.Group {
     const xStart = -Math.round(this.width() / 2 / gridSize) * gridSize;
     const YStart = -Math.round(this.height() / 2 / gridSize) * gridSize;
     for(let x = xStart; x < this.width() / 2; x += gridSize) {
-      const stroke = (x === this.rib * gridSize) ? "orange":"darkgrey";
-      const strokeWidth = (x === this.rib * gridSize) ? 5:1;
+      const stroke = "darkgrey";
+      const strokeWidth = 1;
       const vertical = new Konva.Line({
         points: [x, - this.height() / 2, x, this.height() / 2],
         stroke,
@@ -820,15 +649,22 @@ export class Modal {
 export class BackgroundImage extends Konva.Group {
   public image: Konva.Image;
   private boxCrossSection: Konva.Group;
-  private posX: number;
-  private posY: number;
+  private boxLengthSection: Konva.Group;
+  private crossPosX: number;
+  private crossPosY: number;
+  private lengthPosX: number;
+  private lengthPosY: number;
   private readonly boxWidth = 400;
   private readonly boxHeight = 400;
 
-  constructor(private resizeCallback: (x: number, y: number)=>void) {
+  constructor(private resizeCallback: (name: string,
+                                       x: number,
+                                       y: number)=>void) {
     super();
-    this.posX = this.boxWidth / 2;
-    this.posY = this.boxHeight / 2;
+    this.crossPosX = this.boxWidth / 2;
+    this.crossPosY = this.boxHeight / 2;
+    this.lengthPosX = this.boxWidth / 2;
+    this.lengthPosY = this.boxHeight / 2;
     const imageUrl =
       "https://upload.wikimedia.org/wikipedia/commons/" +
       "9/91/Plan_of_HMS_Surprise.jpg";
@@ -844,51 +680,42 @@ export class BackgroundImage extends Konva.Group {
         height: imageObj.height,
       });
       this.add(this.image);
-      resizeCallback(this.posX, this.posY);
+      resizeCallback("crossSection", this.crossPosX, this.crossPosY);
+      resizeCallback("lengthSection", this.lengthPosX, this.lengthPosY);
       this.draw();
     });
 
-    this.boxCrossSection = new Konva.Group({
-      x: 0,
-      y: 0,
-      draggable: true,
-    });
-    const box = new Konva.Rect({
-      x: 0,
-      y: 0,
-      width: this.boxWidth,
-      height: this.boxHeight,
-      stroke: "red",
-      strokeWidth: 2,
-      draggable: false,
-    });
-    const midline = new Konva.Line({
-      points: [this.boxWidth / 2, 0, this.boxWidth / 2, this.boxHeight],
-      stroke: "red",
-      strokeWidth: 2,
-      draggable: false,
-    });
-    const waterline = new Konva.Line({
-      points: [0, this.boxHeight / 2, this.boxWidth, this.boxHeight / 2],
-      stroke: "blue",
-      strokeWidth: 2,
-      draggable: false,
-    });
-    this.boxCrossSection.add(box);
-    this.boxCrossSection.add(midline);
-    this.boxCrossSection.add(waterline);
+    this.boxCrossSection = this.box(
+      "crossSection",
+      this.boxWidth,
+      this.boxHeight,
+      0,
+      0,
+    );
+    this.boxLengthSection = this.box(
+      "lengthSection",
+      this.boxWidth,
+      this.boxHeight,
+      this.boxWidth + 10,
+      0,
+    );
     this.add(this.boxCrossSection);
+    this.add(this.boxLengthSection);
 
-    this.boxCrossSection.on("dragstart", () => {
-      console.log("this.boxCrossSection.on dragstart");
-    });
     this.boxCrossSection.on("dragmove", this.moveBox.bind(this));
+    this.boxLengthSection.on("dragmove", this.moveBox.bind(this));
   }
 
   public moveBox(event) {
-    this.posX = event.target.attrs.x + (this.boxWidth / 2);
-    this.posY = event.target.attrs.y + (this.boxHeight / 2);
-    this.resizeCallback(this.posX, this.posY);
+    if(event.target.attrs.name === "crossSection") {
+      this.crossPosX = event.target.attrs.x + (this.boxWidth / 2);
+      this.crossPosY = event.target.attrs.y + (this.boxHeight / 2);
+      this.resizeCallback("crossSection", this.crossPosX, this.crossPosY);
+    } else {
+      this.lengthPosX = event.target.attrs.x + (this.boxWidth / 2);
+      this.lengthPosY = event.target.attrs.y + (this.boxHeight / 2);
+      this.resizeCallback("lengthSection", this.lengthPosX, this.lengthPosY);
+    }
   }
 
   public zoomIn() {
@@ -896,7 +723,8 @@ export class BackgroundImage extends Konva.Group {
     this.height(this.height() * 1.02);
     this.image.scaleX(this.image.scaleX() * 1.02);
     this.image.scaleY(this.image.scaleY() * 1.02);
-    this.resizeCallback(this.posX, this.posY);
+    this.resizeCallback("crossSection", this.crossPosX, this.crossPosY);
+    this.resizeCallback("lengthSection", this.lengthPosX, this.lengthPosY);
     this.draw();
   }
 
@@ -905,7 +733,8 @@ export class BackgroundImage extends Konva.Group {
     this.height(this.height() / 1.02);
     this.image.scaleX(this.image.scaleX() / 1.02);
     this.image.scaleY(this.image.scaleY() / 1.02);
-    this.resizeCallback(this.posX, this.posY);
+    this.resizeCallback("crossSection", this.crossPosX, this.crossPosY);
+    this.resizeCallback("lengthSection", this.lengthPosX, this.lengthPosY);
     this.draw();
   }
 
@@ -913,6 +742,7 @@ export class BackgroundImage extends Konva.Group {
     this.getLayer().clear();
     const returnVal = super.draw();
     this.boxCrossSection.moveToTop();
+    this.boxLengthSection.moveToTop();
     return returnVal;
   }
 
@@ -923,6 +753,54 @@ export class BackgroundImage extends Konva.Group {
     }
 
     return this.boxCrossSection.visible();
+  }
+
+  public viewLengthSection(value?: boolean) {
+    if(value !== undefined) {
+      this.boxLengthSection.visible(value);
+      this.draw();
+    }
+
+    return this.boxLengthSection.visible();
+  }
+
+  private box(
+    name: string,
+    width: number,
+    height: number,
+    startX: number,
+    startY: number,
+  ): Konva.Group {
+    const returnVal = new Konva.Group({
+      name,
+      x: startX,
+      y: startY,
+      draggable: true,
+    });
+
+    returnVal.add(new Konva.Rect({
+      x: 0,
+      y: 0,
+      width,
+      height,
+      stroke: "red",
+      strokeWidth: 2,
+      draggable: false,
+    }));
+    returnVal.add(new Konva.Line({
+      points: [width / 2, 0, width / 2, height],
+      stroke: "red",
+      strokeWidth: 2,
+      draggable: false,
+    }));
+    returnVal.add(new Konva.Line({
+      points: [0, height / 2, width, height / 2],
+      stroke: "blue",
+      strokeWidth: 2,
+      draggable: false,
+    }));
+
+    return returnVal;
   }
 }
 

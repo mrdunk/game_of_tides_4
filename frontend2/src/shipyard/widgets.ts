@@ -7,8 +7,6 @@ import {ImageLoader} from "./image_loader";
 import {
   AllRibs,
   BackgroundImage,
-  Button2,
-  ControlPanel,
   Modal,
   MovableLine,
   Scale,
@@ -34,6 +32,7 @@ export class Controls {
   private buttons: HTMLCollectionOf<Element>;
   private modal: Modal;
   private backgroundPicker: BackgroundPicker;
+  private ribPicker: Node;
 
   constructor() {
     this.rib = 0;
@@ -78,6 +77,8 @@ export class Controls {
         case "Clear all":
           button.addEventListener("click", this.modal.show.bind(this.modal));
           break;
+        case "Rib":
+          this.ribPicker = button;
         default:
           // Any button clicks that are not used here should be sent on to all
           // other registered listeners.
@@ -95,8 +96,7 @@ export class Controls {
 
   public callback(command: ICommand): void {
     if(command.action === "changeRib") {
-      this.rib = command.rib;
-      this.selectedComponent = "";
+      this.changeRib(command.rib);
     } else if(command.action === "lineMove" || command.action === "lineNew") {
       const line = ComponentBuffer.buffer[this.rib][this.selectedComponent];
       if(line) {
@@ -123,9 +123,30 @@ export class Controls {
       case "allRibs":
         this.setSelected("View all layers", value);
         break;
+      case "Rib":
+        console.log("controlCallback(key: ", key, ", value: ", value, ")");
+        const command: ICommand = {
+          action: "changeRib",
+          name: "changeRib",
+          rib: parseInt(value, 10),
+          time: Date.now(),
+        };
+        CommandBuffer.push(command);
+        break;
     }
 
     this.enableButtons();
+  }
+
+  private changeRib(newRib: number) {
+    this.rib = newRib;
+    this.selectedComponent = "";
+    this.ribPicker.childNodes.forEach((node) => {
+      if(node.getAttribute && node.getAttribute("type") === "number") {
+        console.log(node);
+        node.value = newRib;
+      }
+    });
   }
 
   private onBackgroundPicture() {
@@ -199,7 +220,14 @@ export class Controls {
 
   private sendToListiners(buttonLabel: string) {
     const button = this.getButton(buttonLabel);
-    const value = !button.classList.contains("pure-button-active");
+    let value = !button.classList.contains("pure-button-active");
+    console.log(button.childNodes);
+    button.childNodes.forEach((node) => {
+      if(node.getAttribute && node.getAttribute("type") === "number") {
+        console.log(node);
+        value = node.value;
+      }
+    });
     UserInterfaceClickCallbacks.forEach((callback) => {
       callback(buttonLabel, value);
     });
@@ -209,7 +237,6 @@ export class Controls {
 
 export class CrossSection extends Konva.Stage {
   private ribValue: number;
-  private controlPannel: ControlPanel;
   private drawLayer: Konva.Layer;
   private buffer: ICrossSectionBuffer;
   private selectedLine: MovableLine;
@@ -244,19 +271,7 @@ export class CrossSection extends Konva.Stage {
     this.drawLayer.add(this.allRibs);
     this.allRibs.visible(false);
 
-    const controlLayer = new Konva.Layer();
-    this.add(controlLayer);
-    this.controlPannel = new ControlPanel();
-    this.controlPannel.addText(this, "rib", "lightgreen");
-    this.controlPannel.addButton("test2", (buttonName) => {
-      console.log(CommandBuffer.summary());
-      console.log(ComponentBuffer.show());
-      console.log(this.buffer);
-    }, "green");
-    controlLayer.add(this.controlPannel);
-
     this.drawLayer.draw();
-    controlLayer.draw();
 
     CommandBuffer.pushCallback(this.callback.bind(this));
     UserInterfaceClickCallbacks.push(this.controlCallback.bind(this));
@@ -308,13 +323,22 @@ export class CrossSection extends Konva.Stage {
         });
         break;
       case "backgroundMove":
-        console.log(value);
-        this.background.updateBackgroundImage({
-          offsetX: value[0],
-          offsetY: value[1],
-          scaleX: value[2],
-          scaleY: value[3],
-        });
+        if(value[0] === "crossSection") {
+          console.log(value);
+          this.background.updateBackgroundImage({
+            offsetX: value[1],
+            offsetY: value[2],
+            scaleX: value[3],
+            scaleY: value[4],
+          });
+        }
+        break;
+      case "backgroundToggle":
+        if(value[0] === "crossSection") {
+          console.log(value, this.background);
+          this.background.backgroundImage.visible(value[1]);
+          this.background.draw();
+        }
         break;
     }
   }
@@ -328,7 +352,6 @@ export class CrossSection extends Konva.Stage {
       }
       this.clearDisplay();
       this.rib(command.rib);
-      this.controlPannel.draw();
       this.restoreDisplay();
     } else if(command.action === "lineDelete") {
       this.deleteLine(command.rib, command.name);
@@ -380,7 +403,7 @@ export class CrossSection extends Konva.Stage {
   }
 
   private deleteLine(rib: number, name: string) {
-    if(this.selectedLine.name() === name) {
+    if(this.selectedLine && this.selectedLine.name() === name) {
       this.selectedLine.unSelectHighlight();
       this.selectedLine = undefined;
     }
@@ -441,6 +464,7 @@ export class SideView extends Konva.Stage {
   private background: Scale;
   private buffer: ISideViewBuffer;
   private drawLayer: Konva.Layer;
+  private rib: number;
 
   constructor() {
     const container = document.getElementById("sideView");
@@ -450,6 +474,7 @@ export class SideView extends Konva.Stage {
       height: container.offsetHeight,
     });
 
+    this.rib = 0;
     this.buffer = {};
 
     this.offsetX(- container.offsetWidth / 2);
@@ -465,8 +490,6 @@ export class SideView extends Konva.Stage {
     this.drawLayer.add(this.background);
     this.background.draw();
 
-    this.drawLayer.draw();
-
     this.cursor = new Konva.Line({
       stroke: "lightgrey",
       strokeWidth: 8,
@@ -475,39 +498,59 @@ export class SideView extends Konva.Stage {
     this.cursor.visible(false);
     this.drawLayer.add(this.cursor);
 
+    this.modifyRibs();
+
     CommandBuffer.pushCallback(this.callback.bind(this));
     UserInterfaceClickCallbacks.push(this.controlCallback.bind(this));
 
     this.on("contentClick", () => {
       const mousePos = this.getStage().getPointerPosition();
       this.setRib(mousePos.x + this.offsetX());
+      this.modifyRibs(mousePos.x + this.offsetX());
+      this.draw();
     });
     this.on("contentMousemove", () => {
       const mousePos = this.getStage().getPointerPosition();
       this.setCursor(mousePos.x + this.offsetX(), mousePos.y + this.offsetY());
+      this.modifyRibs(mousePos.x + this.offsetX());
+    });
+    this.on("contentMouseout", () => {
+      console.log("mouseout");
+      this.cursor.visible(false);
+      this.draw();
     });
   }
 
   public controlCallback(key: string, value: any) {
-    /*switch(key) {
+    switch(key) {
       case "backgroundMove":
-        console.log(value);
-        this.background.updateBackgroundImage({
-          offsetX: value[0],
-          offsetY: value[1],
-          scaleX: value[2],
-          scaleY: value[3],
-        });
+        if(value[0] === "lengthSection") {
+          console.log(value);
+          this.background.updateBackgroundImage({
+            offsetX: value[1],
+            offsetY: value[2],
+            scaleX: value[3],
+            scaleY: value[4],
+          });
+        }
         break;
-    }*/
+      case "backgroundToggle":
+        if(value[0] === "lengthSection") {
+          console.log(value, this.background);
+          this.background.backgroundImage.visible(value[1]);
+          this.background.draw();
+        }
+        break;
+    }
   }
 
   public callback(command: ICommand): void {
     if(command.action === "changeRib") {
-      this.background.rib = command.rib;
-      this.background.draw();
+      this.rib = command.rib;
+      console.assert(typeof this.rib === "number");
       this.cursor.visible(false);
-      this.background.getLayer().draw();
+      this.modifyRibs();
+      this.draw();
     } else if(command.action === "lineNew" || command.action === "lineMove" ) {
       this.addLine(command);
     } else if(command.action === "lineDelete") {
@@ -526,7 +569,7 @@ export class SideView extends Konva.Stage {
       }
       component.destroy();
     }
-    component =  new StaticLine(command);
+    component = new StaticLine(command);
     this.buffer[command.rib][command.name] = component;
     this.drawLayer.add(component);
     this.draw();
@@ -540,27 +583,94 @@ export class SideView extends Konva.Stage {
     this.drawLayer.draw();
   }
 
+  private modifyRibs(mousePosX?: number) {
+    // console.log("modifyRibs(", mousePosX ,")", this.rib);
+    for(const pos in this.buffer) {
+      if(this.buffer.hasOwnProperty(pos)) {
+        if(this.buffer[pos].rib !== undefined) {
+          if(this.buffer[pos].rib.destroyChildren) {
+            this.buffer[pos].rib.destroyChildren();
+          }
+          this.buffer[pos].rib.destroy();
+          delete this.buffer[pos].rib;
+        }
+      }
+    }
+    let rib: number = null;
+    let active: boolean = true;
+    if(mousePosX !== undefined) {
+      const closestRibToMouse = ComponentBuffer.closestRib(mousePosX);
+      rib = closestRibToMouse.rib;
+      active = closestRibToMouse.distance < 10;
+    }
+    for(const pos in ComponentBuffer.ribPositions) {
+      if(ComponentBuffer.ribPositions.hasOwnProperty(pos)) {
+        if(this.buffer[pos] === undefined) {
+          this.buffer[pos] = {};
+        }
+
+        document.body.style.cursor = "default";
+        if(active) {
+          document.body.style.cursor = "pointer";
+        }
+
+        let stroke = "black";
+        let strokeWidth = 2;
+        if(rib === ComponentBuffer.ribPositions[pos] && active) {
+          stroke = "orange";
+        }
+        if(this.rib === ComponentBuffer.ribPositions[pos]) {
+          strokeWidth = 5;
+          stroke = "orange";
+        }
+        this.buffer[pos].rib = new Konva.Line({
+          points: [parseFloat(pos),
+                   -this.height() / 2,
+                   parseFloat(pos),
+                   this.height() / 2],
+          stroke,
+          strokeWidth,
+          // draggable: true,
+        });
+        this.drawLayer.add(this.buffer[pos].rib);
+        this.buffer[pos].rib.moveToBottom();
+        this.buffer[pos].rib.moveUp();
+        this.buffer[pos].rib.moveUp();
+      }
+    }
+  }
+
   private setRib(posX) {
-    const rib = Math.round(posX / SideView.snapDistance);
-    console.log("active rib: ", rib);
+    // const rib = Math.round(posX / SideView.snapDistance);
+    const closestRibToMouse = ComponentBuffer.closestRib(posX);
+    this.rib = closestRibToMouse.rib;
+    console.assert(typeof this.rib === "number");
+
+    if(closestRibToMouse.distance > 10) {
+      this.rib = ComponentBuffer.newRib(posX);
+      console.assert(typeof this.rib === "number");
+    }
+
+    console.log("active rib: ", this.rib);
     const command: ICommand = {
       action: "changeRib",
       name: "changeRib",
-      rib,
+      rib: this.rib,
       time: Date.now(),
     };
     CommandBuffer.push(command);
-    this.background.rib = rib;
-    this.background.draw();
+    // this.background.rib = rib;
+    // this.background.draw();
     this.cursor.visible(false);
-    this.background.getLayer().draw();
+    // this.background.getLayer().draw();
   }
 
   private setCursor(posX, posY) {
-    posX = Math.round(posX / SideView.snapDistance) * SideView.snapDistance;
+    // posX = Math.round(posX / SideView.snapDistance) * SideView.snapDistance;
     this.cursor.points([posX, -this.height() /2, posX, this.height() /2]);
     this.cursor.visible(true);
-    this.background.getLayer().draw();
+    this.draw();
+    // this.background.getLayer().draw();
   }
 }
 
@@ -598,6 +708,9 @@ class BackgroundPicker {
         case "Cross section":
           clone.addEventListener("click", this.toggleCrossSection.bind(this));
           break;
+        case "Length section":
+          clone.addEventListener("click", this.toggleLengthSection.bind(this));
+          break;
       }
     }
 
@@ -617,16 +730,21 @@ class BackgroundPicker {
     this.stage.add(layer);
 
     this.setButton("Cross section", this.content.viewCrossSection());
+    this.setButton("Length section", this.content.viewLengthSection());
   }
 
-  public resizeCallback(posX: number, posY: number) {
-    console.log(this);
+  public resizeCallback(sectionName: string, posX: number, posY: number) {
     this.stage.width(this.content.width());
     this.stage.height(this.content.height());
     UserInterfaceClickCallbacks.forEach((callback) => {
       callback(
         "backgroundMove",
-        [posX, posY, this.content.image.scaleX(), this.content.image.scaleY()],
+        [sectionName,
+          posX,
+          posY,
+          this.content.image.scaleX(),
+          this.content.image.scaleY(),
+        ],
       );
     });
   }
@@ -642,6 +760,19 @@ class BackgroundPicker {
   private toggleCrossSection() {
     this.content.viewCrossSection(!this.content.viewCrossSection());
     this.setButton("Cross section", this.content.viewCrossSection());
+    UserInterfaceClickCallbacks.forEach((callback) => {
+      callback("backgroundToggle",
+               ["crossSection", this.content.viewCrossSection()]);
+    });
+  }
+
+  private toggleLengthSection() {
+    this.content.viewLengthSection(!this.content.viewLengthSection());
+    this.setButton("Length section", this.content.viewLengthSection());
+    UserInterfaceClickCallbacks.forEach((callback) => {
+      callback("backgroundToggle",
+               ["lengthSection", this.content.viewLengthSection()]);
+    });
   }
 
   private setButton(label: string, value: boolean) {
