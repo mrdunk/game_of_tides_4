@@ -466,6 +466,7 @@ export interface IScaleBackgroundImage {
 }
 
 export class Scale extends Konva.Group {
+  public grid: Konva.Group;
   private backgroundImage: Konva.Image;
 
   constructor(private imageUrl: string) {
@@ -536,6 +537,8 @@ export class Scale extends Konva.Group {
       this.backgroundImage.draw();
     }
 
+    this.grid = new Konva.Group();
+    this.add(this.grid);
     const xStart = -Math.round(this.width() / 2 / gridSize) * gridSize;
     const YStart = -Math.round(this.height() / 2 / gridSize) * gridSize;
     for(let x = xStart; x < this.width() / 2; x += gridSize) {
@@ -546,14 +549,14 @@ export class Scale extends Konva.Group {
         stroke,
         strokeWidth,
       });
-      this.add(vertical);
+      this.grid.add(vertical);
     }
     for(let y = YStart; y < this.height() / 2; y += gridSize) {
       const horizontal = new Konva.Line({
         points: [- this.width() / 2, y, this.width() / 2, y],
         stroke: "darkGrey",
       });
-      this.add(horizontal);
+      this.grid.add(horizontal);
     }
 
     this.moveToBottom();

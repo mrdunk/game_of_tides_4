@@ -143,7 +143,6 @@ export class Controls {
     this.selectedComponent = "";
     this.ribPicker.childNodes.forEach((node) => {
       if(node.getAttribute && node.getAttribute("type") === "number") {
-        console.log(node);
         node.value = newRib;
       }
     });
@@ -340,6 +339,10 @@ export class CrossSection extends Konva.Stage {
           this.background.draw();
         }
         break;
+      case "gridToggle":
+        this.background.grid.visible(value[0]);
+        this.draw();
+        break;
     }
   }
 
@@ -465,6 +468,7 @@ export class SideView extends Konva.Stage {
   private buffer: ISideViewBuffer;
   private drawLayer: Konva.Layer;
   private rib: number;
+  private dragRib: number;
 
   constructor() {
     const container = document.getElementById("sideView");
@@ -503,20 +507,30 @@ export class SideView extends Konva.Stage {
     CommandBuffer.pushCallback(this.callback.bind(this));
     UserInterfaceClickCallbacks.push(this.controlCallback.bind(this));
 
-    this.on("contentClick", () => {
-      const mousePos = this.getStage().getPointerPosition();
-      this.setRib(mousePos.x + this.offsetX());
-      this.modifyRibs(mousePos.x + this.offsetX());
+    this.on("mousedown", () => {
+      console.log("mousedown");
+      const mousePos = this.getStage().getPointerPosition().x + this.offsetX();
+      this.setRib(mousePos);
+      this.modifyRibs(mousePos);
       this.draw();
+      this.dragRib = this.rib;
+    });
+    this.on("mouseup", () => {
+      console.log("mouseup");
+      this.dragRib = undefined;
     });
     this.on("contentMousemove", () => {
-      const mousePos = this.getStage().getPointerPosition();
-      this.setCursor(mousePos.x + this.offsetX(), mousePos.y + this.offsetY());
-      this.modifyRibs(mousePos.x + this.offsetX());
+      const mousePos = this.getStage().getPointerPosition().x + this.offsetX();
+      if(this.dragRib !== undefined) {
+        this.moveRib(mousePos);
+      }
+      this.setCursor(mousePos);
+      this.modifyRibs(mousePos);
     });
     this.on("contentMouseout", () => {
       console.log("mouseout");
       this.cursor.visible(false);
+      this.dragRib = undefined;
       this.draw();
     });
   }
@@ -541,6 +555,10 @@ export class SideView extends Konva.Stage {
           this.background.draw();
         }
         break;
+      case "gridToggle":
+        this.background.grid.visible(value[0]);
+        this.draw();
+        break;
     }
   }
 
@@ -548,7 +566,6 @@ export class SideView extends Konva.Stage {
     if(command.action === "changeRib") {
       this.rib = command.rib;
       console.assert(typeof this.rib === "number");
-      this.cursor.visible(false);
       this.modifyRibs();
       this.draw();
     } else if(command.action === "lineNew" || command.action === "lineMove" ) {
@@ -640,8 +657,7 @@ export class SideView extends Konva.Stage {
     }
   }
 
-  private setRib(posX) {
-    // const rib = Math.round(posX / SideView.snapDistance);
+  private setRib(posX: number) {
     const closestRibToMouse = ComponentBuffer.closestRib(posX);
     this.rib = closestRibToMouse.rib;
     console.assert(typeof this.rib === "number");
@@ -659,18 +675,23 @@ export class SideView extends Konva.Stage {
       time: Date.now(),
     };
     CommandBuffer.push(command);
-    // this.background.rib = rib;
-    // this.background.draw();
-    this.cursor.visible(false);
-    // this.background.getLayer().draw();
   }
 
-  private setCursor(posX, posY) {
-    // posX = Math.round(posX / SideView.snapDistance) * SideView.snapDistance;
+  private moveRib(posX: number) {
+    const oldPosX = ComponentBuffer.positionRib[this.rib];
+    ComponentBuffer.setRibPosition(posX, this.rib);
+    for(const c in this.buffer[this.rib]) {
+      if(this.buffer[this.rib].hasOwnProperty(c)) {
+        const component = this.buffer[this.rib][c];
+        component.x(component.x() + posX - oldPosX);
+      }
+    }
+  }
+
+  private setCursor(posX: number) {
     this.cursor.points([posX, -this.height() /2, posX, this.height() /2]);
     this.cursor.visible(true);
     this.draw();
-    // this.background.getLayer().draw();
   }
 }
 
@@ -680,6 +701,7 @@ class BackgroundPicker {
   private stage: Konva.Stage;
   private content: BackgroundImage;
   private buttons: [HTMLDivElement];
+  private gridVisible: boolean;
 
   constructor(width: number, height: number) {
     this.element = document.createElement("div");
@@ -711,6 +733,9 @@ class BackgroundPicker {
         case "Length section":
           clone.addEventListener("click", this.toggleLengthSection.bind(this));
           break;
+        case "View grid":
+          clone.addEventListener("click", this.toggleViewGrid.bind(this));
+          break;
       }
     }
 
@@ -731,6 +756,8 @@ class BackgroundPicker {
 
     this.setButton("Cross section", this.content.viewCrossSection());
     this.setButton("Length section", this.content.viewLengthSection());
+    this.gridVisible = true;
+    this.setButton("View grid", this.gridVisible);
   }
 
   public resizeCallback(sectionName: string, posX: number, posY: number) {
@@ -772,6 +799,15 @@ class BackgroundPicker {
     UserInterfaceClickCallbacks.forEach((callback) => {
       callback("backgroundToggle",
                ["lengthSection", this.content.viewLengthSection()]);
+    });
+  }
+
+  private toggleViewGrid() {
+    this.gridVisible = !this.gridVisible;
+    this.setButton("View grid", this.gridVisible);
+    UserInterfaceClickCallbacks.forEach((callback) => {
+      callback("gridToggle",
+               [this.gridVisible]);
     });
   }
 
