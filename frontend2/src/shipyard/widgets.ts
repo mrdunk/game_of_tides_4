@@ -65,17 +65,22 @@ export class Controls {
           });
           break;
         case "Upload":
-          button.addEventListener("click", CommandBuffer.save);
+          button.addEventListener("click", () => {
+            const filename = "user_saved";
+            CommandBuffer.save(filename);
+          });
           break;
         case "Download":
-          button.addEventListener("click", this.modal.show.bind(this.modal));
+          button.addEventListener("click", () => {
+            location.hash = "#user_saved";
+          });
           break;
         case "Background picture":
           button.addEventListener("click",
                                   this.onBackgroundPicture.bind(this));
           break;
         case "Clear all":
-          button.addEventListener("click", this.modal.show.bind(this.modal));
+          button.addEventListener("click", this.clearAllData.bind(this));
           break;
         case "Rib":
           this.ribPicker = button;
@@ -95,8 +100,8 @@ export class Controls {
   }
 
   public callback(command: ICommand): void {
-    if(command.action === "changeRib") {
-      this.changeRib(command.rib);
+    if(command.action === "selectRib") {
+      this.selectRib(command.rib);
     } else if(command.action === "lineMove" || command.action === "lineNew") {
       const line = ComponentBuffer.buffer[this.rib][this.selectedComponent];
       if(line) {
@@ -126,8 +131,8 @@ export class Controls {
       case "Rib":
         console.log("controlCallback(key: ", key, ", value: ", value, ")");
         const command: ICommand = {
-          action: "changeRib",
-          name: "changeRib",
+          action: "selectRib",
+          name: "selectRib",
           rib: parseInt(value, 10),
           time: Date.now(),
         };
@@ -138,12 +143,18 @@ export class Controls {
     this.enableButtons();
   }
 
-  private changeRib(newRib: number) {
-    this.rib = newRib;
+  private clearAllData() {
+    CommandBuffer.save("state_before_clear");
+    location.hash = "#noLoad";
+    location.reload();
+  }
+
+  private selectRib(selectedRib: number) {
+    this.rib = selectedRib;
     this.selectedComponent = "";
     this.ribPicker.childNodes.forEach((node) => {
       if(node.getAttribute && node.getAttribute("type") === "number") {
-        node.value = newRib;
+        node.value = selectedRib;
       }
     });
   }
@@ -348,20 +359,28 @@ export class CrossSection extends Konva.Stage {
 
   public callback(command: ICommand): void {
     console.log(command);
-    if(command.action === "changeRib") {
-      if(this.selectedLine) {
-        this.selectedLine.unSelectHighlight();
-        this.selectedLine = undefined;
-      }
-      this.clearDisplay();
-      this.rib(command.rib);
-      this.restoreDisplay();
-    } else if(command.action === "lineDelete") {
-      this.deleteLine(command.rib, command.name);
-    } else if(command.action === "lineNew") {
-      this.addLine(command.rib, command.name, command.options);
-    } else if(command.action === "lineMove") {
-      this.setPositionLine(command);
+    switch(command.action) {
+      case "selectRib":
+        if(this.selectedLine) {
+          this.selectedLine.unSelectHighlight();
+          this.selectedLine = undefined;
+        }
+        this.clearDisplay();
+        this.rib(command.rib);
+        this.restoreDisplay();
+        break;
+      case "lineDelete":
+        this.deleteLine(command.rib, command.name);
+        break;
+      case "lineNew":
+        this.addLine(command.rib, command.name, command.options);
+        break;
+      case "lineMove":
+        this.setPositionLine(command);
+        break;
+      case "clearAll":
+        this.clearDisplay();
+        break;
     }
     this.allRibs.draw();
     this.drawLayer.draw();
@@ -508,27 +527,32 @@ export class SideView extends Konva.Stage {
     UserInterfaceClickCallbacks.push(this.controlCallback.bind(this));
 
     this.on("mousedown", () => {
-      console.log("mousedown");
+      // console.log("mousedown");
       const mousePos = this.getStage().getPointerPosition().x + this.offsetX();
-      this.setRib(mousePos);
-      this.modifyRibs(mousePos);
-      this.draw();
-      this.dragRib = this.rib;
+      this.dragRib = mousePos;
+      const closestRibToMouse = ComponentBuffer.closestRib(mousePos);
+
+      if(closestRibToMouse.distance > 10) {
+        this.sendCommandNewRib(mousePos);
+      } else {
+        this.sendCommandSelectRib(mousePos);
+      }
     });
     this.on("mouseup", () => {
-      console.log("mouseup");
+      // console.log("mouseup");
       this.dragRib = undefined;
     });
     this.on("contentMousemove", () => {
       const mousePos = this.getStage().getPointerPosition().x + this.offsetX();
       if(this.dragRib !== undefined) {
-        this.moveRib(mousePos);
+        this.sendCommandMoveRib(mousePos);
       }
+
       this.setCursor(mousePos);
       this.modifyRibs(mousePos);
     });
     this.on("contentMouseout", () => {
-      console.log("mouseout");
+      // console.log("mouseout");
       this.cursor.visible(false);
       this.dragRib = undefined;
       this.draw();
@@ -563,11 +587,16 @@ export class SideView extends Konva.Stage {
   }
 
   public callback(command: ICommand): void {
-    if(command.action === "changeRib") {
-      this.rib = command.rib;
-      console.assert(typeof this.rib === "number");
+    if(command.action === "selectRib") {
+      this.selectRib(command.rib);
+    } else if(command.action === "newRib") {
+      this.newRib(command.xa);
+    } else if(command.action === "deleteRib") {
+      ComponentBuffer.deleteRib();
       this.modifyRibs();
       this.draw();
+    } else if(command.action === "moveRib") {
+      this.moveRib(command.xb);
     } else if(command.action === "lineNew" || command.action === "lineMove" ) {
       this.addLine(command);
     } else if(command.action === "lineDelete") {
@@ -657,27 +686,69 @@ export class SideView extends Konva.Stage {
     }
   }
 
-  private setRib(posX: number) {
-    const closestRibToMouse = ComponentBuffer.closestRib(posX);
-    this.rib = closestRibToMouse.rib;
+  private sendCommandNewRib(xPos: number) {
+      const closestRibToMouse = ComponentBuffer.closestRib(xPos);
+      let rib = closestRibToMouse.rib;
+      console.assert(typeof rib === "number");
+
+      const command: ICommand = {
+        action: "newRib",
+        name: "newRib",
+        rib: rib,
+        time: Date.now(),
+        xa: xPos,
+      };
+      CommandBuffer.push(command);
+  }
+
+  private newRib(xPos: number) {
+    const rib = ComponentBuffer.newRib(xPos);
+    console.assert(typeof rib === "number");
+    this.sendCommandSelectRib(xPos, false);
+  }
+
+  private sendCommandSelectRib(xPos: number, store?: boolean) {
+      const closestRibToMouse = ComponentBuffer.closestRib(xPos);
+      let rib = closestRibToMouse.rib;
+      console.assert(typeof rib === "number");
+
+      const command: ICommand = {
+        action: "selectRib",
+        name: "selectRib",
+        rib: rib,
+        time: Date.now(),
+        xa: xPos,
+      };
+      if(store === undefined || store) {
+        CommandBuffer.push(command);
+      } else {
+        CommandBuffer.execute(command);
+      }
+  }
+
+  private selectRib(rib: number) {
+    console.log("selectRib(", rib, ")");
+    console.log(ComponentBuffer.ribPositions);
+    this.rib = rib;
     console.assert(typeof this.rib === "number");
+    this.modifyRibs();
+    this.draw();
+  }
 
-    if(closestRibToMouse.distance > 10) {
-      this.rib = ComponentBuffer.newRib(posX);
-      console.assert(typeof this.rib === "number");
-    }
-
-    console.log("active rib: ", this.rib);
-    const command: ICommand = {
-      action: "changeRib",
-      name: "changeRib",
-      rib: this.rib,
-      time: Date.now(),
-    };
-    CommandBuffer.push(command);
+  private sendCommandMoveRib(xPos: number) {
+        const command: ICommand = {
+          action: "moveRib",
+          name: "moveRib",
+          rib: this.rib,
+          xa: this.dragRib,
+          xb: xPos,
+          time: Date.now(),
+        };
+        CommandBuffer.push(command);
   }
 
   private moveRib(posX: number) {
+    console.log("moveRib(", posX, ")");
     const oldPosX = ComponentBuffer.positionRib[this.rib];
     ComponentBuffer.setRibPosition(posX, this.rib);
     for(const c in this.buffer[this.rib]) {
@@ -686,6 +757,8 @@ export class SideView extends Konva.Stage {
         component.x(component.x() + posX - oldPosX);
       }
     }
+    this.modifyRibs();
+    this.draw();
   }
 
   private setCursor(posX: number) {
@@ -742,7 +815,6 @@ class BackgroundPicker {
     this.element.appendChild(this.image);
 
     this.content = new BackgroundImage(this.resizeCallback.bind(this));
-    console.log(this.content.width(), this.content.height());
 
     this.stage = new Konva.Stage({
       container: this.image,

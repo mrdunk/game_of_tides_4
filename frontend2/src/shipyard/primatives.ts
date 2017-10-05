@@ -235,6 +235,10 @@ export class MovableLine extends Konva.Group {
       return;
     }
 
+    if(!this.line) {
+      return;
+    }
+
     let line = this.line;
     let a = this.a;
     let b = this.b;

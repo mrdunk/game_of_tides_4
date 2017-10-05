@@ -3,7 +3,7 @@
 import * as Konva from "konva";
 
 export interface IComponent {
-  name: string;
+  name?: string;
   rib?: number;
   xa?: number;
   ya?: number;
@@ -24,9 +24,6 @@ export class ComponentBuffer {
   public static positionRib: {} = {0: 0};
 
   public static push(component: IComponent) {
-    if(component.rib === ComponentBuffer.nextRib) {
-      ComponentBuffer.nextRib++;
-    }
     if(ComponentBuffer.buffer[component.rib] === undefined) {
       ComponentBuffer.buffer[component.rib] = {};
     }
@@ -57,10 +54,15 @@ export class ComponentBuffer {
   }
 
   public static setRibPosition(position: number, rib: number) {
+    if(ComponentBuffer.ribPositions[position] !== undefined &&
+       ComponentBuffer.ribPositions[position] !== rib) {
+      return;
+    }
     for(const pos in ComponentBuffer.ribPositions) {
-      if(ComponentBuffer.ribPositions.hasOwnProperty(pos) &&
-         ComponentBuffer.ribPositions[pos] === rib) {
-        delete ComponentBuffer.ribPositions[pos];
+      if(ComponentBuffer.ribPositions.hasOwnProperty(pos)) {
+        if(ComponentBuffer.ribPositions[pos] === rib) {
+          delete ComponentBuffer.ribPositions[pos];
+        }
       }
     }
     ComponentBuffer.ribPositions[position] = rib;
@@ -68,8 +70,18 @@ export class ComponentBuffer {
   }
 
   public static newRib(position: number) {
+    ComponentBuffer.nextRib++;
     ComponentBuffer.setRibPosition(position, ComponentBuffer.nextRib);
     return ComponentBuffer.nextRib;
+  }
+
+  public static deleteRib() {
+    if(ComponentBuffer.nextRib > 0) {
+      const pos = ComponentBuffer.positionRib[ComponentBuffer.nextRib];
+      delete ComponentBuffer.positionRib[ComponentBuffer.nextRib];
+      delete ComponentBuffer.ribPositions[pos];
+      ComponentBuffer.nextRib--;
+    }
   }
 
   public static show() {

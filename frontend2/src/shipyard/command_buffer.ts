@@ -7,9 +7,9 @@ const coalesceTime = 10000;  // ms.
 
 export interface ICommand {
   action: string;
-  name: string;
-  rib: number;
   time: number;
+  name?: string;
+  rib?: number;
   xa?: number;
   ya?: number;
   xb?: number;
@@ -19,13 +19,23 @@ export interface ICommand {
 
 export class CommandBuffer {
   public static init() {
+    if(location.hash === "#noLoad") {
+      return;
+    }
+
     const storage = window.localStorage;
     if(storage === undefined) {
       console.warn("window.localStorage not avaliable");
       return;
     }
 
-    const commands = storage.getItem("commandBuffer");
+    let hash = location.hash.split("#");
+    let filename = "commandBuffer";
+    if(hash.length === 2) {
+      filename = filename + "_" + hash[1];
+    }
+    console.log("Loading from: ", filename);
+    const commands = storage.getItem(filename);
     if(!commands) {
       console.warn("No commandBuffer in window.localStorage");
       return;
@@ -38,16 +48,25 @@ export class CommandBuffer {
     }
   }
 
-  public static save() {
+  public static save(filename?: string) {
+    if(location.hash === "#noLoad") {
+      location.hash = "";
+    }
+
     const storage = window.localStorage;
     if(storage === undefined) {
       return;
     }
 
-    storage.removeItem("commandBuffer");
+    let fullFilename = "commandBuffer";
+    if(filename) {
+      fullFilename = fullFilename + "_" + filename;
+    }
+
+    storage.removeItem(fullFilename);
     const data = JSON.stringify(CommandBuffer.buffer);
-    console.log("saving: ", data);
-    storage.setItem("commandBuffer", data);
+    console.log("saving to: ", fullFilename, data);
+    storage.setItem(fullFilename, data);
   }
 
   public static push(command: ICommand) {
@@ -66,6 +85,12 @@ export class CommandBuffer {
       CommandBuffer.bufferPush(command);
     }
 
+    CommandBuffer.execute(command);
+
+    console.log(CommandBuffer.buffer);
+  }
+
+  public static execute(command: ICommand) {
     CommandBuffer.callbacks.forEach((callback) => {
       callback(command);
     });
@@ -98,73 +123,116 @@ export class CommandBuffer {
     console.assert(lastCommand !== undefined,
                    "invalid command at " + CommandBuffer.pointer);
     let targetCommand;
-    if(lastCommand.action === "lineNew") {
-      targetCommand = {
-        action: "lineDelete",
-        name: lastCommand.name,
-        rib: lastCommand.rib,
-        time: lastCommand.time,
-      };
-      CommandBuffer.callbacks.forEach((callback) => {
-        callback(targetCommand);
-      });
-    } else if(lastCommand.action === "lineMove") {
-      const previousCommand = CommandBuffer.findPrevious(lastCommand.name);
-      if(!previousCommand) {
-        return;
-      }
-      let options: string[] = [] as string[];
-      if(previousCommand.options !== undefined) {
-        options = previousCommand.options.slice();
-      }
-      targetCommand = {
-        action: "lineMove",
-        name: lastCommand.name,
-        rib: lastCommand.rib,
-        time: previousCommand.time,
-        xa: previousCommand.xa,
-        ya: previousCommand.ya,
-        xb: previousCommand.xb,
-        yb: previousCommand.yb,
-        options,
-      };
-      CommandBuffer.callbacks.forEach((callback) => {
-        callback(targetCommand);
-      });
-    } else if(lastCommand.action === "changeRib") {
-      targetCommand = CommandBuffer.findPrevious(lastCommand.name);
-      if(targetCommand === undefined) {
+    switch(lastCommand.action) {
+      case "lineNew":
         targetCommand = {
-          action: "changeRib",
-          name: "changeRib",
-          time: CommandBuffer.buffer[0].time,
-          rib: 0,
+          action: "lineDelete",
+          name: lastCommand.name,
+          rib: lastCommand.rib,
+          time: lastCommand.time,
         };
-      }
-      CommandBuffer.callbacks.forEach((callback) => {
-        callback(targetCommand);
-      });
-    } else if(lastCommand.action === "lineDelete") {
-      targetCommand = {
-        action: "lineNew",
-        name: lastCommand.name,
-        rib: lastCommand.rib,
-        time: lastCommand.time,
-        xa: lastCommand.xa,
-        ya: lastCommand.ya,
-        xb: lastCommand.xb,
-        yb: lastCommand.yb,
-        options: lastCommand.options.slice(),
-      };
-      CommandBuffer.callbacks.forEach((callback) => {
-        callback(targetCommand);
-      });
-      targetCommand.action = "lineMove";
-      CommandBuffer.callbacks.forEach((callback) => {
-        callback(targetCommand);
-      });
-    } else {
-      return;
+        CommandBuffer.callbacks.forEach((callback) => {
+          callback(targetCommand);
+        });
+        break;
+      case "lineDelete":
+        targetCommand = {
+          action: "lineNew",
+          name: lastCommand.name,
+          rib: lastCommand.rib,
+          time: lastCommand.time,
+          xa: lastCommand.xa,
+          ya: lastCommand.ya,
+          xb: lastCommand.xb,
+          yb: lastCommand.yb,
+          options: lastCommand.options.slice(),
+        };
+        CommandBuffer.callbacks.forEach((callback) => {
+          callback(targetCommand);
+        });
+        targetCommand.action = "lineMove";
+        CommandBuffer.callbacks.forEach((callback) => {
+          callback(targetCommand);
+        });
+        break;
+      case "lineMove":
+        const previousCommand = CommandBuffer.findPrevious(lastCommand.name);
+        if(!previousCommand) {
+          return;
+        }
+        let options: string[] = [] as string[];
+        if(previousCommand.options !== undefined) {
+          options = previousCommand.options.slice();
+        }
+        targetCommand = {
+          action: "lineMove",
+          name: lastCommand.name,
+          rib: lastCommand.rib,
+          time: previousCommand.time,
+          xa: previousCommand.xa,
+          ya: previousCommand.ya,
+          xb: previousCommand.xb,
+          yb: previousCommand.yb,
+          options,
+        };
+        CommandBuffer.callbacks.forEach((callback) => {
+          callback(targetCommand);
+        });
+        break;
+      case "selectRib":
+        targetCommand = CommandBuffer.findPrevious(lastCommand.name);
+        if(targetCommand === undefined) {
+          targetCommand = {
+            action: "selectRib",
+            name: "selectRib",
+            time: CommandBuffer.buffer[0].time,
+            rib: 0,
+          };
+        }
+        CommandBuffer.callbacks.forEach((callback) => {
+          callback(targetCommand);
+        });
+        break;
+      case "newRib":
+        let rib = 0;
+        if(lastCommand !== undefined && lastCommand.rib !== undefined) {
+          rib = lastCommand.rib;
+        }
+        targetCommand = {
+          action: "selectRib",
+          name: "selectRib",
+          rib: rib,
+        };
+        CommandBuffer.callbacks.forEach((callback) => {
+          callback(targetCommand);
+        });
+        targetCommand = {
+          action: "deleteRib",
+          name: "deleteRib",
+        };
+        CommandBuffer.callbacks.forEach((callback) => {
+          callback(targetCommand);
+        });
+        break;
+      case "moveRib":
+        targetCommand = {
+          action: "moveRib",
+          xb: lastCommand.xa,
+        };
+        CommandBuffer.callbacks.forEach((callback) => {
+          callback(targetCommand);
+        });
+        break;
+      case "clearAll":
+        CommandBuffer.pointer = 0;
+        while(CommandBuffer.redoAvaliable()) {
+          if(CommandBuffer.buffer[CommandBuffer.pointer].action ===
+             "clearAll") {
+            break;
+          }
+          CommandBuffer.redo();
+        }
+        break;
     }
   }
 
