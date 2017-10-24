@@ -33,6 +33,11 @@ const projects = {
     inputFiles: ["*.ts"],
     outDir: "dist",
   },
+  shipyard2: {
+    name: "shipyard2",
+    inputFiles: ["*.ts"],
+    outDir: "dist",
+  },
 
 }
 

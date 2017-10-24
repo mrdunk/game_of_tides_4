@@ -688,13 +688,13 @@ export class SideView extends Konva.Stage {
 
   private sendCommandNewRib(xPos: number) {
       const closestRibToMouse = ComponentBuffer.closestRib(xPos);
-      let rib = closestRibToMouse.rib;
+      const rib = closestRibToMouse.rib;
       console.assert(typeof rib === "number");
 
       const command: ICommand = {
         action: "newRib",
         name: "newRib",
-        rib: rib,
+        rib,
         time: Date.now(),
         xa: xPos,
       };
@@ -709,13 +709,13 @@ export class SideView extends Konva.Stage {
 
   private sendCommandSelectRib(xPos: number, store?: boolean) {
       const closestRibToMouse = ComponentBuffer.closestRib(xPos);
-      let rib = closestRibToMouse.rib;
+      const rib = closestRibToMouse.rib;
       console.assert(typeof rib === "number");
 
       const command: ICommand = {
         action: "selectRib",
         name: "selectRib",
-        rib: rib,
+        rib,
         time: Date.now(),
         xa: xPos,
       };

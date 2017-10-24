@@ -29,7 +29,7 @@ export class CommandBuffer {
       return;
     }
 
-    let hash = location.hash.split("#");
+    const hash = location.hash.split("#");
     let filename = "commandBuffer";
     if(hash.length === 2) {
       filename = filename + "_" + hash[1];
@@ -201,7 +201,7 @@ export class CommandBuffer {
         targetCommand = {
           action: "selectRib",
           name: "selectRib",
-          rib: rib,
+          rib,
         };
         CommandBuffer.callbacks.forEach((callback) => {
           callback(targetCommand);
