@@ -1,42 +1,12 @@
 // Copyright 2017 duncan law (mrdunk@gmail.com)
 
-import {Controller} from "./controller";
+import {LoggerMock, TrackAsserts} from "./commonFunctionstTests";
+import {Controller, ILineEvent, ILinePos, IPoint} from "./controller";
+import {ModelMock} from "./model";
 import {ViewMock} from "./view";
 
-class LoggerMock {
-  public lastLog;
-  public lastWarn;
-
-  public log(...output) {
-    console.log(this.concatVariables(output));
-    this.lastLog = output;
-  }
-
-  public warn(...output) {
-    console.warn(this.concatVariables(output));
-    this.lastWarn = output;
-  }
-
-  private concatVariables(input): string {
-    let output = "";
-    input.forEach((peramiter) => {
-      output += String(peramiter) + " ";
-    });
-    return output;
-  }
-}
-
-class TrackAsserts {
-  public static value: boolean = true;
-
-  public static assert(value: boolean) {
-    this.value = this.value && value;
-    console.assert(value);
-  }
-}
-
-const testButtons = [
-  function testInvalidButton() {
+export const controllerButtonEventTests = {
+  testInvalidButton: () => {
     const model = null;
     const toolbar1 = new ViewMock();
     const toolbar2 = new ViewMock();
@@ -54,7 +24,7 @@ const testButtons = [
     TrackAsserts.assert(toolbar2.buttonValues[buttonLabel] === undefined);
   },
 
-  function testRegularButton() {
+  testRegularButton: () => {
     const model = null;
     const toolbar1 = new ViewMock();
     const toolbar2 = new ViewMock();
@@ -72,7 +42,7 @@ const testButtons = [
     TrackAsserts.assert(toolbar2.buttonValues[buttonLabel] === undefined);
   },
 
-  function testSingleToggleButton() {
+  testSingleToggleButton: () => {
     const model = null;
     const toolbar1 = new ViewMock();
     const toolbar2 = new ViewMock();
@@ -96,7 +66,7 @@ const testButtons = [
     TrackAsserts.assert(toolbar2.buttonValues[buttonLabel] === false);
   },
 
-  function testPairedToggleButtons() {
+  testPairedToggleButtons: () => {
     const model = null;
     const toolbar1 = new ViewMock();
     const toolbar2 = new ViewMock();
@@ -143,23 +113,84 @@ const testButtons = [
     TrackAsserts.assert(toolbar1.buttonValues[buttonLabel3] === false);
     TrackAsserts.assert(toolbar2.buttonValues[buttonLabel3] === false);
   },
-];
-
-window.onload = () => {
-  console.log("controllerTests.ts");
-  const outputPannel = document.getElementById("testOutput");
-  outputPannel.innerHTML = "";
-
-  testButtons.forEach((test) => {
-    TrackAsserts.value = true;
-    const container = document.createElement("div");
-    outputPannel.appendChild(container);
-    test();
-    if(TrackAsserts.value) {
-      container.classList.add("test-pass");
-    } else {
-      container.classList.add("test-fail");
-    }
-    container.innerHTML = "testButtons." + test.name;
-  });
 };
+
+export const controllerLineEventTests = {
+  testNewInvalidLine: () => {
+    const model = new ModelMock();
+    const widget1 = new ViewMock();
+    const widget2 = new ViewMock();
+    const toolbar = new ViewMock();
+    const logger = new LoggerMock();
+    const controller =
+      new Controller(model, [widget1, widget2, toolbar], logger);
+
+    // Perform action under test.
+    widget1.simulateLineEvent(null, null, null);
+
+    TrackAsserts.assert(model.lineEvents.length === 0);
+    TrackAsserts.assert(
+      logger.lastWarn[0] === "No startPos or finishPos for line: " &&
+      logger.lastWarn[1] === null);
+  },
+
+  testNewInvalidLineMissingPoint: () => {
+    const model = new ModelMock();
+    const widget1 = new ViewMock();
+    const widget2 = new ViewMock();
+    const toolbar = new ViewMock();
+    const logger = new LoggerMock();
+    const controller =
+      new Controller(model, [widget1, widget2, toolbar], logger);
+
+    const linePos: ILinePos = {
+      a: {x:1, y:2, z:3},
+      b: null,
+    };
+
+    // Perform action under test.
+    widget1.simulateLineEvent(null, linePos, null);
+
+    TrackAsserts.assert(model.lineEvents.length === 0);
+    TrackAsserts.assert(
+      logger.lastWarn[0] === "Missing endpoint for startPos of line: " &&
+      logger.lastWarn[1] === null);
+
+    // Perform action under test again.
+    widget1.simulateLineEvent(null, null, linePos);
+
+    TrackAsserts.assert(model.lineEvents.length === 0);
+    TrackAsserts.assert(
+      logger.lastWarn[0] === "Missing endpoint for endPos of line: " &&
+      logger.lastWarn[1] === null);
+  },
+  
+  testNewInvalidLineNoIdOnMove: () => {
+    const model = new ModelMock();
+    const widget1 = new ViewMock();
+    const widget2 = new ViewMock();
+    const toolbar = new ViewMock();
+    const logger = new LoggerMock();
+    const controller =
+      new Controller(model, [widget1, widget2, toolbar], logger);
+
+    const linePosStart: ILinePos = {
+      a: {x:1, y:2, z:3},
+      b: {x:11, y:22, z:33},
+    };
+
+    const linePosFinish: ILinePos = {
+      a: {x:4, y:5, z:6},
+      b: {x:44, y:55, z:66},
+    };
+
+    // Perform action under test.
+    widget1.simulateLineEvent(null, linePosStart, linePosFinish);
+
+    TrackAsserts.assert(model.lineEvents.length === 0);
+    TrackAsserts.assert(logger.lastWarn[0] ===
+      "No id specified for line being moved or deleted.");
+  },
+
+};
+

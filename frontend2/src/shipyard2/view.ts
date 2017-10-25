@@ -1,7 +1,7 @@
 // Copyright 2017 duncan law (mrdunk@gmail.com)
 
 // import * as Konva from "konva";
-import {Controller} from "./controller";
+import {Controller, ILineEvent, ILinePos} from "./controller";
 
 export class ViewBase {
   protected controller: Controller;
@@ -37,6 +37,17 @@ export class ViewMock extends ViewBase {
 
   public simulateButtonPress(buttonLabel: string) {
     this.controller.onButtonEvent(buttonLabel);
+  }
+
+  public simulateLineEvent(id: string,
+                           startPos: ILinePos,
+                           finishPos: ILinePos) {
+    const event: ILineEvent = {
+      id,
+      startPos,
+      finishPos,
+    };
+    this.controller.onLineEvent(event);
   }
 }
 

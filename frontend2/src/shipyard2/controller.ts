@@ -1,17 +1,35 @@
 // Copyright 2017 duncan law (mrdunk@gmail.com)
 
-import {Model} from "./model";
+import {ModelBase} from "./model";
 import {ViewBase} from "./view";
 
 interface ICommand {
-  name: string;
+  lineEvents: ILineEvent[];
+}
+
+export interface IPoint {
+  x: number;  // Port/Starbord axis.
+  y: number;  // Up/Down axis.
+  z: number;  // Fore/Aft axis.
+}
+
+export interface ILinePos {
+  a: IPoint;
+  b: IPoint;
+}
+
+export interface ILineEvent {
+  id: string;
+  startPos: ILinePos;
+  finishPos: ILinePos;
 }
 
 export class Controller {
+  private idGenerator: number = 0;
   private commands: ICommand[];
   private commandPointer: number;
   private views: ViewBase[];
-  private model: Model;
+  private model: ModelBase;
   private logger;
   private buttonStates = {
     addLine: {state: false, clear: ["delete", "mirror"]},
@@ -20,7 +38,7 @@ export class Controller {
     allLayers: {state: false, clear: []},
   };
 
-  constructor(model: Model, views: ViewBase[], logger?) {
+  constructor(model: ModelBase, views: ViewBase[], logger?) {
     this.model = model;  // TODO Can this be assigned automatically?
     this.views = views;
     this.logger = logger || console;
@@ -70,6 +88,43 @@ export class Controller {
         return;
     }
     this.updateButton(buttonLabel);
+  }
+
+  public onLineEvent(lineEvent: ILineEvent) {
+    if(!lineEvent.startPos && !lineEvent.finishPos) {
+      this.logger.warn("No startPos or finishPos for line: ", lineEvent.id);
+      return;
+    }
+
+    if(lineEvent.startPos &&
+       (!lineEvent.startPos.a || !lineEvent.startPos.b)) {
+      this.logger.warn(
+        "Missing endpoint for startPos of line: ", lineEvent.id);
+      return;
+    }
+    if(lineEvent.finishPos &&
+       (!lineEvent.finishPos.a || !lineEvent.finishPos.b)) {
+      this.logger.warn(
+        "Missing endpoint for endPos of line: ", lineEvent.id);
+      return;
+    }
+
+    if(!lineEvent.id) {
+      if(lineEvent.startPos) {
+        this.logger.warn(
+          "No id specified for line being moved or deleted.");
+        return;
+      }
+      // No id and no lineEvent.startPos implies this is a new line.
+      lineEvent.id = "line_" + this.idGenerator;
+      this.idGenerator++;
+    }
+
+    const command: ICommand = {
+      lineEvents: [lineEvent],
+    };
+    this.recordCommand(command);
+    this.model.onLineEvent(lineEvent);
   }
 
   public updateButton(buttonLabel: string) {
