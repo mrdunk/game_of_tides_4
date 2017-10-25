@@ -35,8 +35,14 @@ const projects = {
   },
   shipyard2: {
     name: "shipyard2",
-    inputFiles: ["*.ts"],
+    inputFiles: ["!(*Tests).ts"],
     outDir: "dist",
+  },
+  shipyard2Tests: {
+    name: "shipyard2",
+    inputFiles: ["!(shipyard).ts"],
+    outDir: "dist",
+    outFile: "shipyard2Tests",
   },
 
 }

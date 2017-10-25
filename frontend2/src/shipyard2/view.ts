@@ -23,6 +23,23 @@ export class ViewBase {
   }
 }
 
+export class ViewMock extends ViewBase {
+  public buttonValues = {};
+  public buttonStates = {};
+
+  public setButtonValue(buttonLabel: string, value: boolean) {
+    this.buttonValues[buttonLabel] = value;
+  }
+
+  public setButtonState(buttonLabel: string, state: boolean) {
+    this.buttonStates[buttonLabel] = state;
+  }
+
+  public simulateButtonPress(buttonLabel: string) {
+    this.controller.onButtonEvent(buttonLabel);
+  }
+}
+
 export class ViewToolbar extends ViewBase {
   private buttonElements: Element[];
 

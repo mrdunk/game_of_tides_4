@@ -12,6 +12,7 @@ export class Controller {
   private commandPointer: number;
   private views: ViewBase[];
   private model: Model;
+  private logger;
   private buttonStates = {
     addLine: {state: false, clear: ["delete", "mirror"]},
     delete: {state: false, clear: ["addLine", "mirror"]},
@@ -19,9 +20,10 @@ export class Controller {
     allLayers: {state: false, clear: []},
   };
 
-  constructor(model: Model, views: ViewBase[]) {
+  constructor(model: Model, views: ViewBase[], logger?) {
     this.model = model;  // TODO Can this be assigned automatically?
     this.views = views;
+    this.logger = logger || console;
     this.commands = [];
     this.commandPointer = 0;
 
@@ -40,7 +42,7 @@ export class Controller {
   }
 
   public onButtonEvent(buttonLabel: string) {
-    console.log(buttonLabel);
+    this.logger.log(buttonLabel);
 
     switch (buttonLabel) {
       case "undo":
@@ -64,7 +66,7 @@ export class Controller {
       case "load":
         break;
       default:
-        console.warn("Invalid buttonLabel:", buttonLabel);
+        this.logger.warn("Invalid buttonLabel:", buttonLabel);
         return;
     }
     this.updateButton(buttonLabel);
