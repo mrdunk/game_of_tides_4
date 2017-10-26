@@ -1,8 +1,11 @@
 // Copyright 2017 duncan law (mrdunk@gmail.com)
 
 import {TrackAsserts} from "./commonFunctionstTests";
-import {controllerButtonEventTests,
-        controllerLineEventTests} from "./controllerTests";
+import {
+  controllerButtonEventTests,
+  controllerCommandHistoryTests,
+  controllerLineEventTests,
+} from "./controllerTests";
 
 
 window.onload = () => {
@@ -13,6 +16,7 @@ window.onload = () => {
   const testSuites = {
     controllerButtonEventTests,
     controllerLineEventTests,
+    controllerCommandHistoryTests,
   };
 
   for(const testSuiteName in testSuites) {

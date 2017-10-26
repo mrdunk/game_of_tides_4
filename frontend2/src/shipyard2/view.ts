@@ -23,9 +23,13 @@ export class ViewBase {
   }
 }
 
+interface IHash {
+  [key: string]: any;
+}
+
 export class ViewMock extends ViewBase {
-  public buttonValues = {};
-  public buttonStates = {};
+  public buttonValues: IHash = {};
+  public buttonStates: IHash = {};
 
   public setButtonValue(buttonLabel: string, value: boolean) {
     this.buttonValues[buttonLabel] = value;

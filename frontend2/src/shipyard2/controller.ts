@@ -24,6 +24,25 @@ export interface ILineEvent {
   finishPos: ILinePos;
 }
 
+export function comparePoint(p1: IPoint, p2: IPoint): boolean {
+  return (p1.x === p2.x && p1.y === p2.y && p1.z === p2.z);
+}
+
+export function compareLinePos(lp1: ILinePos, lp2: ILinePos): boolean {
+  if(lp1 === null || lp2 === null) {
+    return (lp1 === lp2);
+  }
+  return (comparePoint(lp1.a, lp2.a) && comparePoint(lp1.b, lp2.b));
+}
+
+export function compareLineEvent(e1: ILineEvent, e2: ILineEvent): boolean {
+  return (
+    e1.id === e2.id &&
+    compareLinePos(e1.startPos, e2.startPos) &&
+    compareLinePos(e1.finishPos, e2.finishPos)
+  );
+}
+
 export class Controller {
   private idGenerator: number = 0;
   private commands: ICommand[];
@@ -53,10 +72,7 @@ export class Controller {
       view.init(this);
     });
 
-    this.views.forEach((view) => {
-      view.setButtonState("undo", false);
-      view.setButtonState("redo", this.commandPointer < this.commands.length);
-    });
+    this.setButtonStates();
   }
 
   public onButtonEvent(buttonLabel: string) {
@@ -64,8 +80,10 @@ export class Controller {
 
     switch (buttonLabel) {
       case "undo":
+        this.undoCommand();
         break;
       case "redo":
+        this.performCommand();
         break;
       case "clear":
         break;
@@ -124,7 +142,7 @@ export class Controller {
       lineEvents: [lineEvent],
     };
     this.recordCommand(command);
-    this.model.onLineEvent(lineEvent);
+    this.performCommand();
   }
 
   public updateButton(buttonLabel: string) {
@@ -145,12 +163,57 @@ export class Controller {
     });
   }
 
-  private recordCommand(command: ICommand) {
-    this.commands.push(command);
-
+  // Set whether the "back" and "forward" buttons are selectable.
+  private setButtonStates() {
     this.views.forEach((view) => {
-      view.setButtonState("undo", true);
+      view.setButtonState("undo", this.commandPointer > 0);
       view.setButtonState("redo", this.commandPointer < this.commands.length);
     });
+  }
+
+  private recordCommand(command: ICommand) {
+    this.commands = this.commands.slice(0, this.commandPointer);
+    this.commands.push(command);
+  }
+
+  private performCommand(commandIndex?: number) {
+    if(commandIndex === undefined) {
+      commandIndex = this.commandPointer;
+    }
+    if(commandIndex >= this.commands.length || commandIndex < 0) {
+      this.logger.warn("Trying to performCommand past end of buffer. index:",
+                       commandIndex);
+      return;
+    }
+    const command = this.commands[commandIndex];
+    command.lineEvents.forEach((lineEvent) => {
+      this.model.onLineEvent(lineEvent);
+    });
+
+    this.commandPointer++;
+    this.setButtonStates();
+  }
+
+  private undoCommand(commandIndex?: number) {
+    this.commandPointer--;
+    if(commandIndex === undefined) {
+      commandIndex = this.commandPointer;
+    }
+    if(commandIndex >= this.commands.length || commandIndex < 0) {
+      this.logger.warn("Trying to performCommand past end of buffer. index:",
+                       commandIndex);
+      this.commandPointer = 0;
+      return;
+    }
+    const command = this.commands[commandIndex];
+    command.lineEvents.forEach((lineEvent) => {
+      const reverseLineEvent = {
+        id: lineEvent.id,
+        startPos: JSON.parse(JSON.stringify(lineEvent.finishPos)),
+        finishPos: JSON.parse(JSON.stringify(lineEvent.startPos)),
+      };
+      this.model.onLineEvent(reverseLineEvent);
+    });
+    this.setButtonStates();
   }
 }
