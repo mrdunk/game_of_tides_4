@@ -1,7 +1,11 @@
 // Copyright 2017 duncan law (mrdunk@gmail.com)
 
-// import * as Konva from "konva";
+import * as Konva from "konva";
 import {Controller, ILineEvent, ILinePos} from "./controller";
+
+interface IHash {
+  [key: string]: any;
+}
 
 export class ViewBase {
   protected controller: Controller;
@@ -23,8 +27,62 @@ export class ViewBase {
   }
 }
 
-interface IHash {
-  [key: string]: any;
+export class ViewCanvas {
+  public stage: Konva.Stage;
+  public layer: Konva.Layer;
+
+  constructor() {
+    this.stage = new Konva.Stage({
+        container: "canvas",   // id of container <div>
+        width: 500,
+        height: 500,
+    });
+    this.layer = new Konva.Layer();
+
+    this.stage.add(this.layer);
+  }
+}
+
+export class ViewCrossSection extends ViewBase {
+  private layer: Konva.Stage;
+  private background: Konva.Group;
+
+  constructor(canvas: ViewCanvas) {
+    super();
+    console.log("ViewCrossSection()");
+
+    this.layer = canvas.layer;
+
+    this.background = new Konva.Group({
+      width: 400,
+      height: 400,
+      draggable: false,
+    });
+    canvas.layer.add(this.background);
+
+    const rectangle = new Konva.Rect({
+      x: this.background.x(),
+      y: this.background.y(),
+      width: this.background.width(),
+      height: this.background.height(),
+      fill: "red",
+      stroke: "black",
+      strokeWidth: 1
+    });
+
+    const midline = new Konva.Line({
+      points: [
+        (this.background.width() - this.background.x()) / 2,
+        0,
+        (this.background.width() - this.background.x()) / 2,
+        this.background.height() - this.background.y() ],
+      stroke: "black",
+    });
+
+    this.background.add(rectangle);
+    this.background.add(midline);
+    this.layer.draw();
+  }
 }
 
 export class ViewMock extends ViewBase {

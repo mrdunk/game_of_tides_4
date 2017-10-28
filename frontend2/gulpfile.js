@@ -39,7 +39,8 @@ const projects = {
     outDir: "dist",
   },
   shipyard2Tests: {
-    name: "shipyard2",
+    name: "shipyard2Tests",
+    inputDir: "shipyard2",
     inputFiles: ["!(shipyard).ts"],
     outDir: "dist",
     outFile: "shipyard2Tests",
@@ -56,7 +57,7 @@ function compileAll() {
 }
 
 function compile(project) {
-  const sourceDir = "src/" + project.name + "/";
+  const sourceDir = "src/" + (project.inputDir || project.name) + "/";
   const destDir = project.outDir + "/";
   const destFileName = (project.outFile || project.name) + ".js";
   const expandedFiles = glob.sync(sourceDir + project.inputFiles);
@@ -84,7 +85,7 @@ function copyAll() {
 }
 
 function copy(project) {
-  const sourceDir = "src/" + project.name + "/";
+  const sourceDir = "src/" + (project.inputDir || project.name) + "/";
   const destDir = project.outDir + "/";
   const copyFrom = [
     sourceDir + "**/*.html",
@@ -125,7 +126,7 @@ function lintAll() {
 }
 
 function lint(project) {
-  const sourceDir = "src/" + project.name + "/";
+  const sourceDir = "src/" + (project.inputDir || project.name) + "/";
 
   const tsResult = gulp.src([sourceDir + "**/*.ts"])
     .pipe(tslint({ formatter: "prose" }))
@@ -140,12 +141,13 @@ function watchAll() {
 }
 
 function watch(project) {
-  const sourcedir = "src/" + project.name + "/";
-  const tsFiles = sourcedir + "**/*.ts";
+  const sourceDir = "src/" + (project.inputDir || project.name) + "/";
+  // const tsFiles = sourceDir + "**/*.ts";
+  const tsFiles = glob.sync(sourceDir + project.inputFiles);
   const staticFiles = [
-    sourcedir + "**/*.html",
-    sourcedir + "**/*.css",
-    sourcedir + "**/*.js",
+    sourceDir + "**/*.html",
+    sourceDir + "**/*.css",
+    sourceDir + "**/*.js",
   ];
 
   gulp.watch(tsFiles, ["lint-" + project.name, "compile-" + project.name]);

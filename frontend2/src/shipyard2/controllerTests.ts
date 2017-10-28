@@ -502,7 +502,7 @@ export const controllerCommandHistoryTests = {
 
     // Perform action under test. Add another line.
     widget1.simulateLineEvent(null, null, linePosFinish);
-    
+
     // Confirm we are on track.
     TrackAsserts.assert(model.lineEvents.length === 7);
     TrackAsserts.assert(toolbar.buttonStates.undo === true);
@@ -514,7 +514,7 @@ export const controllerCommandHistoryTests = {
       logger.lastWarn[0] ===
         "Trying to performCommand past end of buffer. index:" &&
       logger.lastWarn[1] === 1);
-    
+
     TrackAsserts.assert(toolbar.buttonStates.undo === true);
     TrackAsserts.assert(toolbar.buttonStates.redo === false);
   },

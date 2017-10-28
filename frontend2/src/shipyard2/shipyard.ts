@@ -2,11 +2,13 @@
 
 import {Controller} from "./controller";
 import {Model} from "./model";
-import {ViewToolbar} from "./view";
+import {ViewCanvas, ViewCrossSection, ViewToolbar} from "./view";
 
 window.onload = () => {
+  console.log("shipyard.ts");
   const model = new Model();
   const toolbar = new ViewToolbar();
-  const controller = new Controller(model, [toolbar]);
-  console.log("shipyard.ts");
+  const canvas = new ViewCanvas();
+  const crossSection = new ViewCrossSection(canvas);
+  const controller = new Controller(model, [toolbar, crossSection]);
 };
