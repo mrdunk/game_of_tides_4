@@ -9,6 +9,6 @@ window.onload = () => {
   const model = new Model();
   const toolbar = new ViewToolbar();
   const canvas = new ViewCanvas();
-  const crossSection = new ViewCrossSection(canvas);
+  const crossSection = new ViewCrossSection(canvas, 10, 10);
   const controller = new Controller(model, [toolbar, crossSection]);
 };
