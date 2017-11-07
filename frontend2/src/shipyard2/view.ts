@@ -50,7 +50,9 @@ export class ViewCrossSection extends ViewBase {
   private background: Konva.Group;
   private geometry: Konva.Group;
   private mouseDown: boolean = false;
-  private mouseDragging: string = "";
+  private mouseDragging: Konva.Shape = null;
+  private mouseDraggingStartPos: ILinePos = null;
+  private mouseDrawingStartPos: IPoint = null;
   private mouseHighlight: string = "";
   private aspect: string = "xy";
 
@@ -113,16 +115,21 @@ export class ViewCrossSection extends ViewBase {
     this.background.add(sea);
     this.background.add(midline);
 
-    this.geometry.add(new Line("testLine1", this.onLineOver.bind(this)));
+    this.geometry.add(new Line("testLine1", this.onMouseMove.bind(this)));
 
     this.layer.draw();
   }
 
   private translateScreenToWidget(pos: {x: number, y: number}): IPoint {
+    return this.translateWidget(
+      {x: pos.x - this.background.x(), y: pos.y - this.background.y()});
+  }
+
+  private translateWidget(pos: {x: number, y: number}): IPoint {
     const x = Math.round(
-      pos.x - this.background.x() - (this.background.getWidth() /2));
+      pos.x - (this.background.getWidth() /2));
     const y = Math.round(
-      -pos.y + this.background.y() + (this.background.getHeight() /2));
+      -pos.y + (this.background.getHeight() /2));
 
     if(this.aspect === "xy") {
       return {x, y, z: 0};
@@ -133,35 +140,77 @@ export class ViewCrossSection extends ViewBase {
     return {x, y: 0, z: y};
   }
 
+  private getPointerPosition(): {x: number, y: number} {
+    const screenMousePos = this.layer.getStage().getPointerPosition();
+    return this.translateScreenToWidget(
+      {x: screenMousePos.x, y: screenMousePos.y});
+  }
+
   private onMouseMove(event) {
     this.mouseDown = event.evt.buttons === 1;
 
-    const lineId = event.target.parent.id();
+    const parent: Line = event.target.getParent();
+    const lineId = parent.id();
 
     if(this.mouseDown) {
-      const mousePos = this.layer.getStage().getPointerPosition();
-      if(lineId) {
-        this.mouseDragging = lineId;
+      const mousePos = this.getPointerPosition();
+      if(!this.mouseDragging && !this.mouseDrawingStartPos) {
+        if(lineId) {
+          this.mouseDragging = event.target;
+
+          const points = parent.line.points();
+          const a: IPoint = this.translateWidget({x: points[0], y: points[1]});
+          const b: IPoint = this.translateWidget({x: points[2], y: points[3]});
+          this.mouseDraggingStartPos = {a, b};
+        } else if(!lineId) {
+          this.mouseDrawingStartPos = {x: mousePos.x, y: mousePos.y, z: 0};
+        }
       }
       if(this.mouseDragging) {
         console.log("Dragging:", this.mouseDragging);
+        const points = (this.mouseDragging.getParent() as Line).line.points();
+        const mouseDraggingEndPos =
+          JSON.parse(JSON.stringify(this.mouseDraggingStartPos));
+        if(this.mouseDragging.id() === "endA") {
+          mouseDraggingEndPos.a.x = mousePos.x;
+          mouseDraggingEndPos.a.y = mousePos.y;
+        } else if(this.mouseDragging.id() === "endB") {
+          mouseDraggingEndPos.b.x = mousePos.x;
+          mouseDraggingEndPos.b.y = mousePos.y;
+        }
+        this.lineEvent(
+          this.mouseDragging.getParent().id(),
+          this.mouseDraggingStartPos,
+          mouseDraggingEndPos);
       } else {
         console.log("Drawing:", this.translateScreenToWidget(mousePos));
+        const endPoint: IPoint = {x: mousePos.x, y: mousePos.y, z: 0};
+        const line: ILinePos = {a: this.mouseDrawingStartPos, b: endPoint};
+        this.lineEvent(null, null, line);
       }
     } else {
       if(lineId) {
         console.log("Highlight:", lineId);
         this.mouseHighlight = lineId;
+        this.lineEvent(this.mouseHighlight, null, null);
       } else if(this.mouseHighlight) {
         console.log("Un-highlight:", this.mouseHighlight);
+        this.lineEvent(this.mouseHighlight, null, null);
         this.mouseHighlight = "";
       }
-      this.mouseDragging = "";
+      this.mouseDragging = null;
+      this.mouseDraggingStartPos = null;
+      this.mouseDrawingStartPos = null;
     }
   }
 
-  private onLineOver(event) {
-    this.onMouseMove(event);
+  private lineEvent(id: string, startPos: ILinePos, finishPos: ILinePos) {
+    const event: ILineEvent = {
+      id,
+      startPos,
+      finishPos,
+    };
+    this.controller.onLineEvent(event);
   }
 }
 
@@ -183,11 +232,13 @@ export class ViewMock extends ViewBase {
 
   public simulateLineEvent(id: string,
                            startPos: ILinePos,
-                           finishPos: ILinePos) {
+                           finishPos: ILinePos,
+                           highlight?: boolean) {
     const event: ILineEvent = {
       id,
       startPos,
       finishPos,
+      highlight,
     };
     this.controller.onLineEvent(event);
   }
@@ -247,9 +298,9 @@ export class ViewToolbar extends ViewBase {
 }
 
 class Line extends Konva.Group {
-  private line: Konva.Line;
-  private endA: Konva.Circle;
-  private endB: Konva.Circle;
+  public line: Konva.Line;
+  public endA: Konva.Circle;
+  public endB: Konva.Circle;
   private lineOverCallback: (event: Event) => void;
 
   constructor(id: string,
@@ -265,7 +316,8 @@ class Line extends Konva.Group {
         strokeWidth: 1,
       });
     this.endA = new Konva.Circle(
-      { x: 10,
+      { id: "endA",
+        x: 10,
         y: 10,
         radius: 5,
         stroke: "black",
@@ -273,7 +325,8 @@ class Line extends Konva.Group {
         fill: "white",
       });
     this.endB = new Konva.Circle(
-      { x: 100,
+      { id: "endB",
+        x: 100,
         y: 100,
         radius: 5,
         stroke: "black",

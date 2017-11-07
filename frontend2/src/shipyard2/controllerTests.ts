@@ -25,8 +25,10 @@ export const controllerButtonEventTests = {
     // Perform action under test.
     toolbar1.simulateButtonPress(buttonLabel);
 
-    TrackAsserts.assert(logger.lastWarn[0] === "Invalid buttonLabel:" &&
-                   logger.lastWarn[1] === buttonLabel);
+    TrackAsserts.assert(
+      logger.lastWarn &&
+      logger.lastWarn[0] === "Invalid buttonLabel:" &&
+      logger.lastWarn[1] === buttonLabel);
     TrackAsserts.assert(toolbar1.buttonValues[buttonLabel] === undefined);
     TrackAsserts.assert(toolbar2.buttonValues[buttonLabel] === undefined);
   },
@@ -137,8 +139,45 @@ export const controllerLineEventTests = {
 
     TrackAsserts.assert(model.lineEvents.length === 0);
     TrackAsserts.assert(
-      logger.lastWarn[0] === "No startPos or finishPos for line: " &&
+      logger.lastWarn &&
+      logger.lastWarn[0] === "No id, startPos or finishPos for line: " &&
       logger.lastWarn[1] === null);
+  },
+
+  testInvalidLine: () => {
+    const model = new ModelMock();
+    const widget1 = new ViewMock();
+    const widget2 = new ViewMock();
+    const toolbar = new ViewMock();
+    const logger = new LoggerMock();
+    const controller =
+      new Controller(model, [widget1, widget2, toolbar], logger);
+
+    // Perform action under test.
+    widget1.simulateLineEvent("testLineId", null, null);
+
+    TrackAsserts.assert(model.lineEvents.length === 0);
+    TrackAsserts.assert(
+      logger.lastWarn &&
+      logger.lastWarn[0] === "No startPos, finishPos or options for line: " &&
+      logger.lastWarn[1] === "testLineId");
+  },
+
+  testSetHighlight: () => {
+    const model = new ModelMock();
+    const widget1 = new ViewMock();
+    const widget2 = new ViewMock();
+    const toolbar = new ViewMock();
+    const logger = new LoggerMock();
+    const controller =
+      new Controller(model, [widget1, widget2, toolbar], logger);
+
+    // Perform action under test.
+    widget1.simulateLineEvent("testLineId", null, null, true);
+
+    TrackAsserts.assert(model.lineEvents.length === 1);
+    TrackAsserts.assert(toolbar.buttonStates.undo === true);
+    TrackAsserts.assert(toolbar.buttonStates.redo === false);
   },
 
   testNewInvalidLineMissingPoint: () => {
@@ -160,6 +199,7 @@ export const controllerLineEventTests = {
 
     TrackAsserts.assert(model.lineEvents.length === 0);
     TrackAsserts.assert(
+      logger.lastWarn &&
       logger.lastWarn[0] === "Missing endpoint for startPos of line: " &&
       logger.lastWarn[1] === null);
 
@@ -168,6 +208,7 @@ export const controllerLineEventTests = {
 
     TrackAsserts.assert(model.lineEvents.length === 0);
     TrackAsserts.assert(
+      logger.lastWarn &&
       logger.lastWarn[0] === "Missing endpoint for endPos of line: " &&
       logger.lastWarn[1] === null);
   },
@@ -195,7 +236,9 @@ export const controllerLineEventTests = {
     widget1.simulateLineEvent(null, linePosStart, linePosFinish);
 
     TrackAsserts.assert(model.lineEvents.length === 0);
-    TrackAsserts.assert(logger.lastWarn[0] ===
+    TrackAsserts.assert(
+      logger.lastWarn &&
+      logger.lastWarn[0] ===
       "No id specified for line being moved or deleted.");
   },
 
@@ -361,12 +404,14 @@ export const controllerCommandHistoryTests = {
     // Perform action under test. Undo part start of buffer.
     toolbar.simulateButtonPress("undo");
     TrackAsserts.assert(
+      logger.lastWarn &&
       logger.lastWarn[0] ===
         "Trying to performCommand past end of buffer. index:" &&
       logger.lastWarn[1] === -1);
 
     toolbar.simulateButtonPress("undo");
     TrackAsserts.assert(
+      logger.lastWarn &&
       logger.lastWarn[0] ===
         "Trying to performCommand past end of buffer. index:" &&
       logger.lastWarn[1] === -1);
@@ -439,12 +484,14 @@ export const controllerCommandHistoryTests = {
     // Perform action under test. Try to redo past end of buffer.
     toolbar.simulateButtonPress("redo");
     TrackAsserts.assert(
+      logger.lastWarn &&
       logger.lastWarn[0] ===
         "Trying to performCommand past end of buffer. index:" &&
       logger.lastWarn[1] === 3);
 
     toolbar.simulateButtonPress("redo");
     TrackAsserts.assert(
+      logger.lastWarn &&
       logger.lastWarn[0] ===
         "Trying to performCommand past end of buffer. index:" &&
       logger.lastWarn[1] === 3);
@@ -511,6 +558,7 @@ export const controllerCommandHistoryTests = {
     // Perform action under test. Try to redo past end of buffer.
     toolbar.simulateButtonPress("redo");
     TrackAsserts.assert(
+      logger.lastWarn &&
       logger.lastWarn[0] ===
         "Trying to performCommand past end of buffer. index:" &&
       logger.lastWarn[1] === 1);

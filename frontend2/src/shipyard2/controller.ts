@@ -22,6 +22,7 @@ export interface ILineEvent {
   id: string;
   startPos: ILinePos;
   finishPos: ILinePos;
+  highlight?: boolean;
 }
 
 export function comparePoint(p1: IPoint, p2: IPoint): boolean {
@@ -109,8 +110,17 @@ export class Controller {
   }
 
   public onLineEvent(lineEvent: ILineEvent) {
-    if(!lineEvent.startPos && !lineEvent.finishPos) {
-      this.logger.warn("No startPos or finishPos for line: ", lineEvent.id);
+    console.log(lineEvent);
+
+    if(!lineEvent.id && !lineEvent.startPos && !lineEvent.finishPos) {
+      this.logger.warn("No id, startPos or finishPos for line: ", lineEvent.id);
+      return;
+    }
+
+    if(lineEvent.id && !lineEvent.startPos && !lineEvent.finishPos &&
+         lineEvent.highlight === undefined) {
+      this.logger.warn("No startPos, finishPos or options for line: ",
+                       lineEvent.id);
       return;
     }
 
