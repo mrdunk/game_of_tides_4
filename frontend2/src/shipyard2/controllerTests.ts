@@ -4,7 +4,7 @@ import {LoggerMock, TrackAsserts} from "./commonFunctionstTests";
 import {
   compareLineEvent,
   compareLinePos,
-  Controller,
+  ControllerMock,
   ILineEvent,
   ILinePos,
   IPoint,
@@ -18,7 +18,7 @@ export const controllerButtonEventTests = {
     const toolbar1 = new ViewMock();
     const toolbar2 = new ViewMock();
     const logger = new LoggerMock();
-    const controller = new Controller(model, [toolbar1, toolbar2], logger);
+    const controller = new ControllerMock(model, [toolbar1, toolbar2], logger);
 
     const buttonLabel = "someInvalidButton";
 
@@ -38,7 +38,7 @@ export const controllerButtonEventTests = {
     const toolbar1 = new ViewMock();
     const toolbar2 = new ViewMock();
     const logger = new LoggerMock();
-    const controller = new Controller(model, [toolbar1, toolbar2], logger);
+    const controller = new ControllerMock(model, [toolbar1, toolbar2], logger);
 
     const buttonLabel = "clear";
 
@@ -56,7 +56,7 @@ export const controllerButtonEventTests = {
     const toolbar1 = new ViewMock();
     const toolbar2 = new ViewMock();
     const logger = new LoggerMock();
-    const controller = new Controller(model, [toolbar1, toolbar2], logger);
+    const controller = new ControllerMock(model, [toolbar1, toolbar2], logger);
 
     const buttonLabel = "allLayers";
 
@@ -80,7 +80,7 @@ export const controllerButtonEventTests = {
     const toolbar1 = new ViewMock();
     const toolbar2 = new ViewMock();
     const logger = new LoggerMock();
-    const controller = new Controller(model, [toolbar1, toolbar2], logger);
+    const controller = new ControllerMock(model, [toolbar1, toolbar2], logger);
 
     // Only one of these buttons can be toggled at once.
     const buttonLabel1 = "addLine";
@@ -132,10 +132,10 @@ export const controllerLineEventTests = {
     const toolbar = new ViewMock();
     const logger = new LoggerMock();
     const controller =
-      new Controller(model, [widget1, widget2, toolbar], logger);
+      new ControllerMock(model, [widget1, widget2, toolbar], logger);
 
     // Perform action under test.
-    widget1.simulateLineEvent(null, null, null);
+    widget1.simulateLineEvent(null, "test_sequence_1", null, null);
 
     TrackAsserts.assert(model.lineEvents.length === 0);
     TrackAsserts.assert(
@@ -151,10 +151,10 @@ export const controllerLineEventTests = {
     const toolbar = new ViewMock();
     const logger = new LoggerMock();
     const controller =
-      new Controller(model, [widget1, widget2, toolbar], logger);
+      new ControllerMock(model, [widget1, widget2, toolbar], logger);
 
     // Perform action under test.
-    widget1.simulateLineEvent("testLineId", null, null);
+    widget1.simulateLineEvent("testLineId", "test_sequence_1", null, null);
 
     TrackAsserts.assert(model.lineEvents.length === 0);
     TrackAsserts.assert(
@@ -170,10 +170,11 @@ export const controllerLineEventTests = {
     const toolbar = new ViewMock();
     const logger = new LoggerMock();
     const controller =
-      new Controller(model, [widget1, widget2, toolbar], logger);
+      new ControllerMock(model, [widget1, widget2, toolbar], logger);
 
     // Perform action under test.
-    widget1.simulateLineEvent("testLineId", null, null, true);
+    widget1.simulateLineEvent(
+      "testLineId", "test_sequence_1", null, null, true);
 
     TrackAsserts.assert(model.lineEvents.length === 1);
     TrackAsserts.assert(toolbar.buttonStates.undo === true);
@@ -187,7 +188,7 @@ export const controllerLineEventTests = {
     const toolbar = new ViewMock();
     const logger = new LoggerMock();
     const controller =
-      new Controller(model, [widget1, widget2, toolbar], logger);
+      new ControllerMock(model, [widget1, widget2, toolbar], logger);
 
     const linePos: ILinePos = {
       a: {x:1, y:2, z:3},
@@ -195,7 +196,7 @@ export const controllerLineEventTests = {
     };
 
     // Perform action under test.
-    widget1.simulateLineEvent(null, linePos, null);
+    widget1.simulateLineEvent(null, "test_sequence_1", linePos, null);
 
     TrackAsserts.assert(model.lineEvents.length === 0);
     TrackAsserts.assert(
@@ -204,7 +205,7 @@ export const controllerLineEventTests = {
       logger.lastWarn[1] === null);
 
     // Perform action under test again.
-    widget1.simulateLineEvent(null, null, linePos);
+    widget1.simulateLineEvent(null, "test_sequence_2", null, linePos);
 
     TrackAsserts.assert(model.lineEvents.length === 0);
     TrackAsserts.assert(
@@ -220,7 +221,7 @@ export const controllerLineEventTests = {
     const toolbar = new ViewMock();
     const logger = new LoggerMock();
     const controller =
-      new Controller(model, [widget1, widget2, toolbar], logger);
+      new ControllerMock(model, [widget1, widget2, toolbar], logger);
 
     const linePosStart: ILinePos = {
       a: {x:1, y:2, z:3},
@@ -233,7 +234,8 @@ export const controllerLineEventTests = {
     };
 
     // Perform action under test.
-    widget1.simulateLineEvent(null, linePosStart, linePosFinish);
+    widget1.simulateLineEvent(
+      null, "test_sequence_1", linePosStart, linePosFinish);
 
     TrackAsserts.assert(model.lineEvents.length === 0);
     TrackAsserts.assert(
@@ -249,7 +251,7 @@ export const controllerLineEventTests = {
     const toolbar = new ViewMock();
     const logger = new LoggerMock();
     const controller =
-      new Controller(model, [widget1, widget2, toolbar], logger);
+      new ControllerMock(model, [widget1, widget2, toolbar], logger);
 
     const linePosStart: ILinePos = {
       a: {x:1, y:2, z:3},
@@ -264,7 +266,8 @@ export const controllerLineEventTests = {
     // Perform action under test.
     // Although this is moving a line that does not actually exist on the model,
     // it is not up to the controller to police this so the test passes.
-    widget1.simulateLineEvent("someId", linePosStart, linePosFinish);
+    widget1.simulateLineEvent(
+      "someId", "test_sequence_1", linePosStart, linePosFinish);
 
     TrackAsserts.assert(model.lineEvents.length === 1);
     TrackAsserts.assert(toolbar.buttonStates.undo === true);
@@ -278,7 +281,7 @@ export const controllerLineEventTests = {
     const toolbar = new ViewMock();
     const logger = new LoggerMock();
     const controller =
-      new Controller(model, [widget1, widget2, toolbar], logger);
+      new ControllerMock(model, [widget1, widget2, toolbar], logger);
 
     const linePosStart: ILinePos = {
       a: {x:1, y:2, z:3},
@@ -288,7 +291,7 @@ export const controllerLineEventTests = {
     // Perform action under test.
     // Although this is deleting a line that does not actually exist on the
     // model, it is not up to the controller to police this so the test passes.
-    widget1.simulateLineEvent("someId", linePosStart, null);
+    widget1.simulateLineEvent("someId", "test_sequence_1", linePosStart, null);
 
     TrackAsserts.assert(model.lineEvents.length === 1);
     TrackAsserts.assert(toolbar.buttonStates.undo === true);
@@ -302,7 +305,7 @@ export const controllerLineEventTests = {
     const toolbar = new ViewMock();
     const logger = new LoggerMock();
     const controller =
-      new Controller(model, [widget1, widget2, toolbar], logger);
+      new ControllerMock(model, [widget1, widget2, toolbar], logger);
 
     const linePosFinish: ILinePos = {
       a: {x:4, y:5, z:6},
@@ -310,7 +313,7 @@ export const controllerLineEventTests = {
     };
 
     // Perform action under test.
-    widget1.simulateLineEvent(null, null, linePosFinish);
+    widget1.simulateLineEvent(null, "test_sequence_1", null, linePosFinish);
 
     TrackAsserts.assert(model.lineEvents.length === 1);
     TrackAsserts.assert(toolbar.buttonStates.undo === true);
@@ -324,7 +327,7 @@ export const controllerLineEventTests = {
     const toolbar = new ViewMock();
     const logger = new LoggerMock();
     const controller =
-      new Controller(model, [widget1, widget2, toolbar], logger);
+      new ControllerMock(model, [widget1, widget2, toolbar], logger);
 
     const linePosFinish: ILinePos = {
       a: {x:4, y:5, z:6},
@@ -332,13 +335,54 @@ export const controllerLineEventTests = {
     };
 
     // Add some lines.
-    widget1.simulateLineEvent(null, null, linePosFinish);
-    widget1.simulateLineEvent(null, null, linePosFinish);
-    widget1.simulateLineEvent(null, null, linePosFinish);
+    widget1.simulateLineEvent(null, "test_sequence_1", null, linePosFinish);
+    widget1.simulateLineEvent(null, "test_sequence_2", null, linePosFinish);
+    widget1.simulateLineEvent(null, "test_sequence_3", null, linePosFinish);
 
     TrackAsserts.assert(model.lineEvents.length === 3);
     TrackAsserts.assert(toolbar.buttonStates.undo === true);
     TrackAsserts.assert(toolbar.buttonStates.redo === false);
+  },
+
+  testEventSequenceCollapse: () => {
+    const model = new ModelMock();
+    const widget1 = new ViewMock();
+    const widget2 = new ViewMock();
+    const toolbar = new ViewMock();
+    const logger = new LoggerMock();
+    const controller =
+      new ControllerMock(model, [widget1, widget2, toolbar], logger);
+
+    const linePosFinish1: ILinePos = {
+      a: {x:4, y:5, z:6},
+      b: {x:44, y:55, z:11},
+    };
+
+    const linePosFinish2: ILinePos = {
+      a: {x:4, y:5, z:6},
+      b: {x:44, y:55, z:22},
+    };
+
+    const linePosFinish3: ILinePos = {
+      a: {x:4, y:5, z:6},
+      b: {x:44, y:55, z:33},
+    };
+
+    // Add some lines.
+    widget1.simulateLineEvent(null, "test_sequence_1", null, linePosFinish1);
+    widget1.simulateLineEvent(null, "test_sequence_1", null, linePosFinish2);
+    widget1.simulateLineEvent(null, "test_sequence_1", null, linePosFinish3);
+
+    // Confirm lines with matching sequence collapsed into one.
+    TrackAsserts.assert(controller.commands.length === 1);
+
+    // Add some more lines.
+    widget1.simulateLineEvent(null, "test_sequence_2", null, linePosFinish1);
+    widget1.simulateLineEvent(null, "test_sequence_2", null, linePosFinish2);
+    widget1.simulateLineEvent(null, "test_sequence_2", null, linePosFinish3);
+
+    // Confirm lines they collapsed.
+    TrackAsserts.assert(controller.commands.length === 2);
   },
 };
 
@@ -350,7 +394,7 @@ export const controllerCommandHistoryTests = {
     const toolbar = new ViewMock();
     const logger = new LoggerMock();
     const controller =
-      new Controller(model, [widget1, widget2, toolbar], logger);
+      new ControllerMock(model, [widget1, widget2, toolbar], logger);
 
     const linePosFinish: ILinePos = {
       a: {x:4, y:5, z:6},
@@ -358,9 +402,9 @@ export const controllerCommandHistoryTests = {
     };
 
     // Add some lines.
-    widget1.simulateLineEvent(null, null, linePosFinish);
-    widget1.simulateLineEvent(null, null, linePosFinish);
-    widget1.simulateLineEvent(null, null, linePosFinish);
+    widget1.simulateLineEvent(null, "test_sequence_1", null, linePosFinish);
+    widget1.simulateLineEvent(null, "test_sequence_2", null, linePosFinish);
+    widget1.simulateLineEvent(null, "test_sequence_3", null, linePosFinish);
 
     // Confirm we are on track.
     TrackAsserts.assert(model.lineEvents.length === 3);
@@ -424,7 +468,7 @@ export const controllerCommandHistoryTests = {
     const toolbar = new ViewMock();
     const logger = new LoggerMock();
     const controller =
-      new Controller(model, [widget1, widget2, toolbar], logger);
+      new ControllerMock(model, [widget1, widget2, toolbar], logger);
 
     const linePosFinish: ILinePos = {
       a: {x:4, y:5, z:6},
@@ -432,9 +476,9 @@ export const controllerCommandHistoryTests = {
     };
 
     // Add some lines.
-    widget1.simulateLineEvent(null, null, linePosFinish);
-    widget1.simulateLineEvent(null, null, linePosFinish);
-    widget1.simulateLineEvent(null, null, linePosFinish);
+    widget1.simulateLineEvent(null, "test_sequence_1", null, linePosFinish);
+    widget1.simulateLineEvent(null, "test_sequence_2", null, linePosFinish);
+    widget1.simulateLineEvent(null, "test_sequence_3", null, linePosFinish);
 
     // Confirm we are on track.
     TrackAsserts.assert(model.lineEvents.length === 3);
@@ -507,7 +551,7 @@ export const controllerCommandHistoryTests = {
     const toolbar = new ViewMock();
     const logger = new LoggerMock();
     const controller =
-      new Controller(model, [widget1, widget2, toolbar], logger);
+      new ControllerMock(model, [widget1, widget2, toolbar], logger);
 
     const linePosFinish: ILinePos = {
       a: {x:4, y:5, z:6},
@@ -515,9 +559,9 @@ export const controllerCommandHistoryTests = {
     };
 
     // Add some lines.
-    widget1.simulateLineEvent(null, null, linePosFinish);
-    widget1.simulateLineEvent(null, null, linePosFinish);
-    widget1.simulateLineEvent(null, null, linePosFinish);
+    widget1.simulateLineEvent(null, "test_sequence_1", null, linePosFinish);
+    widget1.simulateLineEvent(null, "test_sequence_2", null, linePosFinish);
+    widget1.simulateLineEvent(null, "test_sequence_3", null, linePosFinish);
 
     // Confirm we are on track.
     TrackAsserts.assert(model.lineEvents.length === 3);
@@ -548,7 +592,7 @@ export const controllerCommandHistoryTests = {
                                        model.lineEvents[5].startPos));
 
     // Perform action under test. Add another line.
-    widget1.simulateLineEvent(null, null, linePosFinish);
+    widget1.simulateLineEvent(null, "test_sequence_1", null, linePosFinish);
 
     // Confirm we are on track.
     TrackAsserts.assert(model.lineEvents.length === 7);

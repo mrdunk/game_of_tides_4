@@ -1,17 +1,20 @@
 // Copyright 2017 duncan law (mrdunk@gmail.com)
 
 import * as Konva from "konva";
-import {Controller, ILineEvent, ILinePos, IPoint} from "./controller";
+import {Controller, ILine, ILineEvent, ILinePos, IPoint} from "./controller";
 
 interface IHash {
   [key: string]: any;
 }
 
 export class ViewBase {
+  protected static widgetId: number = 0;
   protected controller: Controller;
+  protected sequence: string = "";
+  private sequenceCounter: number = 0;
 
   constructor() {
-    //
+    ViewBase.widgetId++;
   }
 
   public init(controller: Controller) {
@@ -25,6 +28,19 @@ export class ViewBase {
   public setButtonState(buttonLabel: string, state: boolean) {
     //
   }
+
+  public updateLine(lineEvent: ILine) {
+    //
+  }
+
+  // Generate a unique id for a series of related events.
+  protected newSequence(): string {
+    this.sequenceCounter++;
+    this.sequence =
+      "sequence_" + ViewBase.widgetId + "_" + this.sequenceCounter;
+    return this.sequence;
+  }
+
 }
 
 export class ViewCanvas {
@@ -49,6 +65,7 @@ export class ViewCrossSection extends ViewBase {
   private layer: Konva.Layer;
   private background: Konva.Group;
   private geometry: Konva.Group;
+  private lines: IHash = {};
   private mouseDown: boolean = false;
   private mouseDragging: Konva.Shape = null;
   private mouseDraggingStartPos: ILinePos = null;
@@ -115,9 +132,38 @@ export class ViewCrossSection extends ViewBase {
     this.background.add(sea);
     this.background.add(midline);
 
-    this.geometry.add(new Line("testLine1", this.onMouseMove.bind(this)));
+    this.layer.draw();
+  }
+
+  public updateLine(lineEvent: ILine) {
+    console.assert(Boolean(lineEvent.id));
+    let line = this.lines[lineEvent.id];
+    if(line === undefined) {
+      line = new Line(lineEvent.id, this.onMouseMove.bind(this));
+      this.lines[lineEvent.id] = line;
+      this.geometry.add(line);
+    }
+
+    if(lineEvent.finishPos) {
+      const a = this.translateWidgetToScreen(lineEvent.finishPos.a);
+      const b = this.translateWidgetToScreen(lineEvent.finishPos.b);
+      line.moveEnd(line.endA, a.x, a.y);
+      line.moveEnd(line.endB, b.x, b.y);
+    }
+
+    if(lineEvent.highlight !== undefined) {
+      line.highlight(lineEvent.highlight);
+    }
 
     this.layer.draw();
+  }
+
+  private translateWidgetToScreen(pos: {x: number, y: number}) {
+    const x = Math.round(
+      pos.x + (this.background.getWidth() /2));
+    const y = Math.round(
+      -pos.y + (this.background.getHeight() /2));
+    return {x, y};
   }
 
   private translateScreenToWidget(pos: {x: number, y: number}): IPoint {
@@ -155,12 +201,15 @@ export class ViewCrossSection extends ViewBase {
     if(this.mouseDown) {
       const mousePos = this.getPointerPosition();
       if(!this.mouseDragging && !this.mouseDrawingStartPos) {
+        this.newSequence();
         if(lineId) {
           this.mouseDragging = event.target;
 
           const points = parent.line.points();
           const a: IPoint = this.translateWidget({x: points[0], y: points[1]});
           const b: IPoint = this.translateWidget({x: points[2], y: points[3]});
+          // const a: IPoint = {x: points[0], y: points[1]};
+          // const b: IPoint = {x: points[2], y: points[3]};
           this.mouseDraggingStartPos = {a, b};
         } else if(!lineId) {
           this.mouseDrawingStartPos = {x: mousePos.x, y: mousePos.y, z: 0};
@@ -180,22 +229,23 @@ export class ViewCrossSection extends ViewBase {
         }
         this.lineEvent(
           this.mouseDragging.getParent().id(),
+          this.sequence,
           this.mouseDraggingStartPos,
           mouseDraggingEndPos);
       } else {
         console.log("Drawing:", this.translateScreenToWidget(mousePos));
         const endPoint: IPoint = {x: mousePos.x, y: mousePos.y, z: 0};
         const line: ILinePos = {a: this.mouseDrawingStartPos, b: endPoint};
-        this.lineEvent(null, null, line);
+        this.lineEvent(null, this.sequence, null, line);
       }
     } else {
       if(lineId) {
-        console.log("Highlight:", lineId);
+        // console.log("Highlight:", lineId);
         this.mouseHighlight = lineId;
-        this.lineEvent(this.mouseHighlight, null, null);
+        this.lineEvent(this.mouseHighlight, this.sequence, null, null, true);
       } else if(this.mouseHighlight) {
-        console.log("Un-highlight:", this.mouseHighlight);
-        this.lineEvent(this.mouseHighlight, null, null);
+        // console.log("Un-highlight:", this.mouseHighlight);
+        this.lineEvent(this.mouseHighlight, this.sequence, null, null, false);
         this.mouseHighlight = "";
       }
       this.mouseDragging = null;
@@ -204,11 +254,17 @@ export class ViewCrossSection extends ViewBase {
     }
   }
 
-  private lineEvent(id: string, startPos: ILinePos, finishPos: ILinePos) {
+  private lineEvent(id: string,
+                    sequence: string,
+                    startPos: ILinePos,
+                    finishPos: ILinePos,
+                    highlight?: boolean) {
     const event: ILineEvent = {
       id,
+      sequence,
       startPos,
       finishPos,
+      highlight,
     };
     this.controller.onLineEvent(event);
   }
@@ -231,11 +287,13 @@ export class ViewMock extends ViewBase {
   }
 
   public simulateLineEvent(id: string,
+                           sequence: string,
                            startPos: ILinePos,
                            finishPos: ILinePos,
                            highlight?: boolean) {
     const event: ILineEvent = {
       id,
+      sequence,
       startPos,
       finishPos,
       highlight,
@@ -355,8 +413,20 @@ class Line extends Konva.Group {
       [this.endA.x(), this.endA.y(), this.endB.x(), this.endB.y()]);
   }
 
+  public highlight(value: boolean) {
+    if(value) {
+      this.endA.fill("orange");
+      this.endB.fill("orange");
+      this.line.stroke("orange");
+      return;
+    }
+    this.endA.fill("white");
+    this.endB.fill("white");
+    this.line.stroke("black");
+  }
+
   private onMouse(event: Event) {
-    console.log(event);
+    // console.log(event);
     this.lineOverCallback(event);
   }
 }

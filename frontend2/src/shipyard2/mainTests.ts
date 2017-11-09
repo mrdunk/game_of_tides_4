@@ -23,6 +23,12 @@ window.onload = () => {
     if(!testSuites.hasOwnProperty(testSuiteName)) {
       continue;
     }
+
+    let container = document.createElement("div");
+    container.innerHTML = testSuiteName;
+    container.classList.add("test-header");
+    outputPannel.appendChild(container);
+
     const testSuite = testSuites[testSuiteName];
 
     for(const testName in testSuite) {
@@ -30,9 +36,10 @@ window.onload = () => {
         continue;
       }
       const test = testSuite[testName];
+      console.log("---", test.name, "---");
 
       TrackAsserts.value = true;
-      const container = document.createElement("div");
+      container = document.createElement("div");
       outputPannel.appendChild(container);
       test();
       if(TrackAsserts.value) {
@@ -40,7 +47,7 @@ window.onload = () => {
       } else {
         container.classList.add("test-fail");
       }
-      container.innerHTML = testSuiteName + "." + test.name;
+      container.innerHTML = "&nbsp&nbsp&nbsp&nbsp&nbsp&nbsp." + test.name;
     }
   }
 };

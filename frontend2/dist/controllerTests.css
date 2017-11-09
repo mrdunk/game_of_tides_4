@@ -5,3 +5,8 @@
 .test-pass {
   background-color: lightgreen;
 }
+
+.test-header {
+  background-color: lightgrey;
+  font-size: large;
+}

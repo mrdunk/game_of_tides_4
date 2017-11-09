@@ -18,11 +18,15 @@ export interface ILinePos {
   b: IPoint;
 }
 
-export interface ILineEvent {
+export interface ILine {
   id: string;
-  startPos: ILinePos;
-  finishPos: ILinePos;
+  finishPos?: ILinePos;
   highlight?: boolean;
+}
+
+export interface ILineEvent extends ILine {
+  sequence: string;
+  startPos?: ILinePos;
 }
 
 export function comparePoint(p1: IPoint, p2: IPoint): boolean {
@@ -45,8 +49,7 @@ export function compareLineEvent(e1: ILineEvent, e2: ILineEvent): boolean {
 }
 
 export class Controller {
-  private idGenerator: number = 0;
-  private commands: ICommand[];
+  protected commands: ICommand[];
   private commandPointer: number;
   private views: ViewBase[];
   private model: ModelBase;
@@ -110,8 +113,6 @@ export class Controller {
   }
 
   public onLineEvent(lineEvent: ILineEvent) {
-    console.log(lineEvent);
-
     if(!lineEvent.id && !lineEvent.startPos && !lineEvent.finishPos) {
       this.logger.warn("No id, startPos or finishPos for line: ", lineEvent.id);
       return;
@@ -144,8 +145,6 @@ export class Controller {
         return;
       }
       // No id and no lineEvent.startPos implies this is a new line.
-      lineEvent.id = "line_" + this.idGenerator;
-      this.idGenerator++;
     }
 
     const command: ICommand = {
@@ -173,6 +172,28 @@ export class Controller {
     });
   }
 
+  public updateViews(line: ILine) {
+    this.views.forEach((view) => {
+      view.updateLine(line);
+    });
+  }
+
+  private commandsMatchingSequence(command1: ICommand,
+                                   command2: ICommand): boolean {
+    if(command1 === undefined || command2 === undefined) {
+      return false;
+    }
+    let returnVal = false;
+    command1.lineEvents.forEach((lineEvent1) => {
+      command2.lineEvents.forEach((lineEvent2) => {
+        if(lineEvent1.sequence === lineEvent2.sequence) {
+          returnVal = true;
+        }
+      });
+    });
+    return returnVal;
+  }
+
   // Set whether the "back" and "forward" buttons are selectable.
   private setButtonStates() {
     this.views.forEach((view) => {
@@ -182,6 +203,10 @@ export class Controller {
   }
 
   private recordCommand(command: ICommand) {
+    if(this.commandsMatchingSequence(
+          this.commands[this.commandPointer -1], command)) {
+      this.commandPointer--;
+    }
     this.commands = this.commands.slice(0, this.commandPointer);
     this.commands.push(command);
   }
@@ -226,4 +251,8 @@ export class Controller {
     });
     this.setButtonStates();
   }
+}
+
+export class ControllerMock extends Controller {
+  public commands: ICommand[];
 }
