@@ -67,9 +67,9 @@ export abstract class ControllerBase {
     });
   }
 
-  public onLineEvent(event): void {}
-  public updateViews(line: ILine): void {}
-  public onButtonEvent(buttonLabel: string) {}
+  public onLineEvent(event): void {/**/}
+  public updateViews(line: ILine): void {/**/}
+  public onButtonEvent(buttonLabel: string) {/**/}
 }
 
 export class Controller extends ControllerBase {
@@ -311,10 +311,14 @@ export class TestController extends Controller {
 }
 
 export class MockController extends ControllerBase {
-  public commands: ICommand[];
+  public commands;
 
   constructor(model: ModelBase, views: ViewBase[], logger?) {
     super(model, views, logger);
     this.commands = [];
+  }
+
+  public onLineEvent(event): void {
+    this.commands.push(event);
   }
 }

@@ -74,7 +74,7 @@ export class ViewCrossSection extends ViewBase {
   protected mouseDraggingStartPos: ILinePos = null;
   protected mouseDrawingStartPos: IPoint = null;
   protected mouseHighlight: string = "";
-  private background: Konva.Group;
+  protected background: Konva.Group;
   private geometry: Konva.Group;
   private aspect: string = "xy";
 
@@ -175,18 +175,21 @@ export class ViewCrossSection extends ViewBase {
     this.layer.draw();
   }
 
-  // TODO This is a mess. Rewrite and test.
   protected onMouseMove(event) {
     console.log("onMouseMove(", event, ")");
 
-    this.mouseDown = event.evt.buttons === 1;
+    const mouseDown = event.evt.buttons === 1;
 
     const parent: Line = event.target.getParent();
-    const lineId = parent.id();
+    let lineId;
+    if(parent instanceof Line) {
+      lineId = parent.id();
+    }
 
-    if(this.mouseDown) {
+    if(mouseDown) {
       const mousePos = this.getPointerPosition();
-      if(!this.mouseDragging && !this.mouseDrawingStartPos) {
+      if(!this.mouseDown) {
+        // Mouse button not pressed last cycle.
         this.newSequence();
         if(lineId) {
           this.mouseDragging = event.target;
@@ -195,7 +198,7 @@ export class ViewCrossSection extends ViewBase {
           const a: IPoint = this.translateWidget({x: points[0], y: points[1]});
           const b: IPoint = this.translateWidget({x: points[2], y: points[3]});
           this.mouseDraggingStartPos = {a, b};
-        } else if(!lineId) {
+        } else {
           this.mouseDrawingStartPos = {x: mousePos.x, y: mousePos.y, z: 0};
         }
       }
@@ -236,6 +239,7 @@ export class ViewCrossSection extends ViewBase {
       this.mouseDraggingStartPos = null;
       this.mouseDrawingStartPos = null;
     }
+    this.mouseDown = mouseDown;
   }
 
   protected getPointerPosition(): {x: number, y: number} {
@@ -305,6 +309,7 @@ export class MockViewCrossSection extends ViewCrossSection {
   public mouseHighlight: string = "";
   public mockScreenMousePosX: number = 0;
   public mockScreenMousePosY: number = 0;
+  public background: Konva.Group;
 
   public onMouseMove(event) {
     super.onMouseMove(event);
@@ -401,7 +406,7 @@ export class ViewToolbar extends ViewBase {
   }
 }
 
-class Line extends Konva.Group {
+export class Line extends Konva.Group {
   public line: Konva.Line;
   public endA: Konva.Circle;
   public endB: Konva.Circle;
