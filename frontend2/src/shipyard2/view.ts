@@ -1,7 +1,12 @@
 // Copyright 2017 duncan law (mrdunk@gmail.com)
 
 import * as Konva from "konva";
-import {Controller, ILine, ILineEvent, ILinePos, IPoint} from "./controller";
+import {
+  ControllerBase,
+  ILine,
+  ILineEvent,
+  ILinePos,
+  IPoint} from "./controller";
 
 interface IHash {
   [key: string]: any;
@@ -9,7 +14,7 @@ interface IHash {
 
 export class ViewBase {
   protected static widgetId: number = 0;
-  protected controller: Controller;
+  protected controller: ControllerBase;
   protected sequence: string = "";
   private sequenceCounter: number = 0;
 
@@ -17,7 +22,7 @@ export class ViewBase {
     ViewBase.widgetId++;
   }
 
-  public init(controller: Controller) {
+  public init(controller: ControllerBase) {
     this.controller = controller;
   }
 
@@ -49,11 +54,11 @@ export class ViewCanvas {
 
   constructor() {
     this.stage = new Konva.Stage({
-        container: "canvas",   // id of container <div>
+      container: "canvas",   // id of container <div>
       scaleX: 1,
       scaleY: 1,
-        width: 500,
-        height: 500,
+      width: 500,
+      height: 500,
     });
     this.layer = new Konva.Layer();
 
@@ -62,15 +67,15 @@ export class ViewCanvas {
 }
 
 export class ViewCrossSection extends ViewBase {
-  private layer: Konva.Layer;
+  protected layer: Konva.Layer;
+  protected lines: IHash = {};
+  protected mouseDown: boolean = false;
+  protected mouseDragging: Konva.Shape = null;
+  protected mouseDraggingStartPos: ILinePos = null;
+  protected mouseDrawingStartPos: IPoint = null;
+  protected mouseHighlight: string = "";
   private background: Konva.Group;
   private geometry: Konva.Group;
-  private lines: IHash = {};
-  private mouseDown: boolean = false;
-  private mouseDragging: Konva.Shape = null;
-  private mouseDraggingStartPos: ILinePos = null;
-  private mouseDrawingStartPos: IPoint = null;
-  private mouseHighlight: string = "";
   private aspect: string = "xy";
 
   constructor(canvas: ViewCanvas, x?: number, y?: number) {
@@ -138,6 +143,17 @@ export class ViewCrossSection extends ViewBase {
   public updateLine(lineEvent: ILine) {
     console.assert(Boolean(lineEvent.id));
     let line = this.lines[lineEvent.id];
+
+    if(!Boolean(lineEvent.finishPos)) {
+      console.log("Delete", line);
+      if(line) {
+        line.destroy();
+        delete this.lines[lineEvent.id];
+        this.layer.draw();
+      }
+      return;
+    }
+
     if(line === undefined) {
       line = new Line(lineEvent.id, this.onMouseMove.bind(this));
       this.lines[lineEvent.id] = line;
@@ -152,47 +168,17 @@ export class ViewCrossSection extends ViewBase {
     }
 
     if(lineEvent.highlight !== undefined) {
+      this.unhighlightAll();
       line.highlight(lineEvent.highlight);
     }
 
     this.layer.draw();
   }
 
-  private translateWidgetToScreen(pos: {x: number, y: number}) {
-    const x = Math.round(
-      pos.x + (this.background.getWidth() /2));
-    const y = Math.round(
-      -pos.y + (this.background.getHeight() /2));
-    return {x, y};
-  }
+  // TODO This is a mess. Rewrite and test.
+  protected onMouseMove(event) {
+    console.log("onMouseMove(", event, ")");
 
-  private translateScreenToWidget(pos: {x: number, y: number}): IPoint {
-    return this.translateWidget(
-      {x: pos.x - this.background.x(), y: pos.y - this.background.y()});
-  }
-
-  private translateWidget(pos: {x: number, y: number}): IPoint {
-    const x = Math.round(
-      pos.x - (this.background.getWidth() /2));
-    const y = Math.round(
-      -pos.y + (this.background.getHeight() /2));
-
-    if(this.aspect === "xy") {
-      return {x, y, z: 0};
-    } else if(this.aspect === "zy") {
-      return {x: 0, y, z: x};
-    }
-    // else if(this.aspect === "xz") {
-    return {x, y: 0, z: y};
-  }
-
-  private getPointerPosition(): {x: number, y: number} {
-    const screenMousePos = this.layer.getStage().getPointerPosition();
-    return this.translateScreenToWidget(
-      {x: screenMousePos.x, y: screenMousePos.y});
-  }
-
-  private onMouseMove(event) {
     this.mouseDown = event.evt.buttons === 1;
 
     const parent: Line = event.target.getParent();
@@ -208,8 +194,6 @@ export class ViewCrossSection extends ViewBase {
           const points = parent.line.points();
           const a: IPoint = this.translateWidget({x: points[0], y: points[1]});
           const b: IPoint = this.translateWidget({x: points[2], y: points[3]});
-          // const a: IPoint = {x: points[0], y: points[1]};
-          // const b: IPoint = {x: points[2], y: points[3]};
           this.mouseDraggingStartPos = {a, b};
         } else if(!lineId) {
           this.mouseDrawingStartPos = {x: mousePos.x, y: mousePos.y, z: 0};
@@ -254,6 +238,47 @@ export class ViewCrossSection extends ViewBase {
     }
   }
 
+  protected getPointerPosition(): {x: number, y: number} {
+    const screenMousePos = this.layer.getStage().getPointerPosition();
+    return this.translateScreenToWidget(
+      {x: screenMousePos.x, y: screenMousePos.y});
+  }
+
+  protected translateWidgetToScreen(pos: {x: number, y: number}) {
+    const x = Math.round(
+      pos.x + (this.background.getWidth() /2));
+    const y = Math.round(
+      -pos.y + (this.background.getHeight() /2));
+    return {x, y};
+  }
+
+  protected translateScreenToWidget(pos: {x: number, y: number}): IPoint {
+    return this.translateWidget(
+      {x: pos.x - this.background.x(), y: pos.y - this.background.y()});
+  }
+
+  private unhighlightAll() {
+    Object.getOwnPropertyNames(this.lines).forEach((lineName) => {
+      const line = this.lines[lineName];
+      line.highlight(false);
+    });
+  }
+
+  private translateWidget(pos: {x: number, y: number}): IPoint {
+    const x = Math.round(
+      pos.x - (this.background.getWidth() /2));
+    const y = Math.round(
+      -pos.y + (this.background.getHeight() /2));
+
+    if(this.aspect === "xy") {
+      return {x, y, z: 0};
+    } else if(this.aspect === "zy") {
+      return {x: 0, y, z: x};
+    }
+    // else if(this.aspect === "xz") {
+    return {x, y: 0, z: y};
+  }
+
   private lineEvent(id: string,
                     sequence: string,
                     startPos: ILinePos,
@@ -267,6 +292,27 @@ export class ViewCrossSection extends ViewBase {
       highlight,
     };
     this.controller.onLineEvent(event);
+  }
+}
+
+export class MockViewCrossSection extends ViewCrossSection {
+  public layer: Konva.Layer;
+  public lines: IHash = {};
+  public mouseDown: boolean = false;
+  public mouseDragging: Konva.Shape = null;
+  public mouseDraggingStartPos: ILinePos = null;
+  public mouseDrawingStartPos: IPoint = null;
+  public mouseHighlight: string = "";
+  public mockScreenMousePosX: number = 0;
+  public mockScreenMousePosY: number = 0;
+
+  public onMouseMove(event) {
+    super.onMouseMove(event);
+  }
+
+  protected getPointerPosition(): {x: number, y: number} {
+    return this.translateScreenToWidget(
+      {x: this.mockScreenMousePosX, y: this.mockScreenMousePosY});
   }
 }
 
@@ -338,7 +384,7 @@ export class ViewToolbar extends ViewBase {
     }
   }
 
-  private onClick(event: Event) {
+  private onClick(event: MouseEvent) {
     const button = event.currentTarget as Element;
     const buttonLabel = button.getAttribute("label");
     this.controller.onButtonEvent(buttonLabel);
@@ -359,10 +405,10 @@ class Line extends Konva.Group {
   public line: Konva.Line;
   public endA: Konva.Circle;
   public endB: Konva.Circle;
-  private lineOverCallback: (event: Event) => void;
+  private lineOverCallback: (event: MouseEvent) => void;
 
   constructor(id: string,
-              lineOverCallback: (event: Event) => void) {
+              lineOverCallback: (event: MouseEvent) => void) {
     super();
 
     this.id(id);
@@ -425,8 +471,12 @@ class Line extends Konva.Group {
     this.line.stroke("black");
   }
 
-  private onMouse(event: Event) {
-    // console.log(event);
+  public destroy() {
+    this.destroyChildren();
+    super.destroy();
+  }
+
+  private onMouse(event: MouseEvent) {
     this.lineOverCallback(event);
   }
 }

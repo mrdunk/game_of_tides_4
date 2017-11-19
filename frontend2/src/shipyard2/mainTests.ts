@@ -6,6 +6,9 @@ import {
   controllerCommandHistoryTests,
   controllerLineEventTests,
 } from "./controllerTests";
+import {
+  viewOnMouseDown,
+} from "./viewTests";
 
 
 window.onload = () => {
@@ -17,6 +20,7 @@ window.onload = () => {
     controllerButtonEventTests,
     controllerLineEventTests,
     controllerCommandHistoryTests,
+    viewOnMouseDown,
   };
 
   for(const testSuiteName in testSuites) {

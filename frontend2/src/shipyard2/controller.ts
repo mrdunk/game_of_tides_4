@@ -48,12 +48,36 @@ export function compareLineEvent(e1: ILineEvent, e2: ILineEvent): boolean {
   );
 }
 
-export class Controller {
+export abstract class ControllerBase {
   protected commands: ICommand[];
+  protected views: ViewBase[];
+  protected model: ModelBase;
+  protected logger;
+  constructor(model: ModelBase, views: ViewBase[], logger?) {
+    this.model = model;  // TODO Can this be assigned automatically?
+    this.views = views;
+    this.logger = logger || console;
+
+    if(this.model) {
+      this.model.init(this);
+    }
+
+    this.views.forEach((view) => {
+      view.init(this);
+    });
+  }
+
+  public onLineEvent(event): void {}
+  public updateViews(line: ILine): void {}
+  public onButtonEvent(buttonLabel: string) {}
+}
+
+export class Controller extends ControllerBase {
+  protected commands: ICommand[];
+  protected views: ViewBase[];
+  protected model: ModelBase;
+  protected logger;
   private commandPointer: number;
-  private views: ViewBase[];
-  private model: ModelBase;
-  private logger;
   private buttonStates = {
     addLine: {state: false, clear: ["delete", "mirror"]},
     delete: {state: false, clear: ["addLine", "mirror"]},
@@ -62,19 +86,9 @@ export class Controller {
   };
 
   constructor(model: ModelBase, views: ViewBase[], logger?) {
-    this.model = model;  // TODO Can this be assigned automatically?
-    this.views = views;
-    this.logger = logger || console;
+    super(model, views, logger);
     this.commands = [];
     this.commandPointer = 0;
-
-    if(model) {
-      model.init(this);
-    }
-
-    views.forEach((view) => {
-      view.init(this);
-    });
 
     this.setButtonStates();
   }
@@ -87,7 +101,7 @@ export class Controller {
         this.undoCommand();
         break;
       case "redo":
-        this.performCommand();
+        this.redoCommand();
         break;
       case "clear":
         break;
@@ -145,13 +159,19 @@ export class Controller {
         return;
       }
       // No id and no lineEvent.startPos implies this is a new line.
+      if(!lineEvent.sequence.startsWith("sequence_")) {
+        // TODO UnitTest for this case.
+        this.logger.warn("No id or sequence specified.");
+        return;
+      }
+      lineEvent.id = "drawnLine_" + lineEvent.sequence.slice(9);
     }
 
     const command: ICommand = {
       lineEvents: [lineEvent],
     };
     this.recordCommand(command);
-    this.performCommand();
+    this.performCommand(null, command);
   }
 
   public updateButton(buttonLabel: string) {
@@ -178,8 +198,16 @@ export class Controller {
     });
   }
 
-  private commandsMatchingSequence(command1: ICommand,
-                                   command2: ICommand): boolean {
+  // Set whether the "back" and "forward" buttons are selectable.
+  private setButtonStates() {
+    this.views.forEach((view) => {
+      view.setButtonState("undo", this.commandPointer > 0);
+      view.setButtonState("redo", this.commandPointer < this.commands.length);
+    });
+  }
+
+  private commandsMatchingSequence(
+      command1: ICommand, command2: ICommand): boolean {
     if(command1 === undefined || command2 === undefined) {
       return false;
     }
@@ -194,52 +222,62 @@ export class Controller {
     return returnVal;
   }
 
-  // Set whether the "back" and "forward" buttons are selectable.
-  private setButtonStates() {
-    this.views.forEach((view) => {
-      view.setButtonState("undo", this.commandPointer > 0);
-      view.setButtonState("redo", this.commandPointer < this.commands.length);
+  private loggableCommand(command: ICommand): boolean {
+    let returnVal = false;
+    command.lineEvents.forEach((lineEvent) => {
+      returnVal = returnVal ||
+                  Boolean(lineEvent.startPos) ||
+                  Boolean(lineEvent.finishPos);
     });
+    return returnVal;
   }
 
   private recordCommand(command: ICommand) {
-    if(this.commandsMatchingSequence(
-          this.commands[this.commandPointer -1], command)) {
-      this.commandPointer--;
+    if(!this.loggableCommand(command)) {
+      return;
     }
-    this.commands = this.commands.slice(0, this.commandPointer);
+
+    if(!this.commandsMatchingSequence(
+        this.commands[this.commandPointer -1], command)) {
+      this.commandPointer++;
+    }
+
+    this.commands = this.commands.slice(0, this.commandPointer -1);
     this.commands.push(command);
+
+    console.log(this.commands);
   }
 
-  private performCommand(commandIndex?: number) {
+  private performCommand(commandIndex?: number, command?: ICommand) {
     if(commandIndex === undefined) {
       commandIndex = this.commandPointer;
     }
-    if(commandIndex >= this.commands.length || commandIndex < 0) {
-      this.logger.warn("Trying to performCommand past end of buffer. index:",
-                       commandIndex);
-      return;
+
+    if(command === undefined) {
+      command = this.commands[commandIndex];
     }
-    const command = this.commands[commandIndex];
+
     command.lineEvents.forEach((lineEvent) => {
       this.model.onLineEvent(lineEvent);
     });
 
-    this.commandPointer++;
     this.setButtonStates();
   }
 
   private undoCommand(commandIndex?: number) {
     this.commandPointer--;
+
     if(commandIndex === undefined) {
       commandIndex = this.commandPointer;
     }
+
     if(commandIndex >= this.commands.length || commandIndex < 0) {
-      this.logger.warn("Trying to performCommand past end of buffer. index:",
+      this.logger.warn("Trying to undoCommand past end of buffer. index:",
                        commandIndex);
       this.commandPointer = 0;
       return;
     }
+
     const command = this.commands[commandIndex];
     command.lineEvents.forEach((lineEvent) => {
       const reverseLineEvent = {
@@ -251,8 +289,32 @@ export class Controller {
     });
     this.setButtonStates();
   }
+
+  private redoCommand(commandIndex?: number) {
+    if(commandIndex === undefined) {
+      commandIndex = this.commandPointer;
+    }
+    if(commandIndex >= this.commands.length || commandIndex < 0) {
+      this.logger.warn("Trying to performCommand past end of buffer. index:",
+        commandIndex);
+      return;
+    }
+    this.performCommand();
+    this.commandPointer++;
+    this.setButtonStates();
+  }
 }
 
-export class ControllerMock extends Controller {
+// Controller with relaxed permissions for testing.
+export class TestController extends Controller {
   public commands: ICommand[];
+}
+
+export class MockController extends ControllerBase {
+  public commands: ICommand[];
+
+  constructor(model: ModelBase, views: ViewBase[], logger?) {
+    super(model, views, logger);
+    this.commands = [];
+  }
 }

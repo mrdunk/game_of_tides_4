@@ -1,10 +1,10 @@
 // Copyright 2017 duncan law (mrdunk@gmail.com)
 
-import {Controller, ILine, ILineEvent} from "./controller";
+import {ControllerBase, ILine, ILineEvent} from "./controller";
 
 export abstract class ModelBase {
-  protected controller: Controller;
-  public init(controller: Controller) {
+  protected controller: ControllerBase;
+  public init(controller: ControllerBase) {
     this.controller = controller;
   }
 
@@ -15,42 +15,37 @@ export class Model extends ModelBase {
   private data = {
     lines: {},
   };
-  private sequences = {};  // TODO Type.
-  private idNumber: number = 0;
 
   public onLineEvent(event: ILineEvent) {
-    if(!event.id) {
+    if(!this.data.lines[event.id]) {
       this.createLine(event);
-      return;
     }
     this.modifyLine(event);
   }
 
   private createLine(event: ILineEvent) {
-    console.log("createLine(", event, ")");
-
-    let id = this.sequences[event.sequence];
-    if(id === undefined) {
-      id = "line_" + this.idNumber;
-      this.idNumber++;
-      this.sequences[event.sequence] = id;
-      const line: ILine = {id};
-      this.data.lines[id] = line;
-    }
-    event.id = id;
-    this.modifyLine(event);
+    const line: ILine = {id: event.id};
+    this.data.lines[event.id] = line;
   }
 
   private modifyLine(event: ILineEvent) {
-    console.log(event);
-    console.log(this.data);
-
     const line = this.data.lines[event.id];
+
     if(event.finishPos) {
       line.finishPos = JSON.parse(JSON.stringify(event.finishPos));
+    } else if(event.highlight === undefined) {
+      delete line.finishPos;
+    }
+
+    if(event.highlight !== undefined) {
+      line.highlight = event.highlight;
     }
 
     this.controller.updateViews(line);
+
+    if(!event.finishPos && event.highlight === undefined) {
+      delete this.data.lines[event.id];
+    }
   }
 }
 
