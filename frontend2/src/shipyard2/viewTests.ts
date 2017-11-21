@@ -1,11 +1,12 @@
 // Copyright 2017 duncan law (mrdunk@gmail.com)
 
+import * as Konva from "konva";
 import {LoggerMock, TrackAsserts} from "./commonFunctionstTests";
 import {comparePoint, MockController} from "./controller";
 import {Line, MockViewCrossSection, ViewCanvas} from "./view";
 
 export const viewOnMouseDown = {
-  noClickNoLineUnderTest: () => {
+  testNoClickNoLineUnderMouse: () => {
     const canvas = document.createElement("canvas");
     canvas.id = "canvas";
     document.body.appendChild(canvas);
@@ -46,7 +47,7 @@ export const viewOnMouseDown = {
     TrackAsserts.assert(!view.mouseDrawingStartPos);
   },
 
-  drawLineTest: () => {
+  testDrawLine: () => {
     const canvas = document.createElement("canvas");
     canvas.id = "canvas";
     document.body.appendChild(canvas);
@@ -123,7 +124,7 @@ export const viewOnMouseDown = {
                                 controller.commands[1].finishPos.b));
   },
 
-  dragExistingLineTest: () => {
+  testDragExistingLine: () => {
     const canvas = document.createElement("canvas");
     canvas.id = "canvas";
     document.body.appendChild(canvas);
@@ -170,6 +171,63 @@ export const viewOnMouseDown = {
                                       z: 0}));
     TrackAsserts.assert(!view.mouseDrawingStartPos);
     console.log(view);
+  },
+
+  testLineHighlight: () => {
+    const canvas = document.createElement("canvas");
+    canvas.id = "canvas";
+    document.body.appendChild(canvas);
+    const offsetX = 10;
+    const offsetY = 10;
+    const konvaCanvas = new ViewCanvas();
+
+    const view = new MockViewCrossSection(konvaCanvas, offsetX, offsetY);
+    const controller = new MockController(null, [view]);
+
+    // Confirm sane start conditions.
+    TrackAsserts.assert(view.mouseDown === false);
+    TrackAsserts.assert(view.mouseHighlight === "");
+    TrackAsserts.assert(!view.mouseDragging);
+    TrackAsserts.assert(!view.mouseDraggingStartPos);
+    TrackAsserts.assert(!view.mouseDrawingStartPos);
+
+    // Simulate mouse event.
+    const mouseEvent = new MouseEvent("mousemove", {
+      view: window,
+      bubbles: true,
+      buttons: 0,
+    });
+
+    const line = new Line("testLine", view.onMouseMove.bind(view));
+    const target: Konva.Node = line.endA;
+
+    const event = {
+      evt: mouseEvent,
+      target,
+    };
+
+    view.onMouseMove(event);
+
+    // No clicks and mouseOver line === highlight line.
+    TrackAsserts.assert(view.mouseDown === false);
+    TrackAsserts.assert(view.mouseHighlight === line.id());
+    TrackAsserts.assert(!view.mouseDragging);
+    TrackAsserts.assert(!view.mouseDraggingStartPos);
+    TrackAsserts.assert(!view.mouseDrawingStartPos);
+    TrackAsserts.assert(controller.commands.length === 1);
+    TrackAsserts.assert(controller.commands[0].highlight);
+
+    event.target = view.background;
+    view.onMouseMove(event);
+
+    // No clicks and not mouseOver line === not highlight line.
+    TrackAsserts.assert(view.mouseDown === false);
+    TrackAsserts.assert(view.mouseHighlight === "");
+    TrackAsserts.assert(!view.mouseDragging);
+    TrackAsserts.assert(!view.mouseDraggingStartPos);
+    TrackAsserts.assert(!view.mouseDrawingStartPos);
+    TrackAsserts.assert(controller.commands.length === 2);
+    TrackAsserts.assert(!controller.commands[1].highlight);
   },
 
 };

@@ -161,23 +161,37 @@ export class ViewCrossSection extends ViewBase {
     }
 
     if(lineEvent.finishPos) {
-      const a = this.translateWidgetToScreen(lineEvent.finishPos.a);
-      const b = this.translateWidgetToScreen(lineEvent.finishPos.b);
-      line.moveEnd(line.endA, a.x, a.y);
-      line.moveEnd(line.endB, b.x, b.y);
+      const a1 = this.translateWidgetToScreen(lineEvent.finishPos.a);
+      const b1 = this.translateWidgetToScreen(lineEvent.finishPos.b);
+
+      // Reverse x coordinate for mirror line.
+      const finishPosA2 = JSON.parse(JSON.stringify(lineEvent.finishPos.a));
+      finishPosA2.x = -finishPosA2.x;
+      const finishPosB2 = JSON.parse(JSON.stringify(lineEvent.finishPos.b));
+      finishPosB2.x = -finishPosB2.x;
+      const a2 = this.translateWidgetToScreen(finishPosA2);
+      const b2 = this.translateWidgetToScreen(finishPosB2);
+
+      line.moveEnd(line.end1A, a1.x, a1.y);
+      line.moveEnd(line.end1B, b1.x, b1.y);
+      line.moveEnd(line.end2A, a2.x, a2.y);
+      line.moveEnd(line.end2B, b2.x, b2.y);
     }
 
     if(lineEvent.highlight !== undefined) {
       this.unhighlightAll();
       line.highlight(lineEvent.highlight);
     }
+    if(lineEvent.mirrored !== undefined) {
+      console.log(lineEvent.mirrored);
+      line.mirrored = lineEvent.mirrored;
+      line.draw();
+    }
 
     this.layer.draw();
   }
 
   protected onMouseMove(event) {
-    console.log("onMouseMove(", event, ")");
-
     const mouseDown = event.evt.buttons === 1;
 
     const parent: Line = event.target.getParent();
@@ -194,7 +208,7 @@ export class ViewCrossSection extends ViewBase {
         if(lineId) {
           this.mouseDragging = event.target;
 
-          const points = parent.line.points();
+          const points = parent.line1.points();
           const a: IPoint = this.translateWidget({x: points[0], y: points[1]});
           const b: IPoint = this.translateWidget({x: points[2], y: points[3]});
           this.mouseDraggingStartPos = {a, b};
@@ -203,15 +217,21 @@ export class ViewCrossSection extends ViewBase {
         }
       }
       if(this.mouseDragging) {
-        console.log("Dragging:", this.mouseDragging);
-        const points = (this.mouseDragging.getParent() as Line).line.points();
+        // console.log("Dragging:", this.mouseDragging);
+        const points = (this.mouseDragging.getParent() as Line).line1.points();
         const mouseDraggingEndPos =
           JSON.parse(JSON.stringify(this.mouseDraggingStartPos));
-        if(this.mouseDragging.id() === "endA") {
+        if(this.mouseDragging.id() === "end1A") {
           mouseDraggingEndPos.a.x = mousePos.x;
           mouseDraggingEndPos.a.y = mousePos.y;
-        } else if(this.mouseDragging.id() === "endB") {
+        } else if(this.mouseDragging.id() === "end2A") {
+          mouseDraggingEndPos.a.x = -mousePos.x;
+          mouseDraggingEndPos.a.y = mousePos.y;
+        } else if(this.mouseDragging.id() === "end1B") {
           mouseDraggingEndPos.b.x = mousePos.x;
+          mouseDraggingEndPos.b.y = mousePos.y;
+        } else if(this.mouseDragging.id() === "end2B") {
+          mouseDraggingEndPos.b.x = -mousePos.x;
           mouseDraggingEndPos.b.y = mousePos.y;
         }
         this.lineEvent(
@@ -220,7 +240,7 @@ export class ViewCrossSection extends ViewBase {
           this.mouseDraggingStartPos,
           mouseDraggingEndPos);
       } else {
-        console.log("Drawing:", this.translateScreenToWidget(mousePos));
+        // console.log("Drawing:", this.translateScreenToWidget(mousePos));
         const endPoint: IPoint = {x: mousePos.x, y: mousePos.y, z: 0};
         const line: ILinePos = {a: this.mouseDrawingStartPos, b: endPoint};
         this.lineEvent(null, this.sequence, null, line);
@@ -407,9 +427,14 @@ export class ViewToolbar extends ViewBase {
 }
 
 export class Line extends Konva.Group {
-  public line: Konva.Line;
-  public endA: Konva.Circle;
-  public endB: Konva.Circle;
+  public line1: Konva.Line;  // Primary line.
+  public line2: Konva.Line;  // Mirrored line. (Not always set visible.)
+  public end1A: Konva.Circle;
+  public end2A: Konva.Circle;
+  public end1B: Konva.Circle;
+  public end2B: Konva.Circle;
+  public mirrored: boolean;
+  private highlightValue: boolean;
   private lineOverCallback: (event: MouseEvent) => void;
 
   constructor(id: string,
@@ -418,14 +443,22 @@ export class Line extends Konva.Group {
 
     this.id(id);
     this.lineOverCallback = lineOverCallback;
+    this.mirrored = false;
+    this.highlightValue = false;
 
-    this.line = new Konva.Line(
+    this.line1 = new Konva.Line(
       { points: [10, 10, 100, 100],
         stroke: "black",
         strokeWidth: 1,
       });
-    this.endA = new Konva.Circle(
-      { id: "endA",
+    this.line2 = new Konva.Line(
+      { points: [-10, 10, -100, 100],
+        stroke: "black",
+        strokeWidth: 1,
+        visible: false,
+      });
+    this.end1A = new Konva.Circle(
+      { id: "end1A",
         x: 10,
         y: 10,
         radius: 5,
@@ -433,8 +466,18 @@ export class Line extends Konva.Group {
         strokeWidth: 1,
         fill: "white",
       });
-    this.endB = new Konva.Circle(
-      { id: "endB",
+    this.end2A = new Konva.Circle(
+      { id: "end2A",
+        x: -10,
+        y: 10,
+        radius: 5,
+        stroke: "black",
+        strokeWidth: 1,
+        fill: "white",
+        visible: false,
+      });
+    this.end1B = new Konva.Circle(
+      { id: "end1B",
         x: 100,
         y: 100,
         radius: 5,
@@ -442,9 +485,22 @@ export class Line extends Konva.Group {
         strokeWidth: 1,
         fill: "white",
       });
-    this.add(this.line);
-    this.add(this.endA);
-    this.add(this.endB);
+    this.end2B = new Konva.Circle(
+      { id: "end2B",
+        x: -100,
+        y: 100,
+        radius: 5,
+        stroke: "black",
+        strokeWidth: 1,
+        fill: "white",
+        visible: false,
+      });
+    this.add(this.line1);
+    this.add(this.line2);
+    this.add(this.end1A);
+    this.add(this.end2A);
+    this.add(this.end1B);
+    this.add(this.end2B);
 
     this.on("mouseover", this.onMouse.bind(this));
     this.on("mousedown", this.onMouse.bind(this));
@@ -453,27 +509,54 @@ export class Line extends Konva.Group {
   }
 
   public moveEnd(end: Konva.Circle, x: number, y: number) {
-    if(end === this.endA) {
-      this.endA.x(x);
-      this.endA.y(y);
-    } else {
-      this.endB.x(x);
-      this.endB.y(y);
+    if(end === this.end1A) {
+      this.end1A.x(x);
+      this.end1A.y(y);
+    } else if(end === this.end2A) {
+      this.end2A.x(x);
+      this.end2A.y(y);
+    } else if(end === this.end1B) {
+      this.end1B.x(x);
+      this.end1B.y(y);
+    } else if(end === this.end2B) {
+      this.end2B.x(x);
+      this.end2B.y(y);
     }
-    this.line.points(
-      [this.endA.x(), this.endA.y(), this.endB.x(), this.endB.y()]);
+    this.line1.points(
+      [this.end1A.x(), this.end1A.y(), this.end1B.x(), this.end1B.y()]);
+    this.line2.points(
+      [this.end2A.x(), this.end2A.y(), this.end2B.x(), this.end2B.y()]);
   }
 
-  public highlight(value: boolean) {
-    if(value) {
-      this.endA.fill("orange");
-      this.endB.fill("orange");
-      this.line.stroke("orange");
-      return;
+  public highlight(value?: boolean) {
+    if(value === undefined) {
+      return this.highlightValue;
     }
-    this.endA.fill("white");
-    this.endB.fill("white");
-    this.line.stroke("black");
+    this.highlightValue = value;
+    if(value) {
+      this.end1A.fill("orange");
+      this.end2A.fill("orange");
+      this.end1B.fill("orange");
+      this.end2B.fill("orange");
+      this.line1.stroke("orange");
+      this.line2.stroke("orange");
+      return this.highlightValue;
+    }
+    this.end1A.fill("white");
+    this.end2A.fill("white");
+    this.end1B.fill("white");
+    this.end2B.fill("white");
+    this.line1.stroke("black");
+    this.line2.stroke("black");
+    return this.highlightValue;
+  }
+
+  public draw(): Konva.Node {
+    console.log(this.mirrored);
+    this.end2A.visible(this.mirrored);
+    this.end2B.visible(this.mirrored);
+    this.line2.visible(this.mirrored);
+    return super.draw();
   }
 
   public destroy() {

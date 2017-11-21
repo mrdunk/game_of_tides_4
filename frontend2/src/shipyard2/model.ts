@@ -33,7 +33,8 @@ export class Model extends ModelBase {
 
     if(event.finishPos) {
       line.finishPos = JSON.parse(JSON.stringify(event.finishPos));
-    } else if(event.highlight === undefined) {
+    } else if(event.highlight === undefined &&
+              event.toggleMirrored === undefined) {
       delete line.finishPos;
     }
 
@@ -41,11 +42,18 @@ export class Model extends ModelBase {
       line.highlight = event.highlight;
     }
 
+    if(event.toggleMirrored !== undefined) {
+      line.mirrored = !line.mirrored;
+    }
+
     this.controller.updateViews(line);
 
-    if(!event.finishPos && event.highlight === undefined) {
+    if(!event.finishPos &&
+        event.highlight === undefined &&
+        event.toggleMirrored === undefined) {
       delete this.data.lines[event.id];
     }
+    // console.log(this.data);
   }
 }
 

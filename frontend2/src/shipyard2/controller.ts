@@ -8,7 +8,7 @@ interface ICommand {
 }
 
 export interface IPoint {
-  x: number;  // Port/Starbord axis.
+  x: number;  // Port/Starboard axis.
   y: number;  // Up/Down axis.
   z: number;  // Fore/Aft axis.
 }
@@ -22,11 +22,13 @@ export interface ILine {
   id: string;
   finishPos?: ILinePos;
   highlight?: boolean;
+  mirrored?: boolean;
 }
 
 export interface ILineEvent extends ILine {
   sequence: string;
   startPos?: ILinePos;
+  toggleMirrored?: boolean;
 }
 
 export function comparePoint(p1: IPoint, p2: IPoint): boolean {
@@ -79,10 +81,10 @@ export class Controller extends ControllerBase {
   protected logger;
   private commandPointer: number;
   private buttonStates = {
-    addLine: {state: false, clear: ["delete", "mirror"]},
-    delete: {state: false, clear: ["addLine", "mirror"]},
-    mirror: {state: false, clear: ["addLine", "delete"]},
-    allLayers: {state: false, clear: []},
+    addLine: {value: true, clear: ["delete", "mirror"], preventUnClick: true},
+    delete: {value: false, clear: ["addLine", "mirror"], preventUnClick: true},
+    mirror: {value: false, clear: ["addLine", "delete"], preventUnClick: true},
+    allLayers: {value: false, clear: []},
   };
 
   constructor(model: ModelBase, views: ViewBase[], logger?) {
@@ -167,6 +169,14 @@ export class Controller extends ControllerBase {
       lineEvent.id = "drawnLine_" + lineEvent.sequence.slice(9);
     }
 
+    if(this.buttonStates.delete.value) {
+      lineEvent.finishPos = null;
+    } else if(this.buttonStates.mirror.value && lineEvent.finishPos) {
+      lineEvent.toggleMirrored = true;
+      lineEvent.startPos = null;
+      lineEvent.finishPos = null;
+    }
+
     const command: ICommand = {
       lineEvents: [lineEvent],
     };
@@ -177,6 +187,11 @@ export class Controller extends ControllerBase {
   public updateButton(buttonLabel: string) {
     if(this.buttonStates[buttonLabel] === undefined) {
       // Just a simple non-toggling push button.
+      return;
+    }
+
+    if(this.buttonStates[buttonLabel].preventUnClick &&
+        this.buttonStates[buttonLabel].value) {
       return;
     }
 
@@ -198,11 +213,17 @@ export class Controller extends ControllerBase {
     });
   }
 
-  // Set whether the "back" and "forward" buttons are selectable.
   private setButtonStates() {
     this.views.forEach((view) => {
+      // Set whether the "back" and "forward" buttons are selectable.
       view.setButtonState("undo", this.commandPointer > 0);
       view.setButtonState("redo", this.commandPointer < this.commands.length);
+
+      for(const key in this.buttonStates) {
+        if (this.buttonStates.hasOwnProperty(key)) {
+          view.setButtonValue(key, this.buttonStates[key].value);
+        }
+      }
     });
   }
 
@@ -244,8 +265,6 @@ export class Controller extends ControllerBase {
 
     this.commands = this.commands.slice(0, this.commandPointer -1);
     this.commands.push(command);
-
-    console.log(this.commands);
   }
 
   private performCommand(commandIndex?: number, command?: ICommand) {
