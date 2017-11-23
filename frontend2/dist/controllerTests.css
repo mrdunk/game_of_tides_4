@@ -1,3 +1,7 @@
+.test-pending {
+  background-color: orange;
+}
+
 .test-fail {
   background-color: red;
 }

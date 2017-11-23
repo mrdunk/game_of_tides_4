@@ -57,7 +57,7 @@ export class ViewCanvas {
       container: "canvas",   // id of container <div>
       scaleX: 1,
       scaleY: 1,
-      width: 500,
+      width: 1000,  // TODO: Dynamic sizing
       height: 500,
     });
     this.layer = new Konva.Layer();
@@ -183,7 +183,6 @@ export class ViewCrossSection extends ViewBase {
       line.highlight(lineEvent.highlight);
     }
     if(lineEvent.mirrored !== undefined) {
-      console.log(lineEvent.mirrored);
       line.mirrored = lineEvent.mirrored;
       line.draw();
     }
@@ -552,7 +551,6 @@ export class Line extends Konva.Group {
   }
 
   public draw(): Konva.Node {
-    console.log(this.mirrored);
     this.end2A.visible(this.mirrored);
     this.end2B.visible(this.mirrored);
     this.line2.visible(this.mirrored);

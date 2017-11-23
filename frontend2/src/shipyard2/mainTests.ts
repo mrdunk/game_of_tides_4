@@ -44,14 +44,20 @@ window.onload = () => {
 
       TrackAsserts.value = true;
       container = document.createElement("div");
-      outputPannel.appendChild(container);
-      test();
-      if(TrackAsserts.value) {
-        container.classList.add("test-pass");
-      } else {
-        container.classList.add("test-fail");
-      }
+      container.classList.add("test-pending");
       container.innerHTML = "&nbsp&nbsp&nbsp&nbsp&nbsp&nbsp." + test.name;
+      outputPannel.appendChild(container);
+      try {
+        test();
+        container.className = "";
+        if(TrackAsserts.value) {
+          container.classList.add("test-pass");
+        } else {
+          container.classList.add("test-fail");
+        }
+      } catch(exception) {
+        console.warn("Test execition stopped with:", exception);
+      }
     }
   }
 };

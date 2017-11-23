@@ -150,7 +150,7 @@ export const viewOnMouseDown = {
     });
 
     const line = new Line("testLine", view.onMouseMove.bind(view));
-    const target = line.endA;
+    const target = line.end1A;
 
     const event = {
       evt: mouseEvent,
@@ -199,7 +199,7 @@ export const viewOnMouseDown = {
     });
 
     const line = new Line("testLine", view.onMouseMove.bind(view));
-    const target: Konva.Node = line.endA;
+    const target: Konva.Node = line.end1A;
 
     const event = {
       evt: mouseEvent,
@@ -229,6 +229,5 @@ export const viewOnMouseDown = {
     TrackAsserts.assert(controller.commands.length === 2);
     TrackAsserts.assert(!controller.commands[1].highlight);
   },
-
 };
 
