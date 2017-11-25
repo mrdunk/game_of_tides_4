@@ -157,6 +157,14 @@ export const viewOnMouseDown = {
       target,
     };
 
+    const mockLineEndA = {x:1, y:2, z:3};
+    const mockLineEndB = {x:4, y:5, z:6};
+
+    view.controller.getLineReturnValue = {
+      id: "test_line_pos",
+      finishPos: {a: mockLineEndA, b: mockLineEndB},
+    };
+
     view.onMouseMove(event);
 
     const background = view.background;
@@ -166,11 +174,10 @@ export const viewOnMouseDown = {
     TrackAsserts.assert(view.mouseHighlight === "");
     TrackAsserts.assert(Boolean(view.mouseDragging));
     TrackAsserts.assert(comparePoint(view.mouseDraggingStartPos.a,
-                                     {x: -(background.width() / 2) + offsetX,
-                                      y: (background.height() / 2) - offsetY,
-                                      z: 0}));
+                                     mockLineEndA));
+    TrackAsserts.assert(comparePoint(view.mouseDraggingStartPos.b,
+                                     mockLineEndB));
     TrackAsserts.assert(!view.mouseDrawingStartPos);
-    console.log(view);
   },
 
   testLineHighlight: () => {

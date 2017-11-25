@@ -9,6 +9,9 @@ export abstract class ModelBase {
   }
 
   public abstract onLineEvent(event): void;
+  public getLine(lineId: string): ILine {
+    return null;
+  }
 }
 
 export class Model extends ModelBase {
@@ -21,6 +24,10 @@ export class Model extends ModelBase {
       this.createLine(event);
     }
     this.modifyLine(event);
+  }
+
+  public getLine(lineId: string): ILine {
+    return this.data.lines[lineId];
   }
 
   private createLine(event: ILineEvent) {
