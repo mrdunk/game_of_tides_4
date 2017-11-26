@@ -373,6 +373,9 @@ export class ViewCrossSection extends ViewSection {
       this.unhighlightAll();
       line.highlight(lineEvent.highlight);
     }
+    if(lineEvent.selected !== undefined) {
+      line.selected(lineEvent.selected);
+    }
     if(lineEvent.mirrored !== undefined) {
       line.mirrored = lineEvent.mirrored;
       line.draw();
@@ -530,6 +533,9 @@ export class ViewLengthSection extends ViewSection {
     if(lineEvent.highlight !== undefined) {
       this.unhighlightAll();
       line.highlight(lineEvent.highlight);
+    }
+    if(lineEvent.selected !== undefined) {
+      line.selected(lineEvent.selected);
     }
 
     this.layer.draw();
@@ -723,6 +729,7 @@ export class Line extends Konva.Group {
   public end2B: Konva.Circle;
   public mirrored: boolean;
   public z: number;
+  private selectedValue: boolean;
   private highlightValue: boolean;
   private lineOverCallback: (event: MouseEvent) => void;
 
@@ -817,11 +824,11 @@ export class Line extends Konva.Group {
       [this.end2A.x(), this.end2A.y(), this.end2B.x(), this.end2B.y()]);
   }
 
-  public highlight(value?: boolean) {
+  public selected(value?: boolean) {
     if(value === undefined) {
-      return this.highlightValue;
+      return this.selectedValue;
     }
-    this.highlightValue = value;
+    this.selectedValue = value;
     if(value) {
       this.end1A.fill("orange");
       this.end2A.fill("orange");
@@ -829,7 +836,7 @@ export class Line extends Konva.Group {
       this.end2B.fill("orange");
       this.line1.stroke("orange");
       this.line2.stroke("orange");
-      return this.highlightValue;
+      return this.selectedValue;
     }
     this.end1A.fill("white");
     this.end2A.fill("white");
@@ -837,6 +844,30 @@ export class Line extends Konva.Group {
     this.end2B.fill("white");
     this.line1.stroke("black");
     this.line2.stroke("black");
+    return this.selectedValue;
+  }
+
+  public highlight(value?: boolean) {
+    if(value === undefined) {
+      return this.highlightValue;
+    }
+    this.highlightValue = value;
+    if(value) {
+      this.end1A.strokeWidth(3);
+      this.end2A.strokeWidth(3);
+      this.end1B.strokeWidth(3);
+      this.end2B.strokeWidth(3);
+      this.line1.strokeWidth(3);
+      this.line2.strokeWidth(3);
+      this.moveToTop();
+      return this.highlightValue;
+    }
+    this.end1A.strokeWidth(1);
+    this.end2A.strokeWidth(1);
+    this.end1B.strokeWidth(1);
+    this.end2B.strokeWidth(1);
+    this.line1.strokeWidth(1);
+    this.line2.strokeWidth(1);
     return this.highlightValue;
   }
 

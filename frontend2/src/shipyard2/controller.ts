@@ -23,12 +23,14 @@ export interface ILine {
   finishPos?: ILinePos;
   highlight?: boolean;
   mirrored?: boolean;
+  selected?: boolean;
 }
 
 export interface ILineEvent extends ILine {
   sequence: string;
   startPos?: ILinePos;
   toggleMirrored?: boolean;
+  selecting?: boolean;
 }
 
 export function comparePoint(p1: IPoint, p2: IPoint): boolean {
@@ -40,6 +42,12 @@ export function compareLinePos(lp1: ILinePos, lp2: ILinePos): boolean {
     return (lp1 === lp2);
   }
   return (comparePoint(lp1.a, lp2.a) && comparePoint(lp1.b, lp2.b));
+}
+
+// An inexpensive approximation of the distance between 2 lines on the X,Y plane
+export function approxDistLinePos(lp1: ILinePos, lp2: ILinePos): number {
+  return Math.abs(lp1.a.x - lp2.a.x) + Math.abs(lp1.a.y - lp2.a.y) +
+    Math.abs(lp1.b.x - lp2.b.x) + Math.abs(lp1.b.y - lp2.b.y);
 }
 
 export function compareLineEvent(e1: ILineEvent, e2: ILineEvent): boolean {
@@ -84,9 +92,12 @@ export class Controller extends ControllerBase {
   protected logger;
   private commandPointer: number;
   private buttonStates = {
-    addLine: {value: true, clear: ["delete", "mirror"], preventUnClick: true},
-    delete: {value: false, clear: ["addLine", "mirror"], preventUnClick: true},
-    mirror: {value: false, clear: ["addLine", "delete"], preventUnClick: true},
+    selectLine: {value: false, clear: ["addLine"], preventUnClick: true},
+    addLine: {value: true, clear: ["selectLine"], preventUnClick: true},
+    // delete:
+    // {value: false, clear: ["addLine", "mirror"], preventUnClick: true},
+    // mirror:
+    // {value: false, clear: ["addLine", "delete"], preventUnClick: true},
     allLayers: {value: false, clear: []},
     selected_rib: {clear: []},
   };
@@ -110,6 +121,8 @@ export class Controller extends ControllerBase {
         this.redoCommand();
         break;
       case "clear":
+        break;
+      case "selectLine":
         break;
       case "addLine":
         break;
@@ -175,12 +188,26 @@ export class Controller extends ControllerBase {
       lineEvent.id = "drawnLine_" + lineEvent.sequence.slice(9);
     }
 
-    if(this.buttonStates.delete.value) {
+    /* if(this.buttonStates.delete.value) {
       lineEvent.finishPos = null;
     } else if(this.buttonStates.mirror.value && lineEvent.finishPos) {
       lineEvent.toggleMirrored = true;
       lineEvent.startPos = null;
+      lineEvent.finishPos = null;*/
+    if(this.buttonStates.selectLine.value &&
+       lineEvent.id && lineEvent.startPos &&
+       approxDistLinePos(lineEvent.startPos, lineEvent.finishPos) < 10) {
+      lineEvent.selecting = true;
+      lineEvent.startPos = null;
       lineEvent.finishPos = null;
+    } else if(this.buttonStates.selectLine.value &&
+              lineEvent.startPos &&
+              lineEvent.id) {
+      console.log("TODO: drag selectLine", lineEvent);
+      return;
+    } else if(this.buttonStates.selectLine.value && lineEvent.finishPos) {
+      console.log("TODO: box around selectLine", lineEvent);
+      return;
     } else {
       if(lineEvent.finishPos) {
         // Ensure both endpoints are in the same plane.
@@ -346,10 +373,14 @@ export class Controller extends ControllerBase {
   private loggableCommand(command: ICommand): boolean {
     let returnVal = false;
     command.lineEvents.forEach((lineEvent) => {
-      returnVal = returnVal ||
-        Boolean(lineEvent.startPos) ||
-        Boolean(lineEvent.finishPos) ||
-        lineEvent.toggleMirrored !== undefined;
+      if(lineEvent.selecting) {
+        returnVal = returnVal || (Boolean(lineEvent.startPos) && !lineEvent.id);
+      } else {
+        returnVal = returnVal ||
+          Boolean(lineEvent.startPos) ||
+          Boolean(lineEvent.finishPos) ||
+          lineEvent.toggleMirrored !== undefined;
+      }
     });
     // console.log("loggableCommand(", command, "):", returnVal);
     return returnVal;

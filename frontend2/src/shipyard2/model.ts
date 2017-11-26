@@ -33,10 +33,6 @@ export class Model extends ModelBase {
     this.modifyLine(event);
   }
 
-  public getLine(lineId: string): ILine {
-    return this.data.lines[lineId];
-  }
-
   public nearestLine(line: ILine): {point: IPoint, mirrored: boolean} {
     let nearestDist: number = 99999999;
     let nearest: IPoint;
@@ -76,7 +72,6 @@ export class Model extends ModelBase {
           }
 
           if(testLine.mirrored || line.mirrored) {
-            console.log(testLine.mirrored, line.mirrored);
             dist =
               Math.abs(testLine.finishPos.a.x + line.finishPos.a.x) +
               Math.abs(testLine.finishPos.a.y - line.finishPos.a.y);
@@ -116,6 +111,10 @@ export class Model extends ModelBase {
     return {point: nearest, mirrored};
   }
 
+  public getLine(lineId: string): ILine {
+    return this.data.lines[lineId];
+  }
+
   private createLine(event: ILineEvent) {
     const line: ILine = {id: event.id};
     this.data.lines[event.id] = line;
@@ -123,11 +122,13 @@ export class Model extends ModelBase {
 
   private modifyLine(event: ILineEvent) {
     const line = this.data.lines[event.id];
+    console.log(event);
 
     if(event.finishPos) {
       line.finishPos = JSON.parse(JSON.stringify(event.finishPos));
     } else if(event.highlight === undefined &&
-              event.toggleMirrored === undefined) {
+              event.toggleMirrored === undefined &&
+              event.selecting === undefined) {
       delete line.finishPos;
     }
 
@@ -139,13 +140,19 @@ export class Model extends ModelBase {
       line.mirrored = !line.mirrored;
     }
 
+    if(event.selecting !== undefined) {
+      line.selected = !line.selected;
+    }
+
     this.controller.updateViews(line);
 
     if(!event.finishPos &&
         event.highlight === undefined &&
-        event.toggleMirrored === undefined) {
+        event.toggleMirrored === undefined &&
+        event.selecting === undefined) {
       delete this.data.lines[event.id];
     }
+    console.log(line);
     // console.log(this.data);
   }
 }
