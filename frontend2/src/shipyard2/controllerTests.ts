@@ -4,6 +4,7 @@ import {LoggerMock, TrackAsserts} from "./commonFunctionstTests";
 import {
   compareLineEvent,
   compareLinePos,
+  ILine,
   ILineEvent,
   ILinePos,
   IPoint,
@@ -384,6 +385,244 @@ export const controllerLineEventTests = {
     // Confirm lines they collapsed.
     TrackAsserts.assert(controller.commands.length === 2);
   },
+
+  testNewMirroredLine: () => {
+    const model = new ModelMock();
+    const widget1 = new ViewMock();
+    const widget2 = new ViewMock();
+    const toolbar = new ViewMock();
+    const logger = new LoggerMock();
+    const controller =
+      new TestController(model, [widget1, widget2, toolbar], logger);
+
+    const linePos: ILinePos = {
+      a: {x:4, y:5, z:6},
+      b: {x:44, y:55, z:66},
+    };
+
+    // Insert new line.
+    widget1.simulateLineEvent(null, "sequence_1", null, linePos);
+    // Set toggleMirrored mutton and simulate clicking new line.
+    widget1.simulateButtonPress("mirror");
+    widget1.simulateLineEvent("drawnLine_1", "sequence_2", linePos, linePos);
+    console.log(model);
+
+    TrackAsserts.assert(model.lineEvents.length === 2);
+    TrackAsserts.assert(toolbar.buttonStates.undo === true);
+    TrackAsserts.assert(toolbar.buttonStates.redo === false);
+    TrackAsserts.assert(model.lineEvents[1].toggleMirrored === true);
+  },
+
+  testSnapMirroredLineToNonMirrored: () => {
+    const model = new ModelMock();
+    const widget1 = new ViewMock();
+    const widget2 = new ViewMock();
+    const toolbar = new ViewMock();
+    const logger = new LoggerMock();
+    const controller =
+      new TestController(model, [widget1, widget2, toolbar], logger);
+
+    const linePosStart: ILinePos = {
+      a: {x:24, y:25, z:66},
+      b: {x:44, y:55, z:66},
+    };
+    const linePosFinish: ILinePos = {
+      a: {x:24, y:25, z:66},
+      b: {x:44, y:55, z:66},
+    };
+
+    // Force model to return a specific result.
+    model.mockGetLineValue = {
+      id: "drawnLine_1",
+      finishPos: linePosFinish,
+      mirrored: true,
+    };
+
+    // Modify line.
+    widget1.simulateLineEvent(
+      "drawnLine_1", "sequence_2", linePosStart, linePosFinish);
+
+    // Confirm correct so far.
+    TrackAsserts.assert(model.lineEvents.length === 1);
+    TrackAsserts.assert(compareLinePos(linePosFinish,
+                                       model.lineEvents[0].finishPos));
+
+    // Set a nearby line to snap() to.
+    const linePosNearby: ILinePos = {
+      a: {x:23, y:24, z:66},
+      b: {x:144, y:155, z:66},
+    };
+    model.mockNearestLine = {point: linePosNearby.a, mirrored: false};
+
+    // Modify line.
+    widget1.simulateLineEvent(
+      "drawnLine_1", "sequence_2", linePosStart, linePosFinish);
+
+    // Confirm correct so far.
+    TrackAsserts.assert(model.lineEvents.length === 2);
+    // This time line has snapped "a" end to linePosNearby.
+    TrackAsserts.assert(compareLinePos({a: linePosNearby.a, b: linePosFinish.b},
+                                       model.lineEvents[1].finishPos));
+
+    // Set a nearby mirrored line to snap() to.
+    const linePosMirrorNear: ILinePos = {
+      a: {x:124, y:125, z:166},
+      b: {x:-43, y:55, z:66},
+    };
+    const linePosMirrorNearPartner: ILinePos = {
+      a: {x:124, y:125, z:166},
+      b: {x:43, y:55, z:66},
+    };
+    model.mockNearestLine = {point: linePosMirrorNear.b, mirrored: false};
+
+    // Modify line.
+    widget1.simulateLineEvent(
+      "drawnLine_1", "sequence_2", linePosStart, linePosFinish);
+
+    // Confirm correct.
+    TrackAsserts.assert(model.lineEvents.length === 3);
+    // This time line has snapped "b" end to linePosNearby.
+    TrackAsserts.assert(compareLinePos({a: linePosFinish.a,
+                                        b: linePosMirrorNearPartner.b},
+                                       model.lineEvents[2].finishPos));
+  },
+
+  testSnapLineToMirrored: () => {
+    const model = new ModelMock();
+    const widget1 = new ViewMock();
+    const widget2 = new ViewMock();
+    const toolbar = new ViewMock();
+    const logger = new LoggerMock();
+    const controller =
+      new TestController(model, [widget1, widget2, toolbar], logger);
+
+    const linePosStart: ILinePos = {
+      a: {x:24, y:25, z:66},
+      b: {x:44, y:55, z:66},
+    };
+    const linePosFinish: ILinePos = {
+      a: {x:24, y:25, z:66},
+      b: {x:44, y:55, z:66},
+    };
+
+    // Force model to return a specific result.
+    model.mockGetLineValue = {
+      id: "drawnLine_1",
+      finishPos: linePosFinish,
+      mirrored: false,
+    };
+
+    // Modify line.
+    widget1.simulateLineEvent(
+      "drawnLine_1", "sequence_2", linePosStart, linePosFinish);
+
+    // Confirm correct so far.
+    TrackAsserts.assert(model.lineEvents.length === 1);
+    TrackAsserts.assert(compareLinePos(linePosFinish,
+                                       model.lineEvents[0].finishPos));
+
+    // Set a nearby line to snap() to.
+    const linePosNearby: ILinePos = {
+      a: {x:23, y:24, z:66},
+      b: {x:144, y:155, z:66},
+    };
+    model.mockNearestLine = {point: linePosNearby.a, mirrored: true};
+
+    // Modify line.
+    widget1.simulateLineEvent(
+      "drawnLine_1", "sequence_2", linePosStart, linePosFinish);
+
+    // Confirm correct so far.
+    TrackAsserts.assert(model.lineEvents.length === 2);
+    // This time line has snapped "a" end to linePosNearby.
+    TrackAsserts.assert(compareLinePos({a: linePosNearby.a, b: linePosFinish.b},
+                                       model.lineEvents[1].finishPos));
+
+    // Set a nearby mirrored line to snap() to.
+    const linePosMirrorNear: ILinePos = {
+      a: {x:124, y:125, z:166},
+      b: {x:-43, y:55, z:66},
+    };
+    const linePosMirrorNearPartner: ILinePos = {
+      a: {x:124, y:125, z:166},
+      b: {x:43, y:55, z:66},
+    };
+    model.mockNearestLine = {point: linePosMirrorNear.b, mirrored: true};
+
+    // Modify line.
+    widget1.simulateLineEvent(
+      "drawnLine_1", "sequence_2", linePosStart, linePosFinish);
+
+    // Confirm correct so far.
+    TrackAsserts.assert(model.lineEvents.length === 3);
+    // This time line has snapped "b" end to linePosNearby.
+    TrackAsserts.assert(compareLinePos({a: linePosFinish.a,
+                                        b: linePosMirrorNearPartner.b},
+                                       model.lineEvents[2].finishPos));
+  },
+
+  testSnapLineToCentre: () => {
+    const model = new ModelMock();
+    const widget1 = new ViewMock();
+    const widget2 = new ViewMock();
+    const toolbar = new ViewMock();
+    const logger = new LoggerMock();
+    const controller =
+      new TestController(model, [widget1, widget2, toolbar], logger);
+
+    const linePosStart: ILinePos = {
+      a: {x:24, y:25, z:66},
+      b: {x:44, y:55, z:66},
+    };
+    const linePosFinish: ILinePos = {
+      a: {x:4, y:25, z:66},
+      b: {x:44, y:55, z:66},
+    };
+
+    // Set a line too far away to snap() to.
+    const linePosNearby: ILinePos = {
+      a: {x:223, y:224, z:66},
+      b: {x:244, y:255, z:66},
+    };
+    model.mockNearestLine = {point: linePosNearby.a, mirrored: true};
+
+    // Force model to return non-mirroring result.
+    model.mockGetLineValue = {
+      id: "drawnLine_1",
+      finishPos: linePosFinish,
+      mirrored: false,
+    };
+
+    // Modify line.
+    widget1.simulateLineEvent(
+      "drawnLine_1", "sequence_2", linePosStart, linePosFinish);
+
+    // Confirm correct so far.
+    TrackAsserts.assert(model.lineEvents.length === 1);
+    // Should not have snapped anything.
+    // (Not mirrored so didn't snap to centre and nothing else close enough.)
+    TrackAsserts.assert(compareLinePos(linePosFinish,
+      model.lineEvents[0].finishPos));
+
+    // Force model to return a mirrored result.
+    model.mockGetLineValue = {
+      id: "drawnLine_1",
+      finishPos: linePosFinish,
+      mirrored: true,
+    };
+
+    // Modify line.
+    widget1.simulateLineEvent(
+      "drawnLine_1", "sequence_2", linePosStart, linePosFinish);
+
+    // Confirm correct so far.
+    TrackAsserts.assert(model.lineEvents.length === 2);
+    // This time line has snapped "a" end to linePosNearby.
+    TrackAsserts.assert(compareLinePos({a: {x:0, y:25, z:66},
+                                        b: linePosFinish.b},
+                                       model.lineEvents[1].finishPos));
+  },
+
 };
 
 export const controllerCommandHistoryTests = {

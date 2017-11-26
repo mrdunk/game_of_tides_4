@@ -28,7 +28,7 @@ export class ViewBase {
     this.controller = controller;
   }
 
-  public setButtonValue(buttonLabel: string, value: boolean) {
+  public setButtonValue(buttonLabel: string, value: number) {
     //
   }
 
@@ -59,16 +59,29 @@ export class ViewCanvas {
       container: "canvas",   // id of container <div>
       scaleX: 1,
       scaleY: 1,
-      width: 1000,  // TODO: Dynamic sizing
-      height: 1000,
+      width: 500,  // TODO: Dynamic sizing
+      height: 500,
     });
     this.layer = new Konva.Layer();
 
     this.stage.add(this.layer);
+
+    this.resize();
+  }
+
+  public resize() {
+    const container = document.querySelector("#canvas");
+    this.stage.width(container.offsetWidth);
+    this.stage.height(container.offsetHeight);
+    this.stage.scale({x: 0.8, y: 0.8});
   }
 }
 
 export abstract class ViewSection extends ViewBase {
+  public offsetX: number;
+  public offsetY: number;
+  public width: number;
+  public height: number;
   protected layer: Konva.Layer;
   protected lines: IHash = {};
   protected mouseDown: boolean = false;
@@ -77,9 +90,8 @@ export abstract class ViewSection extends ViewBase {
   protected mouseDrawingStartPos: IPoint = null;
   protected mouseHighlight: string = "";
   protected background: Konva.Group;
-  protected width: number;
-  protected height: number;
   protected geometry: Konva.Group;
+  protected canvas: ViewCanvas;
 
   constructor(canvas: ViewCanvas,
               x?: number,
@@ -90,9 +102,11 @@ export abstract class ViewSection extends ViewBase {
 
     x = x || 0;
     y = y || 0;
+    this.offsetX = x;
+    this.offsetY = y;
     this.width = width || 400;
     this.height = height || 400;
-
+    this.canvas = canvas;
     this.layer = canvas.layer;
 
     this.background = new Konva.Group({
@@ -206,8 +220,9 @@ export abstract class ViewSection extends ViewBase {
 
   protected getPointerPosition(): {x: number, y: number} {
     const screenMousePos = this.layer.getStage().getPointerPosition();
+    const scale = this.canvas.stage.scale();
     return this.translateScreenToWidget(
-      {x: screenMousePos.x, y: screenMousePos.y});
+      {x: screenMousePos.x / scale.x, y: screenMousePos.y / scale.y});
   }
 
   protected translateWidgetToScreen(pos: {x: number, y: number}) {
@@ -218,9 +233,10 @@ export abstract class ViewSection extends ViewBase {
     return {x, y};
   }
 
-  protected translateScreenToWidget(pos: {x: number, y: number}): {x: number, y: number} {
-    return this.translateWidget(
-      {x: pos.x - this.background.x(), y: pos.y - this.background.y()});
+  protected translateScreenToWidget(
+        pos: {x: number, y: number}): {x: number, y: number} {
+    return this.limitBounds(this.translateWidget(
+      {x: pos.x - this.background.x(), y: pos.y - this.background.y()}));
   }
 
   protected unhighlightAll() {
@@ -230,13 +246,30 @@ export abstract class ViewSection extends ViewBase {
     });
   }
 
-  protected translateWidget(pos: {x: number, y: number}): {x: number, y: number} {
+  protected translateWidget(
+        pos: {x: number, y: number}): {x: number, y: number} {
     const x = Math.round(
       pos.x - (this.background.getWidth() /2));
     const y = Math.round(
       -pos.y + (this.background.getHeight() /2));
 
     return {x, y};
+  }
+
+  protected limitBounds(pos: {x: number, y: number}): {x: number, y: number} {
+    if(pos.x > this.width / 2) {
+      pos.x = this.width / 2;
+    }
+    if(pos.x < -this.width / 2) {
+      pos.x = -this.width / 2;
+    }
+    if(pos.y > this.height / 2) {
+      pos.y = this.height / 2;
+    }
+    if(pos.y < -this.height / 2) {
+      pos.y = -this.height / 2;
+    }
+    return pos;
   }
 
   protected abstract getMousePosIn3d(hint?: IPoint): IPoint;
@@ -249,7 +282,11 @@ export abstract class ViewSection extends ViewBase {
 }
 
 export class ViewCrossSection extends ViewSection {
-  protected z: number = 100;
+  public z: number = 0;
+  private showLayersValue: boolean = false;
+  private lengthSection: ViewSection;
+  private lengthCursorL: Konva.Line;
+  private lengthCursorR: Konva.Line;
 
   constructor(canvas: ViewCanvas,
               x?: number,
@@ -268,6 +305,29 @@ export class ViewCrossSection extends ViewSection {
     });
 
     this.background.add(midline);
+  }
+
+  public registerLengthSection(section: ViewSection) {
+    this.lengthSection = section;
+    this.lengthCursorL = new Konva.Line(
+      { points: [0, 0, 1000, 1000],
+        stroke: "yellow",
+        strokeWidth: 5,
+        opacity: 0.7,
+        lineCap: "round",
+      });
+    this.lengthCursorR = new Konva.Line(
+      { points: [1000, 0, 1000, 1000],
+        stroke: "yellow",
+        strokeWidth: 5,
+        opacity: 0.7,
+        lineCap: "round",
+      });
+    this.layer.add(this.lengthCursorL);
+    this.layer.add(this.lengthCursorR);
+    this.lengthCursorL.moveToBottom();
+    this.lengthCursorR.moveToBottom();
+    this.updateLengthCursor();
   }
 
   public updateLine(lineEvent: ILine) {
@@ -306,6 +366,7 @@ export class ViewCrossSection extends ViewSection {
       line.moveEnd(line.end1B, b1.x, b1.y);
       line.moveEnd(line.end2A, a2.x, a2.y);
       line.moveEnd(line.end2B, b2.x, b2.y);
+      line.z = lineEvent.finishPos.a.z;
     }
 
     if(lineEvent.highlight !== undefined) {
@@ -320,11 +381,27 @@ export class ViewCrossSection extends ViewSection {
     this.layer.draw();
   }
 
+  public setButtonValue(buttonLabel: string, value: number) {
+    // console.log(buttonLabel, value);
+    switch (buttonLabel) {
+      case "allLayers":
+        // console.log(buttonLabel, value);
+        this.showLayers(Boolean(value));
+        break;
+      case "selected_rib":
+        // console.log(buttonLabel, value);
+        this.z = value;
+        this.showLayers();
+        this.updateLengthCursor();
+        break;
+    }
+  }
+
   protected getMousePosIn3d(hint?: IPoint): IPoint {
     const mousePos = this.getPointerPosition();
     return {x: mousePos.x, y: mousePos.y, z: this.z};
   }
-  
+
   protected lineEvent(id: string,
                     sequence: string,
                     startPos: ILinePos,
@@ -339,9 +416,85 @@ export class ViewCrossSection extends ViewSection {
     };
     this.controller.onLineEvent(event);
   }
+
+  private showLayers(value?: boolean) {
+    if(value === undefined) {
+      value = this.showLayersValue;
+    }
+    this.showLayersValue = value;
+
+    Object.getOwnPropertyNames(this.lines).forEach((lineName) => {
+      const line = this.lines[lineName];
+      if(value) {
+        line.visible(true);
+      } else if(line.z === this.z) {
+        line.visible(true);
+      } else {
+        line.visible(false);
+      }
+    });
+    this.layer.draw();
+  }
+
+  private updateLengthCursor() {
+    if(!this.lengthSection) {
+      return;
+    }
+
+    const x1 = this.offsetX;
+    const y1 = this.offsetY + this.height;
+    const x2 =
+      this.lengthSection.offsetX + (this.lengthSection.width / 2) + this.z;
+    const y2 = this.lengthSection.offsetY;
+    this.lengthCursorL.points([x1, y1, x2, y2]);
+    this.lengthCursorR.points([x1 + this.width, y1, x2, y2]);
+    this.layer.draw();
+  }
 }
 
 export class ViewLengthSection extends ViewSection {
+  public cursorPos: number = 0;
+  private cursorHover: Konva.Rect;
+  private cursor: Konva.Rect;
+  private cursorWidth: number = 20;
+  private zResolution: number = 20;
+
+  constructor(canvas: ViewCanvas,
+              x?: number,
+              y?: number,
+              width?: number,
+              height?: number) {
+    super(canvas, x, y, width, height);
+
+    this.cursorHover = new Konva.Rect({
+      x: 0,
+      y: 0,
+      width: this.cursorWidth,
+      height: this.height,
+      fill: "white",
+      opacity: 0.5,
+      visible: false,
+    });
+
+    this.cursor = new Konva.Rect({
+      x: this.cursorPos + (this.width / 2) - (this.cursorWidth / 2),
+      y: 0,
+      width: this.cursorWidth,
+      height: this.height,
+      fill: "yellow",
+      opacity: 0.5,
+      visible: true,
+    });
+
+    this.background.add(this.cursorHover);
+    this.background.add(this.cursor);
+    this.background.draw();
+
+    this.background.on("mousedown", this.setCursor.bind(this));
+    this.background.on("mousemove", this.moveCursor.bind(this));
+    this.background.on("mouseleave", this.hideCursor.bind(this));
+  }
+
   public updateLine(lineEvent: ILine) {
     console.assert(Boolean(lineEvent.id));
     let line = this.lines[lineEvent.id];
@@ -371,6 +524,7 @@ export class ViewLengthSection extends ViewSection {
 
       line.moveEnd(line.end1A, a1.x, a1.y);
       line.moveEnd(line.end1B, b1.x, b1.y);
+      line.z = lineEvent.finishPos.a.x;
     }
 
     if(lineEvent.highlight !== undefined) {
@@ -387,6 +541,7 @@ export class ViewLengthSection extends ViewSection {
       x = hint.x;
     }
     const mousePos = this.getPointerPosition();
+    mousePos.x = Math.round(mousePos.x / this.zResolution) * this.zResolution;
     return {x, y: mousePos.y, z: mousePos.x};
   }
 
@@ -407,6 +562,43 @@ export class ViewLengthSection extends ViewSection {
       highlight,
     };
     this.controller.onLineEvent(event);
+  }
+
+  private setCursor(event) {
+    const mousePos = this.getPointerPosition();
+    mousePos.x = Math.round(mousePos.x / this.zResolution) * this.zResolution;
+
+    if(mousePos.x >= (-this.width / 2) && mousePos.x <= (this.width / 2)) {
+      this.cursorPos = mousePos.x;
+      this.cursor.x(mousePos.x + (this.width / 2) - (this.cursorWidth / 2));
+      this.cursor.visible(true);
+      this.canvas.layer.draw();
+
+      this.controller.onButtonEvent("selected_rib", this.cursorPos);
+    }
+  }
+
+  private moveCursor(event) {
+    const mouseDown = event.evt.buttons === 1;
+    if(mouseDown) {
+      // Don't move cursor while dragging.
+      return;
+    }
+
+    const mousePos = this.getPointerPosition();
+    mousePos.x = Math.round(mousePos.x / this.zResolution) * this.zResolution;
+
+    if(mousePos.x >= (-this.width / 2) && mousePos.x <= (this.width / 2)) {
+      this.cursorHover.x(
+        mousePos.x + (this.width / 2) - (this.cursorWidth / 2));
+      this.cursorHover.visible(true);
+      this.canvas.layer.draw();
+    }
+  }
+
+  private hideCursor() {
+    this.cursorHover.visible(false);
+    this.canvas.layer.draw();
   }
 }
 
@@ -431,14 +623,18 @@ export class MockViewCrossSection extends ViewCrossSection {
     return this.translateScreenToWidget(
       {x: this.mockScreenMousePosX, y: this.mockScreenMousePosY});
   }
+
+  protected limitBounds(pos: {x: number, y: number}): {x: number, y: number} {
+    return pos;
+  }
 }
 
 export class ViewMock extends ViewBase {
   public buttonValues: IHash = {};
   public buttonStates: IHash = {};
 
-  public setButtonValue(buttonLabel: string, value: boolean) {
-    this.buttonValues[buttonLabel] = value;
+  public setButtonValue(buttonLabel: string, value: number) {
+    this.buttonValues[buttonLabel] = Boolean(value);
   }
 
   public setButtonState(buttonLabel: string, state: boolean) {
@@ -479,7 +675,7 @@ export class ViewToolbar extends ViewBase {
     });
   }
 
-  public setButtonValue(buttonLabel: string, value: boolean) {
+  public setButtonValue(buttonLabel: string, value: number) {
     const button = this.getButtonByLabel(buttonLabel);
     if(button) {
       if(value) {
@@ -526,14 +722,13 @@ export class Line extends Konva.Group {
   public end1B: Konva.Circle;
   public end2B: Konva.Circle;
   public mirrored: boolean;
+  public z: number;
   private highlightValue: boolean;
   private lineOverCallback: (event: MouseEvent) => void;
 
   constructor(id: string,
               lineOverCallback: (event: MouseEvent) => void) {
     super();
-
-    console.log(id);
 
     this.id(id);
     this.lineOverCallback = lineOverCallback;

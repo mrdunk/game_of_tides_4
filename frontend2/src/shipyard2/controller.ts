@@ -71,7 +71,7 @@ export abstract class ControllerBase {
 
   public onLineEvent(event): void {/**/}
   public updateViews(line: ILine): void {/**/}
-  public onButtonEvent(buttonLabel: string) {/**/}
+  public onButtonEvent(buttonLabel: string, value?: number) {/**/}
   public getLine(lineId: string): ILine {
     return this.model.getLine(lineId);
   }
@@ -88,6 +88,7 @@ export class Controller extends ControllerBase {
     delete: {value: false, clear: ["addLine", "mirror"], preventUnClick: true},
     mirror: {value: false, clear: ["addLine", "delete"], preventUnClick: true},
     allLayers: {value: false, clear: []},
+    selected_rib: {clear: []},
   };
 
   constructor(model: ModelBase, views: ViewBase[], logger?) {
@@ -98,7 +99,7 @@ export class Controller extends ControllerBase {
     this.setButtonStates();
   }
 
-  public onButtonEvent(buttonLabel: string) {
+  public onButtonEvent(buttonLabel: string, value?: number) {
     this.logger.log(buttonLabel);
 
     switch (buttonLabel) {
@@ -124,11 +125,13 @@ export class Controller extends ControllerBase {
         break;
       case "load":
         break;
+      case "selected_rib":
+        break;
       default:
         this.logger.warn("Invalid buttonLabel:", buttonLabel);
         return;
     }
-    this.updateButton(buttonLabel);
+    this.updateButton(buttonLabel, value);
   }
 
   public onLineEvent(lineEvent: ILineEvent) {
@@ -178,6 +181,13 @@ export class Controller extends ControllerBase {
       lineEvent.toggleMirrored = true;
       lineEvent.startPos = null;
       lineEvent.finishPos = null;
+    } else {
+      if(lineEvent.finishPos) {
+        // Ensure both endpoints are in the same plane.
+        lineEvent.finishPos.b.z = lineEvent.finishPos.a.z;
+
+        this.snap(lineEvent);
+      }
     }
 
     const command: ICommand = {
@@ -187,7 +197,7 @@ export class Controller extends ControllerBase {
     this.performCommand(null, command);
   }
 
-  public updateButton(buttonLabel: string) {
+  public updateButton(buttonLabel: string, value: number) {
     if(this.buttonStates[buttonLabel] === undefined) {
       // Just a simple non-toggling push button.
       return;
@@ -198,14 +208,20 @@ export class Controller extends ControllerBase {
       return;
     }
 
-    this.buttonStates[buttonLabel].value =
-      !this.buttonStates[buttonLabel].value;
-    const value = this.buttonStates[buttonLabel].value;
+    if(value === undefined) {
+      // No value passed in.
+      value = Number(!this.buttonStates[buttonLabel].value);
+    }
+    if(value === undefined) {
+      // No default button value defined either.
+      return;
+    }
+    this.buttonStates[buttonLabel].value = value;
     this.views.forEach((view) => {
       view.setButtonValue(buttonLabel, value);
       this.buttonStates[buttonLabel].clear.forEach((otherButtonLabel) => {
         this.buttonStates[otherButtonLabel].value = false;
-        view.setButtonValue(otherButtonLabel, false);
+        view.setButtonValue(otherButtonLabel, Number(false));
       });
     });
   }
@@ -216,6 +232,86 @@ export class Controller extends ControllerBase {
     });
   }
 
+  // Make endpoints move towards nearby endpoint if it is close enough.
+  // line is modified in place.
+  protected snap(line: ILine): void {
+    const snapDistance = 10;
+
+    // Look line up from the Model to discover it should be mirrored or not.
+    const lookup = this.getLine(line.id);
+    let mirrored;
+    let nearest;
+    if(lookup) {
+      // Found line in Model.
+      nearest = this.model.nearestLine(lookup);
+      mirrored = lookup.mirrored;
+    } else {
+      // Didn't find line in Model. Probably a new line.
+      nearest = this.model.nearestLine(line);
+    }
+
+    if(lookup && lookup.mirrored) {
+      // Make mirrored lines meet if they come close to the centre.
+      if(Math.abs(line.finishPos.a.x) < snapDistance) {
+        line.finishPos.a.x = 0;
+      }
+      if(Math.abs(line.finishPos.b.x) < snapDistance) {
+        line.finishPos.b.x = 0;
+      }
+    }
+
+    const nearestPoint = nearest.point;
+    if(!nearestPoint) {
+      // No other line with a matching z coordinate.
+      return;
+    }
+    mirrored = mirrored || nearest.mirrored;
+
+    const matches = [];
+    matches.push([
+      Math.abs(nearestPoint.x - line.finishPos.a.x) +
+      Math.abs(nearestPoint.y - line.finishPos.a.y),
+      line.finishPos.a,
+    ]);
+    matches.push([
+      Math.abs(nearestPoint.x - line.finishPos.b.x) +
+      Math.abs(nearestPoint.y - line.finishPos.b.y),
+      line.finishPos.b,
+    ]);
+    if(mirrored) {
+      matches.push([
+        Math.abs(nearestPoint.x + line.finishPos.a.x) +
+        Math.abs(nearestPoint.y - line.finishPos.a.y),
+        line.finishPos.a,
+      ]);
+      matches.push([
+        Math.abs(nearestPoint.x + line.finishPos.b.x) +
+        Math.abs(nearestPoint.y - line.finishPos.b.y),
+        line.finishPos.b,
+      ]);
+    }
+
+    let closestDist = 99999999;
+    let closest;
+    matches.forEach((match, index) => {
+      if(match[0] < closestDist) {
+        closestDist = match[0];
+        closest = index;
+      }
+    });
+
+    const pointReference = matches[closest][1];
+    if(closestDist < snapDistance) {
+      pointReference.x = nearestPoint.x;
+      pointReference.y = nearestPoint.y;
+      pointReference.z = nearestPoint.z;
+      if(closest >= 2) {
+        // One of the mirrored points.
+        pointReference.x = -matches[closest][1].x;
+      }
+    }
+  }
+
   private setButtonStates() {
     this.views.forEach((view) => {
       // Set whether the "back" and "forward" buttons are selectable.
@@ -223,7 +319,8 @@ export class Controller extends ControllerBase {
       view.setButtonState("redo", this.commandPointer < this.commands.length);
 
       for(const key in this.buttonStates) {
-        if (this.buttonStates.hasOwnProperty(key)) {
+        if (this.buttonStates.hasOwnProperty(key) &&
+            this.buttonStates[key].value !== undefined) {
           view.setButtonValue(key, this.buttonStates[key].value);
         }
       }
@@ -250,9 +347,11 @@ export class Controller extends ControllerBase {
     let returnVal = false;
     command.lineEvents.forEach((lineEvent) => {
       returnVal = returnVal ||
-                  Boolean(lineEvent.startPos) ||
-                  Boolean(lineEvent.finishPos);
+        Boolean(lineEvent.startPos) ||
+        Boolean(lineEvent.finishPos) ||
+        lineEvent.toggleMirrored !== undefined;
     });
+    // console.log("loggableCommand(", command, "):", returnVal);
     return returnVal;
   }
 
@@ -306,6 +405,7 @@ export class Controller extends ControllerBase {
         id: lineEvent.id,
         startPos: JSON.parse(JSON.stringify(lineEvent.finishPos)),
         finishPos: JSON.parse(JSON.stringify(lineEvent.startPos)),
+        toggleMirrored: lineEvent.toggleMirrored,
       };
       this.model.onLineEvent(reverseLineEvent);
     });
@@ -330,6 +430,10 @@ export class Controller extends ControllerBase {
 // Controller with relaxed permissions for testing.
 export class TestController extends Controller {
   public commands: ICommand[];
+
+  public snap(line: ILine): void {
+    super.snap(line);
+  }
 }
 
 export class MockController extends ControllerBase {
