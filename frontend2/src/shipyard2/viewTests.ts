@@ -15,6 +15,7 @@ export const viewOnMouseDown = {
     const konvaCanvas = new ViewCanvas();
 
     const view = new MockViewCrossSection(konvaCanvas, offsetX, offsetY);
+    const controller = new MockController(null, [view]);
 
     // Confirm sane start conditions.
     TrackAsserts.assert(view.mouseDown === false);

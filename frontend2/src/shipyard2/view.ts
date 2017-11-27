@@ -40,6 +40,10 @@ export class ViewBase {
     //
   }
 
+  public drawSelectCursor(a?: IPoint, b?: IPoint) {
+    //
+  }
+
   // Generate a unique id for a series of related events.
   protected newSequence(): string {
     this.sequenceCounter++;
@@ -92,6 +96,7 @@ export abstract class ViewSection extends ViewBase {
   protected background: Konva.Group;
   protected geometry: Konva.Group;
   protected canvas: ViewCanvas;
+  protected selectCursor: Konva.Rect;
 
   constructor(canvas: ViewCanvas,
               x?: number,
@@ -149,10 +154,20 @@ export abstract class ViewSection extends ViewBase {
     this.background.add(sky);
     this.background.add(sea);
 
+    this.selectCursor = new Konva.Rect({
+      visible: false,
+      stroke: "orange",
+      strokeWidth: 2,
+    });
+    this.selectCursor.on("mousemove", this.onMouseMove.bind(this));
+
+    this.layer.add(this.selectCursor);
     this.layer.draw();
   }
 
   protected onMouseMove(event) {
+    this.controller.onButtonEvent("clearSelectCursor");
+
     const mouseDown = event.evt.buttons === 1;
 
     const parent: Line = event.target.getParent();
@@ -397,7 +412,31 @@ export class ViewCrossSection extends ViewSection {
         this.showLayers();
         this.updateLengthCursor();
         break;
+      case "clearSelectCursor":
+        // console.log(buttonLabel, value);
+        this.drawSelectCursor();
+        break;
     }
+  }
+
+  public drawSelectCursor(a?: IPoint, b?: IPoint) {
+    if(a && b) {
+      const aa = this.translateWidgetToScreen({x: a.x, y: a.y});
+      const bb = this.translateWidgetToScreen({x: b.x, y: b.y});
+      aa.x = aa.x + this.offsetX;
+      aa.y = aa.y + this.offsetY;
+      bb.x = bb.x + this.offsetX;
+      bb.y = bb.y + this.offsetY;
+      this.selectCursor.x(aa.x);
+      this.selectCursor.y(aa.y);
+      this.selectCursor.width(bb.x - aa.x);
+      this.selectCursor.height(bb.y - aa.y);
+      this.selectCursor.visible(true);
+      this.layer.draw();
+      return;
+    }
+    this.selectCursor.visible(false);
+    this.layer.draw();
   }
 
   protected getMousePosIn3d(hint?: IPoint): IPoint {
@@ -538,6 +577,35 @@ export class ViewLengthSection extends ViewSection {
       line.selected(lineEvent.selected);
     }
 
+    this.layer.draw();
+  }
+
+  public setButtonValue(buttonLabel: string, value: number) {
+    // console.log(buttonLabel, value);
+    switch (buttonLabel) {
+      case "clearSelectCursor":
+        this.drawSelectCursor();
+        break;
+    }
+  }
+
+  public drawSelectCursor(a?: IPoint, b?: IPoint) {
+    if(a && b) {
+      const aa = this.translateWidgetToScreen({x: this.cursorPos - 10, y: a.y});
+      const bb = this.translateWidgetToScreen({x: this.cursorPos + 10, y: b.y});
+      aa.x = aa.x + this.offsetX;
+      aa.y = aa.y + this.offsetY;
+      bb.x = bb.x + this.offsetX;
+      bb.y = bb.y + this.offsetY;
+      this.selectCursor.x(aa.x);
+      this.selectCursor.y(aa.y);
+      this.selectCursor.width(bb.x - aa.x);
+      this.selectCursor.height(bb.y - aa.y);
+      this.selectCursor.visible(true);
+      this.layer.draw();
+      return;
+    }
+    this.selectCursor.visible(false);
     this.layer.draw();
   }
 

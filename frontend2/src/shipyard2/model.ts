@@ -18,11 +18,17 @@ export abstract class ModelBase {
     return {point: null, mirrored: null};
   }
   public abstract getLine(lineId: string): ILine;
+  public deSelectAll() { /**/ }
+  public getSelectedLines(): {} {
+    return null;
+  }
+
 }
 
 export class Model extends ModelBase {
   private data = {
     lines: {},
+    selectedLines: {},
   };
 
   public onLineEvent(event: ILineEvent) {
@@ -115,6 +121,23 @@ export class Model extends ModelBase {
     return this.data.lines[lineId];
   }
 
+  public getSelectedLines(): {} {
+    return this.data.selectedLines;
+  }
+
+  public deSelectAll() {
+    for(const lineId in this.data.selectedLines) {
+      if(this.data.selectedLines.hasOwnProperty(lineId)) {
+        const line = this.data.lines[lineId];
+        if(line) {
+          line.selected = false;
+          this.controller.updateViews(line);
+        }
+      }
+    }
+    this.data.selectedLines = [];
+  }
+
   private createLine(event: ILineEvent) {
     const line: ILine = {id: event.id};
     this.data.lines[event.id] = line;
@@ -122,9 +145,12 @@ export class Model extends ModelBase {
 
   private modifyLine(event: ILineEvent) {
     const line = this.data.lines[event.id];
-    console.log(event);
+    // console.log(event);
 
     if(event.finishPos) {
+      this.deSelectAll();
+      line.selected = true;
+      this.data.selectedLines[line.id] = true;
       line.finishPos = JSON.parse(JSON.stringify(event.finishPos));
     } else if(event.highlight === undefined &&
               event.toggleMirrored === undefined &&
@@ -140,8 +166,18 @@ export class Model extends ModelBase {
       line.mirrored = !line.mirrored;
     }
 
+    if(event.mirrored !== undefined) {
+      line.mirrored = event.mirrored;
+    }
+
     if(event.selecting !== undefined) {
       line.selected = !line.selected;
+      if(line.selected) {
+        this.data.selectedLines[line.id] = true;
+      } else {
+        delete this.data.selectedLines[line.id];
+      }
+      console.log(this.data.selectedLines);
     }
 
     this.controller.updateViews(line);
@@ -152,7 +188,7 @@ export class Model extends ModelBase {
         event.selecting === undefined) {
       delete this.data.lines[event.id];
     }
-    console.log(line);
+    // console.log(line);
     // console.log(this.data);
   }
 }

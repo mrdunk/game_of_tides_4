@@ -90,6 +90,8 @@ export class Controller extends ControllerBase {
   protected views: ViewBase[];
   protected model: ModelBase;
   protected logger;
+  private sequence: string = "";
+  private sequenceCounter: number = 0;
   private commandPointer: number;
   private buttonStates = {
     selectLine: {value: false, clear: ["addLine"], preventUnClick: true},
@@ -98,8 +100,9 @@ export class Controller extends ControllerBase {
     // {value: false, clear: ["addLine", "mirror"], preventUnClick: true},
     // mirror:
     // {value: false, clear: ["addLine", "delete"], preventUnClick: true},
-    allLayers: {value: false, clear: []},
-    selected_rib: {clear: []},
+    allLayers: {value: false},
+    selected_rib: {},
+    clearSelectCursor: {},
   };
 
   constructor(model: ModelBase, views: ViewBase[], logger?) {
@@ -111,7 +114,7 @@ export class Controller extends ControllerBase {
   }
 
   public onButtonEvent(buttonLabel: string, value?: number) {
-    this.logger.log(buttonLabel);
+    // this.logger.log(buttonLabel);
 
     switch (buttonLabel) {
       case "undo":
@@ -127,8 +130,10 @@ export class Controller extends ControllerBase {
       case "addLine":
         break;
       case "delete":
+        this.deleteSelectedLines();
         break;
       case "mirror":
+        this.mirrorSelectedLines();
         break;
       case "allLayers":
         break;
@@ -139,6 +144,9 @@ export class Controller extends ControllerBase {
       case "load":
         break;
       case "selected_rib":
+        this.model.deSelectAll();
+        break;
+      case "clearSelectCursor":
         break;
       default:
         this.logger.warn("Invalid buttonLabel:", buttonLabel);
@@ -188,12 +196,6 @@ export class Controller extends ControllerBase {
       lineEvent.id = "drawnLine_" + lineEvent.sequence.slice(9);
     }
 
-    /* if(this.buttonStates.delete.value) {
-      lineEvent.finishPos = null;
-    } else if(this.buttonStates.mirror.value && lineEvent.finishPos) {
-      lineEvent.toggleMirrored = true;
-      lineEvent.startPos = null;
-      lineEvent.finishPos = null;*/
     if(this.buttonStates.selectLine.value &&
        lineEvent.id && lineEvent.startPos &&
        approxDistLinePos(lineEvent.startPos, lineEvent.finishPos) < 10) {
@@ -207,6 +209,9 @@ export class Controller extends ControllerBase {
       return;
     } else if(this.buttonStates.selectLine.value && lineEvent.finishPos) {
       console.log("TODO: box around selectLine", lineEvent);
+      this.views.forEach((view) => {
+        view.drawSelectCursor(lineEvent.finishPos.a, lineEvent.finishPos.b);
+      });
       return;
     } else {
       if(lineEvent.finishPos) {
@@ -246,10 +251,12 @@ export class Controller extends ControllerBase {
     this.buttonStates[buttonLabel].value = value;
     this.views.forEach((view) => {
       view.setButtonValue(buttonLabel, value);
-      this.buttonStates[buttonLabel].clear.forEach((otherButtonLabel) => {
-        this.buttonStates[otherButtonLabel].value = false;
-        view.setButtonValue(otherButtonLabel, Number(false));
-      });
+      if(this.buttonStates[buttonLabel].clear !== undefined) {
+        this.buttonStates[buttonLabel].clear.forEach((otherButtonLabel) => {
+          this.buttonStates[otherButtonLabel].value = false;
+          view.setButtonValue(otherButtonLabel, Number(false));
+        });
+      }
     });
   }
 
@@ -432,11 +439,14 @@ export class Controller extends ControllerBase {
 
     const command = this.commands[commandIndex];
     command.lineEvents.forEach((lineEvent) => {
+      console.log(lineEvent);
       const reverseLineEvent = {
         id: lineEvent.id,
         startPos: JSON.parse(JSON.stringify(lineEvent.finishPos)),
         finishPos: JSON.parse(JSON.stringify(lineEvent.startPos)),
         toggleMirrored: lineEvent.toggleMirrored,
+        // TODO Make test for interaction between undo and mirrored.
+        mirrored: lineEvent.mirrored,
       };
       this.model.onLineEvent(reverseLineEvent);
     });
@@ -455,6 +465,64 @@ export class Controller extends ControllerBase {
     this.performCommand();
     this.commandPointer++;
     this.setButtonStates();
+  }
+
+  // Generate a unique id for a series of related events.
+  private newSequence(): string {
+    this.sequenceCounter++;
+    this.sequence =
+      "sequence_controller_" + this.sequenceCounter;
+    return this.sequence;
+  }
+
+  private deleteSelectedLines() {
+    this.newSequence();
+    const command: ICommand = {
+      lineEvents: [],
+    };
+
+    const selectedLines = this.model.getSelectedLines();
+    for(const lineId in selectedLines) {
+      if(selectedLines.hasOwnProperty(lineId)) {
+        const line = this.model.getLine(lineId);
+        const lineEvent = {
+          sequence: this.sequence,
+          id: lineId,
+          startPos: line.finishPos,
+          finishPos: null,
+          mirrored: line.mirrored,
+        };
+        command.lineEvents.push(lineEvent);
+      }
+    }
+
+    this.recordCommand(command);
+    this.performCommand(null, command);
+  }
+
+  private mirrorSelectedLines() {
+    this.newSequence();
+    const command: ICommand = {
+      lineEvents: [],
+    };
+
+    const selectedLines = this.model.getSelectedLines();
+    for(const lineId in selectedLines) {
+      if(selectedLines.hasOwnProperty(lineId)) {
+        const line = this.model.getLine(lineId);
+        const lineEvent = {
+          sequence: this.sequence,
+          id: lineId,
+          startPos: null,
+          finishPos: null,
+          toggleMirrored: true,
+        };
+        command.lineEvents.push(lineEvent);
+      }
+    }
+
+    this.recordCommand(command);
+    this.performCommand(null, command);
   }
 }
 
