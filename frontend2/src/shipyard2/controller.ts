@@ -103,18 +103,23 @@ export class Controller extends ControllerBase {
     allLayers: {value: false},
     selected_rib: {},
     clearSelectCursor: {},
+    fileOps: {},
+    fileOpsSave: {},
+    fileOpsLoad: {},
   };
 
   constructor(model: ModelBase, views: ViewBase[], logger?) {
     super(model, views, logger);
     this.commands = [];
     this.commandPointer = 0;
+    this.onStartupCommands();
 
     this.setButtonStates();
   }
 
-  public onButtonEvent(buttonLabel: string, value?: number) {
+  public onButtonEvent(buttonLabel: string, value?: any) {
     // this.logger.log(buttonLabel);
+    value = this.updateButton(buttonLabel, value);
 
     switch (buttonLabel) {
       case "undo":
@@ -139,9 +144,13 @@ export class Controller extends ControllerBase {
         break;
       case "background":
         break;
-      case "save":
+      case "fileOps":
         break;
-      case "load":
+      case "fileOpsSave":
+        this.saveCommands(value);
+        break;
+      case "fileOpsLoad":
+        this.loadCommands("test");
         break;
       case "selected_rib":
         this.model.deSelectAll();
@@ -152,7 +161,6 @@ export class Controller extends ControllerBase {
         this.logger.warn("Invalid buttonLabel:", buttonLabel);
         return;
     }
-    this.updateButton(buttonLabel, value);
   }
 
   public onLineEvent(lineEvent: ILineEvent) {
@@ -229,24 +237,39 @@ export class Controller extends ControllerBase {
     this.performCommand(null, command);
   }
 
-  public updateButton(buttonLabel: string, value: number) {
+  public updateButton(buttonLabel: string, value: any) {
     if(this.buttonStates[buttonLabel] === undefined) {
       // Just a simple non-toggling push button.
-      return;
+      return value;
     }
 
     if(this.buttonStates[buttonLabel].preventUnClick &&
         this.buttonStates[buttonLabel].value) {
-      return;
+      return value;
     }
 
+    if(value === undefined) {
+      // No value passed in and no associated HTML input field.
+      const input = document.getElementsByClassName(buttonLabel)[0];
+      if(input) {
+        console.log(input.tagName.toLowerCase());
+        if(input.tagName.toLowerCase() === "input") {
+          value = (input as HTMLInputElement).value;
+        } else if(input.tagName.toLowerCase() === "select") {
+          const i = (input as HTMLSelectElement);
+          if(i.selectedIndex >= 0) {
+            value = i.options[i.selectedIndex].value;
+          }
+        }
+      }
+    }
     if(value === undefined) {
       // No value passed in.
       value = Number(!this.buttonStates[buttonLabel].value);
     }
     if(value === undefined) {
       // No default button value defined either.
-      return;
+      return value;
     }
     this.buttonStates[buttonLabel].value = value;
     this.views.forEach((view) => {
@@ -258,6 +281,8 @@ export class Controller extends ControllerBase {
         });
       }
     });
+
+    return value;
   }
 
   public updateViews(line: ILine) {
@@ -346,6 +371,21 @@ export class Controller extends ControllerBase {
     }
   }
 
+  protected onStartupCommands() {
+    const data = localStorage.getItem("shipYardCommandBufferStartup");
+    // window.alert(data);
+    if(data) {
+      this.commands = JSON.parse(data);
+    }
+    this.commandPointer = 0;
+    if(this.commands === undefined || this.commands === null) {
+      this.commands = [];
+    }
+    while(this.commandPointer < this.commands.length) {
+      this.redoCommand();
+    }
+  }
+
   private setButtonStates() {
     this.views.forEach((view) => {
       // Set whether the "back" and "forward" buttons are selectable.
@@ -417,6 +457,10 @@ export class Controller extends ControllerBase {
     }
 
     command.lineEvents.forEach((lineEvent) => {
+      this.views.forEach((view) => {
+        view.syncSequence(lineEvent.id);
+      });
+
       this.model.onLineEvent(lineEvent);
     });
 
@@ -462,6 +506,7 @@ export class Controller extends ControllerBase {
         commandIndex);
       return;
     }
+
     this.performCommand();
     this.commandPointer++;
     this.setButtonStates();
@@ -524,6 +569,19 @@ export class Controller extends ControllerBase {
     this.recordCommand(command);
     this.performCommand(null, command);
   }
+
+  private saveCommands(filename: string) {
+    localStorage.removeItem("shipYardCommandBuffer_" + filename);
+    const data = JSON.stringify(this.commands);
+    console.log(data);
+    localStorage.setItem("shipYardCommandBuffer_" + filename, data);
+  }
+
+  private loadCommands(filename: string) {
+    const data = localStorage.getItem("shipYardCommandBuffer_" + filename);
+    localStorage.setItem("shipYardCommandBufferStartup", data);
+    location.reload();
+  }
 }
 
 // Controller with relaxed permissions for testing.
@@ -532,6 +590,10 @@ export class TestController extends Controller {
 
   public snap(line: ILine): void {
     super.snap(line);
+  }
+
+  protected onStartupCommands() {
+    // Pass
   }
 }
 

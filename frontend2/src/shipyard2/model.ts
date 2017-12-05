@@ -51,28 +51,28 @@ export class Model extends ModelBase {
           let dist =
             Math.abs(testLine.finishPos.a.x - line.finishPos.a.x) +
             Math.abs(testLine.finishPos.a.y - line.finishPos.a.y);
-          if(dist < nearestDist) {
+          if(dist < nearestDist && dist > 0) {
             nearestDist = dist;
             nearest = testLine.finishPos.a;
           }
           dist =
             Math.abs(testLine.finishPos.b.x - line.finishPos.a.x) +
             Math.abs(testLine.finishPos.b.y - line.finishPos.a.y);
-          if(dist < nearestDist) {
+          if(dist < nearestDist && dist > 0) {
             nearestDist = dist;
             nearest = testLine.finishPos.b;
           }
           dist =
             Math.abs(testLine.finishPos.a.x - line.finishPos.b.x) +
             Math.abs(testLine.finishPos.a.y - line.finishPos.b.y);
-          if(dist < nearestDist) {
+          if(dist < nearestDist && dist > 0) {
             nearestDist = dist;
             nearest = testLine.finishPos.a;
           }
           dist =
             Math.abs(testLine.finishPos.b.x - line.finishPos.b.x) +
             Math.abs(testLine.finishPos.b.y - line.finishPos.b.y);
-          if(dist < nearestDist) {
+          if(dist < nearestDist && dist > 0) {
             nearestDist = dist;
             nearest = testLine.finishPos.b;
           }
@@ -81,7 +81,7 @@ export class Model extends ModelBase {
             dist =
               Math.abs(testLine.finishPos.a.x + line.finishPos.a.x) +
               Math.abs(testLine.finishPos.a.y - line.finishPos.a.y);
-            if(dist < nearestDist) {
+            if(dist < nearestDist && dist > 0) {
               nearestDist = dist;
               nearest = testLine.finishPos.a;
               mirrored = true;
@@ -89,7 +89,7 @@ export class Model extends ModelBase {
             dist =
               Math.abs(testLine.finishPos.b.x + line.finishPos.a.x) +
               Math.abs(testLine.finishPos.b.y - line.finishPos.a.y);
-            if(dist < nearestDist) {
+            if(dist < nearestDist && dist > 0) {
               nearestDist = dist;
               nearest = testLine.finishPos.b;
               mirrored = true;
@@ -97,7 +97,7 @@ export class Model extends ModelBase {
             dist =
               Math.abs(testLine.finishPos.a.x + line.finishPos.b.x) +
               Math.abs(testLine.finishPos.a.y - line.finishPos.b.y);
-            if(dist < nearestDist) {
+            if(dist < nearestDist && dist > 0) {
               nearestDist = dist;
               nearest = testLine.finishPos.a;
               mirrored = true;
@@ -105,7 +105,7 @@ export class Model extends ModelBase {
             dist =
               Math.abs(testLine.finishPos.b.x + line.finishPos.b.x) +
               Math.abs(testLine.finishPos.b.y - line.finishPos.b.y);
-            if(dist < nearestDist) {
+            if(dist < nearestDist && dist > 0) {
               nearestDist = dist;
               nearest = testLine.finishPos.b;
               mirrored = true;

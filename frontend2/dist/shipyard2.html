@@ -10,8 +10,6 @@
         <link href="shipyard2.css" rel="stylesheet" type="text/css">
     </head>
     <body>
-      <div id="modalBackground" class="greyModal"></div>
-      <div id="modalContent" class="modalContent">TODO</div>
 			<div id="crossSectionControls" class="controlPanel" oncontextmenu="return false;">
         <div class="" role="toolbar">
           <div class="button-small pure-button" data-balloon="Undo" data-balloon-pos="down" label="undo">
@@ -41,14 +39,27 @@
           <div class="button-small pure-button" data-balloon="Background picture" data-balloon-pos="down" label="background">
             <i class="fa fa-image" aria-hidden="true"></i>
           </div>
-          <div class="button-small pure-button" data-balloon="Upload" data-balloon-pos="down" label="save">
-            <i class="fa fa-cloud-upload" aria-hidden="true"></i>
-          </div>
-          <div class="button-small pure-button" data-balloon="Download" data-balloon-pos="down" label="load">
-            <i class="fa fa-cloud-download" aria-hidden="true"></i>
-          </div>
-          <div class="button-small pure-button" data-balloon="Rib" data-balloon-pos="down" label="rib">Rib:
-            <input id="rib" type="number">
+          <form class="inline pure-form">
+            <div class="button-small pure-button" data-balloon="Save / Load" data-balloon-pos="down" label="fileOps">
+              <i class="fa fa-save" aria-hidden="true"></i>
+            </div>
+            <div class="fileOps">
+              <fieldset>
+                <legend>Save/Load ship.</legend>
+                <div class="pure-control-group">
+                  <div class="button-small pure-button" label="fileOpsSave">
+                    Save
+                  </div>
+                  <input placeholder="fliename" class="fileOpsSave"></input>
+                </div>
+                <div class="pure-control-group">
+                  <div class="button-small pure-button" label="fileOpsLoad">
+                    Load
+                  </div>
+                  <select class="fileOpsLoad"></select>
+                </div>
+              </fieldset>
+            </div>
           </div>
 
           <div id="BackgroundPickerTemplate" style="display:none;">

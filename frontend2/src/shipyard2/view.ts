@@ -8,6 +8,7 @@ import {
   ILinePos,
   IPoint,
   MockController} from "./controller";
+import {DropDown, Modal} from "./modal";
 
 interface IHash {
   [key: string]: any;
@@ -22,6 +23,24 @@ export class ViewBase {
 
   constructor() {
     this.widgetId = ViewBase.widgetIdConter++;
+  }
+
+  public syncSequence(lineId: string) {
+    let lineType;
+    let parsedWidget;
+    let parsedSequence;
+    [lineType, parsedWidget, parsedSequence] = lineId.split("_");
+
+    if(lineType !== "drawnLine") {
+      return;
+    }
+    if(parseInt(parsedWidget, 10) !== this.widgetId) {
+      return;
+    }
+    if(parseInt(parsedSequence, 10) >= this.sequenceCounter) {
+      this.sequenceCounter = parseInt(parsedSequence, 10);
+    }
+    console.log([lineType, parsedWidget, parsedSequence]);
   }
 
   public init(controller: ControllerBase) {
@@ -74,7 +93,7 @@ export class ViewCanvas {
   }
 
   public resize() {
-    const container = document.querySelector("#canvas");
+    const container = document.querySelector("#canvas") as HTMLCanvasElement;
     this.stage.width(container.offsetWidth);
     this.stage.height(container.offsetHeight);
     this.stage.scale({x: 0.8, y: 0.8});
@@ -737,6 +756,7 @@ export class ViewMock extends ViewBase {
 
 export class ViewToolbar extends ViewBase {
   private buttonElements: Element[];
+  private fileOpsDropDown: DropDown;
 
   constructor() {
     super();
@@ -747,9 +767,13 @@ export class ViewToolbar extends ViewBase {
     this.buttonElements.forEach((button) => {
       button.addEventListener("click", this.onClick.bind(this));
     });
+
+    this.fileOpsDropDown = new DropDown(
+      document.querySelector(".fileOps") as HTMLElement);
   }
 
   public setButtonValue(buttonLabel: string, value: number) {
+    console.log(buttonLabel, value);
     const button = this.getButtonByLabel(buttonLabel);
     if(button) {
       if(value) {
@@ -757,6 +781,11 @@ export class ViewToolbar extends ViewBase {
       } else {
         button.classList.remove("pure-button-active");
       }
+    }
+    switch(buttonLabel) {
+      case "fileOps":
+        this.fileOpsDropDown.show(value);
+        break;
     }
   }
 
