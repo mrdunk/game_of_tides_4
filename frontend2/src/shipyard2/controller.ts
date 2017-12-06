@@ -3,6 +3,8 @@
 import {ModelBase} from "./model";
 import {ViewBase} from "./view";
 
+const storageName = "shipYardCommandBuffers";
+
 interface ICommand {
   lineEvents: ILineEvent[];
 }
@@ -83,6 +85,7 @@ export abstract class ControllerBase {
   public getLine(lineId: string): ILine {
     return this.model.getLine(lineId);
   }
+  public getFilenames(): string[] { return []; }
 }
 
 export class Controller extends ControllerBase {
@@ -148,9 +151,10 @@ export class Controller extends ControllerBase {
         break;
       case "fileOpsSave":
         this.saveCommands(value);
+        this.updateButton(buttonLabel, value);
         break;
       case "fileOpsLoad":
-        this.loadCommands("test");
+        this.loadCommands(value);
         break;
       case "selected_rib":
         this.model.deSelectAll();
@@ -289,6 +293,14 @@ export class Controller extends ControllerBase {
     this.views.forEach((view) => {
       view.updateLine(line);
     });
+  }
+
+  public getFilenames(): string[] {
+    let allCommandBuffers = JSON.parse(localStorage.getItem(storageName));
+    if(allCommandBuffers === null || allCommandBuffers === undefined) {
+      allCommandBuffers = {};
+    }
+    return Object.keys(allCommandBuffers);
   }
 
   // Make endpoints move towards nearby endpoint if it is close enough.
@@ -571,14 +583,24 @@ export class Controller extends ControllerBase {
   }
 
   private saveCommands(filename: string) {
-    localStorage.removeItem("shipYardCommandBuffer_" + filename);
-    const data = JSON.stringify(this.commands);
-    console.log(data);
-    localStorage.setItem("shipYardCommandBuffer_" + filename, data);
+    // localStorage.removeItem("shipYardCommandBuffer_" + filename);
+    let allCommandBuffers = JSON.parse(localStorage.getItem(storageName));
+    if(allCommandBuffers === null || allCommandBuffers === undefined) {
+      allCommandBuffers = {};
+    }
+    allCommandBuffers[filename] = this.commands;
+    localStorage.setItem(storageName, JSON.stringify(allCommandBuffers));
+    console.log(allCommandBuffers);
   }
 
   private loadCommands(filename: string) {
-    const data = localStorage.getItem("shipYardCommandBuffer_" + filename);
+    const allCommandBuffers = JSON.parse(localStorage.getItem(storageName));
+    let data = allCommandBuffers[filename];
+    if(data === null || data === undefined) {
+      data = [];
+    }
+    data = JSON.stringify(data);
+    console.log(data);
     localStorage.setItem("shipYardCommandBufferStartup", data);
     location.reload();
   }

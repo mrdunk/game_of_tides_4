@@ -785,8 +785,25 @@ export class ViewToolbar extends ViewBase {
     switch(buttonLabel) {
       case "fileOps":
         this.fileOpsDropDown.show(value);
+        this.populateLoadMenu();
+        break;
+      case "fileOpsSave":
+        this.populateLoadMenu();
         break;
     }
+  }
+
+  public populateLoadMenu() {
+    const select = document.querySelector(".fileOpsLoad") as HTMLSelectElement;
+    while(select.firstChild) {
+      select.removeChild(select.firstChild);
+    }
+    const filenames: string[] = this.controller.getFilenames();
+    filenames.forEach((filename) => {
+      const option = document.createElement("option");
+      option.text = filename;
+      select.add(option);
+    });
   }
 
   public setButtonState(buttonLabel: string, state: boolean) {
