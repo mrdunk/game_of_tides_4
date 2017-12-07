@@ -99,16 +99,14 @@ export class Controller extends ControllerBase {
   private buttonStates = {
     selectLine: {value: false, clear: ["addLine"], preventUnClick: true},
     addLine: {value: true, clear: ["selectLine"], preventUnClick: true},
-    // delete:
-    // {value: false, clear: ["addLine", "mirror"], preventUnClick: true},
-    // mirror:
-    // {value: false, clear: ["addLine", "delete"], preventUnClick: true},
     allLayers: {value: false},
     selected_rib: {},
-    clearSelectCursor: {},
-    fileOps: {},
+    clearSelectCursor: {value: false},
+    fileOps: {value: 0},
     fileOpsSave: {},
     fileOpsLoad: {},
+    fileOpsDelete: {},
+    fileOpsNew: {},
   };
 
   constructor(model: ModelBase, views: ViewBase[], logger?) {
@@ -155,6 +153,13 @@ export class Controller extends ControllerBase {
         break;
       case "fileOpsLoad":
         this.loadCommands(value);
+        break;
+      case "fileOpsDelete":
+        this.deleteCommands(value);
+        this.updateButton(buttonLabel, value);
+        break;
+      case "fileOpsNew":
+        this.newCommands();
         break;
       case "selected_rib":
         this.model.deSelectAll();
@@ -211,16 +216,22 @@ export class Controller extends ControllerBase {
     if(this.buttonStates.selectLine.value &&
        lineEvent.id && lineEvent.startPos &&
        approxDistLinePos(lineEvent.startPos, lineEvent.finishPos) < 10) {
+      // Line has been clicked on. Toggle select state.
+      lineEvent.selecting = true;
+      lineEvent.startPos = null;
+      lineEvent.finishPos = null;
+    } else if(lineEvent.selected) {
       lineEvent.selecting = true;
       lineEvent.startPos = null;
       lineEvent.finishPos = null;
     } else if(this.buttonStates.selectLine.value &&
               lineEvent.startPos &&
               lineEvent.id) {
-      console.log("TODO: drag selectLine", lineEvent);
+      console.log("TODO: drag selected lines", lineEvent);
       return;
     } else if(this.buttonStates.selectLine.value && lineEvent.finishPos) {
-      console.log("TODO: box around selectLine", lineEvent);
+      // Box to select lines.
+      this.model.deSelectAll();
       this.views.forEach((view) => {
         view.drawSelectCursor(lineEvent.finishPos.a, lineEvent.finishPos.b);
       });
@@ -253,7 +264,7 @@ export class Controller extends ControllerBase {
     }
 
     if(value === undefined) {
-      // No value passed in and no associated HTML input field.
+      // No value passed in.
       const input = document.getElementsByClassName(buttonLabel)[0];
       if(input) {
         console.log(input.tagName.toLowerCase());
@@ -267,15 +278,16 @@ export class Controller extends ControllerBase {
         }
       }
     }
-    if(value === undefined) {
-      // No value passed in.
+    if(value === undefined &&
+       this.buttonStates[buttonLabel].value !== undefined) {
+      // No value passed in and no associated HTML input field.
       value = Number(!this.buttonStates[buttonLabel].value);
+      this.buttonStates[buttonLabel].value = value;
     }
     if(value === undefined) {
       // No default button value defined either.
       return value;
     }
-    this.buttonStates[buttonLabel].value = value;
     this.views.forEach((view) => {
       view.setButtonValue(buttonLabel, value);
       if(this.buttonStates[buttonLabel].clear !== undefined) {
@@ -457,6 +469,7 @@ export class Controller extends ControllerBase {
 
     this.commands = this.commands.slice(0, this.commandPointer -1);
     this.commands.push(command);
+    this.persistCommands();
   }
 
   private performCommand(commandIndex?: number, command?: ICommand) {
@@ -583,7 +596,6 @@ export class Controller extends ControllerBase {
   }
 
   private saveCommands(filename: string) {
-    // localStorage.removeItem("shipYardCommandBuffer_" + filename);
     let allCommandBuffers = JSON.parse(localStorage.getItem(storageName));
     if(allCommandBuffers === null || allCommandBuffers === undefined) {
       allCommandBuffers = {};
@@ -591,6 +603,15 @@ export class Controller extends ControllerBase {
     allCommandBuffers[filename] = this.commands;
     localStorage.setItem(storageName, JSON.stringify(allCommandBuffers));
     console.log(allCommandBuffers);
+  }
+
+  private deleteCommands(filename: string) {
+    let allCommandBuffers = JSON.parse(localStorage.getItem(storageName));
+    if(allCommandBuffers === null || allCommandBuffers === undefined) {
+      allCommandBuffers = {};
+    }
+    allCommandBuffers[filename] = undefined;
+    localStorage.setItem(storageName, JSON.stringify(allCommandBuffers));
   }
 
   private loadCommands(filename: string) {
@@ -603,6 +624,17 @@ export class Controller extends ControllerBase {
     console.log(data);
     localStorage.setItem("shipYardCommandBufferStartup", data);
     location.reload();
+  }
+
+  private newCommands() {
+    this.commands = [];
+    this.persistCommands();
+    location.reload();
+  }
+
+  private persistCommands() {
+    const data = JSON.stringify(this.commands);
+    localStorage.setItem("shipYardCommandBufferStartup", data);
   }
 }
 

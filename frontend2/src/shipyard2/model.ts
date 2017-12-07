@@ -135,7 +135,7 @@ export class Model extends ModelBase {
         }
       }
     }
-    this.data.selectedLines = [];
+    this.data.selectedLines = {};
   }
 
   private createLine(event: ILineEvent) {
@@ -172,6 +172,9 @@ export class Model extends ModelBase {
 
     if(event.selecting !== undefined) {
       line.selected = !line.selected;
+      if(event.selected) {
+        line.selected = event.selected;
+      }
       if(line.selected) {
         this.data.selectedLines[line.id] = true;
       } else {

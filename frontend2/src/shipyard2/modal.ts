@@ -54,7 +54,7 @@ export class DropDown {
   }
 
   public show(value?: number) {
-    console.log("Modal.show(", value, ")");
+    // console.log("Modal.show(", value, ")");
     if(value === 0) {
       this.hide();
       return;
@@ -63,7 +63,7 @@ export class DropDown {
   }
 
   public hide() {
-    console.log("Modal.hide()");
+    // console.log("Modal.hide()");
     this.element.style.display = "none";
   }
 }

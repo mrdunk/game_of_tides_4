@@ -40,7 +40,7 @@ export class ViewBase {
     if(parseInt(parsedSequence, 10) >= this.sequenceCounter) {
       this.sequenceCounter = parseInt(parsedSequence, 10);
     }
-    console.log([lineType, parsedWidget, parsedSequence]);
+    // console.log([lineType, parsedWidget, parsedSequence]);
   }
 
   public init(controller: ControllerBase) {
@@ -185,8 +185,6 @@ export abstract class ViewSection extends ViewBase {
   }
 
   protected onMouseMove(event) {
-    this.controller.onButtonEvent("clearSelectCursor");
-
     const mouseDown = event.evt.buttons === 1;
 
     const parent: Line = event.target.getParent();
@@ -236,6 +234,8 @@ export abstract class ViewSection extends ViewBase {
         this.lineEvent(null, this.sequence, null, line);
       }
     } else {
+      this.controller.onButtonEvent("clearSelectCursor", 1);
+
       if(lineId) {
         // console.log("Highlight:", lineId);
         this.mouseHighlight = lineId;
@@ -432,8 +432,9 @@ export class ViewCrossSection extends ViewSection {
         this.updateLengthCursor();
         break;
       case "clearSelectCursor":
-        // console.log(buttonLabel, value);
-        this.drawSelectCursor();
+        if(value) {
+          this.drawSelectCursor();
+        }
         break;
     }
   }
@@ -452,6 +453,16 @@ export class ViewCrossSection extends ViewSection {
       this.selectCursor.height(bb.y - aa.y);
       this.selectCursor.visible(true);
       this.layer.draw();
+
+      Object.keys(this.lines).forEach((lineKey) => {
+        const line = this.lines[lineKey];
+        if(line.z === this.z) {
+          if(line.doesOverlap(this.selectCursor)) {
+            console.log(line.line1.getClientRect());
+            this.lineEvent(lineKey, this.sequence, null, null, null, true);
+          }
+        }
+      });
       return;
     }
     this.selectCursor.visible(false);
@@ -467,13 +478,15 @@ export class ViewCrossSection extends ViewSection {
                     sequence: string,
                     startPos: ILinePos,
                     finishPos: ILinePos,
-                    highlight?: boolean) {
+                    highlight?: boolean,
+                    selected?: boolean) {
     const event: ILineEvent = {
       id,
       sequence,
       startPos,
       finishPos,
       highlight,
+      selected,
     };
     this.controller.onLineEvent(event);
   }
@@ -603,7 +616,9 @@ export class ViewLengthSection extends ViewSection {
     // console.log(buttonLabel, value);
     switch (buttonLabel) {
       case "clearSelectCursor":
-        this.drawSelectCursor();
+        if(value) {
+          this.drawSelectCursor();
+        }
         break;
     }
   }
@@ -773,7 +788,7 @@ export class ViewToolbar extends ViewBase {
   }
 
   public setButtonValue(buttonLabel: string, value: number) {
-    console.log(buttonLabel, value);
+    // console.log(buttonLabel, value);
     const button = this.getButtonByLabel(buttonLabel);
     if(button) {
       if(value) {
@@ -785,16 +800,19 @@ export class ViewToolbar extends ViewBase {
     switch(buttonLabel) {
       case "fileOps":
         this.fileOpsDropDown.show(value);
-        this.populateLoadMenu();
+        this.populateFileMenu(".fileOpsLoad");
+        this.populateFileMenu(".fileOpsDelete");
         break;
       case "fileOpsSave":
-        this.populateLoadMenu();
+      case "fileOpsDelete":
+        this.populateFileMenu(".fileOpsLoad");
+        this.populateFileMenu(".fileOpsDelete");
         break;
     }
   }
 
-  public populateLoadMenu() {
-    const select = document.querySelector(".fileOpsLoad") as HTMLSelectElement;
+  public populateFileMenu(id: string) {
+    const select = document.querySelector(id) as HTMLSelectElement;
     while(select.firstChild) {
       select.removeChild(select.firstChild);
     }
@@ -859,12 +877,12 @@ export class Line extends Konva.Group {
     this.line1 = new Konva.Line(
       { points: [10, 10, 100, 100],
         stroke: "black",
-        strokeWidth: 1,
+        strokeWidth: 2,
       });
     this.line2 = new Konva.Line(
       { points: [-10, 10, -100, 100],
         stroke: "black",
-        strokeWidth: 1,
+        strokeWidth: 2,
         visible: false,
       });
     this.end1A = new Konva.Circle(
@@ -980,8 +998,8 @@ export class Line extends Konva.Group {
     this.end2A.strokeWidth(1);
     this.end1B.strokeWidth(1);
     this.end2B.strokeWidth(1);
-    this.line1.strokeWidth(1);
-    this.line2.strokeWidth(1);
+    this.line1.strokeWidth(2);
+    this.line2.strokeWidth(2);
     return this.highlightValue;
   }
 
@@ -995,6 +1013,36 @@ export class Line extends Konva.Group {
   public destroy() {
     this.destroyChildren();
     super.destroy();
+  }
+
+  public doesOverlap(shape: Konva.Node): boolean {
+    const shapeBounds = shape.getClientRect();
+    const line1Bounds = this.line1.getClientRect();
+    const line2Bounds = this.line2.getClientRect();
+    if(shapeBounds.x <= line1Bounds.x &&
+       shapeBounds.x <= line1Bounds.x + line1Bounds.width &&
+       shapeBounds.x + shapeBounds.width >= line1Bounds.x &&
+       shapeBounds.x + shapeBounds.width >= line1Bounds.x + line1Bounds.width &&
+       shapeBounds.y <= line1Bounds.y &&
+       shapeBounds.y <= line1Bounds.y + line1Bounds.height &&
+       shapeBounds.y + shapeBounds.height >= line1Bounds.y &&
+       shapeBounds.y + shapeBounds.height >=
+         line1Bounds.y + line1Bounds.height) {
+      return true;
+    }
+    if(this.mirrored &&
+       shapeBounds.x <= line2Bounds.x &&
+       shapeBounds.x <= line2Bounds.x + line2Bounds.width &&
+       shapeBounds.x + shapeBounds.width >= line2Bounds.x &&
+       shapeBounds.x + shapeBounds.width >= line2Bounds.x + line2Bounds.width &&
+       shapeBounds.y <= line2Bounds.y &&
+       shapeBounds.y <= line2Bounds.y + line2Bounds.height &&
+       shapeBounds.y + shapeBounds.height >= line2Bounds.y &&
+       shapeBounds.y + shapeBounds.height >=
+         line2Bounds.y + line2Bounds.height) {
+      return true;
+    }
+    return false;
   }
 
   private onMouse(event: MouseEvent) {
