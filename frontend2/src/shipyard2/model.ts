@@ -200,6 +200,7 @@ export class ModelMock extends ModelBase {
   public lineEvents: [ILineEvent] = ([] as [ILineEvent]);
   public mockGetLineValue: ILine = null;
   public mockNearestLine = {point: null, mirrored: null};
+  public mockGetSelectedLines = {};
 
   public onLineEvent(event: ILineEvent) {
     this.lineEvents.push(event);
@@ -211,5 +212,9 @@ export class ModelMock extends ModelBase {
 
   public nearestLine(line: ILine): {point: IPoint, mirrored: boolean} {
     return this.mockNearestLine;
+  }
+  
+  public getSelectedLines(): {} {
+    return this.mockGetSelectedLines;
   }
 }

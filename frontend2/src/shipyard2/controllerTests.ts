@@ -401,11 +401,11 @@ export const controllerLineEventTests = {
     };
 
     // Insert new line.
-    widget1.simulateLineEvent(null, "sequence_1", null, linePos);
-    // Set toggleMirrored mutton and simulate clicking new line.
-    widget1.simulateButtonPress("mirror");
     widget1.simulateLineEvent("drawnLine_1", "sequence_2", linePos, linePos);
-    console.log(model);
+    // Make model return the new line when asked for highlighted lines.
+    model.mockGetSelectedLines[model.lineEvents[0].id] = model.lineEvents[0];
+    // Set toggleMirrored button.
+    widget1.simulateButtonPress("mirror");
 
     TrackAsserts.assert(model.lineEvents.length === 2);
     TrackAsserts.assert(toolbar.buttonStates.undo === true);
