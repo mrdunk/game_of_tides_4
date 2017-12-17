@@ -24,6 +24,36 @@
           <div class="button-small pure-button" data-balloon="Add / modify line" data-balloon-pos="down" label="addLine">
             <i class="fa fa-pencil"></i>
           </div>
+          <div class="inline">
+            <div class="button-small pure-button" data-balloon="Add / modify background image" data-balloon-pos="down" label="backgroundImage">
+              <i class="fa fa-image"></i>
+            </div>
+            <form class="pure-form pure-form-aligned">
+              <div class="backgroundImage">
+                <fieldset>
+                  <legend>Background image.</legend>
+                  <legend> Cross section </legend>
+                  <div class="pure-control-group">
+                    <label for="backgroundImageShowLength">Show image</label>
+                    <input class="pure-button" id="backgroundImageShowCross" type="checkbox" label="backgroundImageShowCross">
+                  </div>
+                  <div class="pure-control-group">
+                    <label for="backgroundImageUrlCross">Image</label>
+                    <input id="backgroundImageUrlCross" label="backgroundImageUrlCross" class="auto-submit" placeholder="http://image.url"></input>
+                  </div>
+                  <legend> Length section </legend>
+                  <div class="pure-control-group">
+                    <label for="backgroundImageShowLength">Show image</label>
+                    <input class="pure-button" id="backgroundImageShowLength" type="checkbox" label="backgroundImageShowLength">
+                  </div>
+                  <div class="pure-control-group">
+                    <label for="backgroundImageUrlLength">Image</label>
+                    <input id="backgroundImageUrlLength" label="backgroundImageUrlLength" class="auto-submit" placeholder="http://image.url"></input>
+                  </div>
+                </fieldset>
+              </div>
+            </form>
+          </div>
           <div class="button-small pure-button" data-balloon="Delete selected line(s)" data-balloon-pos="down" label="delete">
             <i class="fa fa-eraser"></i>
           </div>
@@ -33,59 +63,40 @@
           <div class="button-small pure-button" data-balloon="View all layers" data-balloon-pos="down" label="allLayers">
             <i class="fa fa-barcode" aria-hidden="true"></i>
           </div>
-          <div class="button-small pure-button" data-balloon="Background picture" data-balloon-pos="down" label="background">
-            <i class="fa fa-image" aria-hidden="true"></i>
-          </div>
-          <form class="inline pure-form">
+          <div class="inline">
             <div class="button-small pure-button" data-balloon="Save / Load" data-balloon-pos="down" label="fileOps">
               <i class="fa fa-save" aria-hidden="true"></i>
             </div>
-            <div class="fileOps">
-              <fieldset>
-                <legend>Save/Load ship.</legend>
-                <div class="pure-control-group">
-                  <div class="button-small pure-button" label="fileOpsSave">
-                    Save
+            <form class="inline pure-form pure-form-aligned">
+              <div class="fileOps">
+                <fieldset>
+                  <legend>Save/Load ship.</legend>
+                  <div class="pure-control-group pure-g">
+                    <div class="button-small pure-button pure-u-1-3" label="fileOpsSave">
+                      Save
+                    </div>
+                    <input id="fileOpsSave" placeholder="fliename" class="fileOpsSave pure-u-2-3"></input>
                   </div>
-                  <input placeholder="fliename" class="fileOpsSave"></input>
-                </div>
-                <div class="pure-control-group">
-                  <div class="button-small pure-button" label="fileOpsLoad">
-                    Load
+                  <div class="pure-control-group pure-g">
+                    <div class="button-small pure-button pure-u-1-3" label="fileOpsLoad">
+                      Load
+                    </div>
+                    <select id="fileOpsLoad" class="fileOpsLoad pure-u-2-3"></select>
                   </div>
-                  <select class="fileOpsLoad"></select>
-                </div>
-                <div class="pure-control-group">
-                  <div class="button-small pure-button" label="fileOpsDelete">
-                    Delete
+                  <div class="pure-control-group pure-g">
+                    <div class="button-small pure-button pure-u-1-3" label="fileOpsDelete">
+                      Delete
+                    </div>
+                    <select id="fileOpsDelete" class="fileOpsDelete pure-u-2-3"></select>
                   </div>
-                  <select class="fileOpsDelete"></select>
-                </div>
-                <div class="pure-control-group">
-                  <div class="button-small pure-button" label="fileOpsNew">
-                    New
+                  <div class="pure-control-group pure-g">
+                    <div class="button-small pure-button pure-u-1-3" label="fileOpsNew">
+                      New
+                    </div>
                   </div>
-                </div>
-              </fieldset>
-            </div>
-          </div>
-
-          <div id="BackgroundPickerTemplate" style="display:none;">
-            <div class="button-small pure-button" data-balloon="Zoom in" data-balloon-pos="down">
-              <i class="fa fa-plus-square" aria-hidden="true"></i>
-            </div>
-            <div class="button-small pure-button" data-balloon="Zoom out" data-balloon-pos="down">
-              <i class="fa fa-minus-square" aria-hidden="true"></i>
-            </div>
-            <div class="button-small pure-button" data-balloon="Cross section" data-balloon-pos="down">
-              <i class="fa fa-square-o" aria-hidden="true"></i>
-            </div>
-            <div class="button-small pure-button" data-balloon="Length section" data-balloon-pos="down">
-              <i class="fa fa-square-o" aria-hidden="true"></i>
-            </div>
-            <div class="button-small pure-button" data-balloon="View grid" data-balloon-pos="down">
-              <i class="fa fa-table" aria-hidden="true"></i>
-            </div>
+                </fieldset>
+              </div>
+            </form>
           </div>
         </div>
       </div>

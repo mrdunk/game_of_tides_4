@@ -6,7 +6,27 @@ import {ViewBase} from "./view";
 const storageName = "shipYardCommandBuffers";
 
 interface ICommand {
-  lineEvents: ILineEvent[];
+  lineEvents?: ILineEvent[];
+  backgroundImageEvents?: IBackgroundImageEvent[];
+}
+
+interface Ixy {
+  x: number;
+  y: number;
+}
+
+export interface IBackgroundImage {
+  widgetType: string;
+  finishVisible?: boolean;
+  finishImage?: string;
+  finishPos?: Ixy;
+}
+
+export interface IBackgroundImageEvent extends IBackgroundImage {
+  sequence: string;
+  startVisible?: boolean;
+  startImage?: string;
+  startPos?: Ixy;
 }
 
 export interface IPoint {
@@ -80,7 +100,11 @@ export abstract class ControllerBase {
   }
 
   public onLineEvent(event): void {/**/}
+  public onBackgroundImageEvent(event: IBackgroundImageEvent) {/**/}
   public updateViews(line: ILine): void {/**/}
+  public updateViewsBackgroundImage(backgroundImage: IBackgroundImage): void {
+    /**/
+  }
   public onButtonEvent(buttonLabel: string, value?: number) {/**/}
   public getLine(lineId: string): ILine {
     return this.model.getLine(lineId);
@@ -97,16 +121,30 @@ export class Controller extends ControllerBase {
   private sequenceCounter: number = 0;
   private commandPointer: number;
   private buttonStates = {
-    selectLine: {value: false, clear: ["addLine"], preventUnClick: true},
-    addLine: {value: true, clear: ["selectLine"], preventUnClick: true},
-    allLayers: {value: false},
-    selected_rib: {},
-    clearSelectCursor: {value: false},
+    selectLine: {
+      value: false,
+      clear: ["addLine", "backgroundImage", "fileOps"],
+      preventUnClick: true},
+    addLine: {
+      value: true,
+      clear: ["selectLine", "backgroundImage", "fileOps"],
+      preventUnClick: true},
+    backgroundImage: {
+      value: false,
+      clear: ["addLine", "selectLine", "fileOps"],
+      preventUnClick: true},
+    allLayers: {value: false, clear: ["fileOps"]},
+    selected_rib: {clear: ["fileOps"]},
+    clearSelectCursor: {value: false, clear: ["fileOps"]},
     fileOps: {value: 0},
     fileOpsSave: {},
     fileOpsLoad: {},
     fileOpsDelete: {},
     fileOpsNew: {},
+    backgroundImageShowCross: {},
+    backgroundImageShowLength: {},
+    backgroundImageUrlCross: {},
+    backgroundImageUrlLength: {},
   };
 
   constructor(model: ModelBase, views: ViewBase[], logger?) {
@@ -119,7 +157,7 @@ export class Controller extends ControllerBase {
   }
 
   public onButtonEvent(buttonLabel: string, value?: any) {
-    // this.logger.log(buttonLabel);
+    // this.logger.log(buttonLabel, value);
     value = this.updateButton(buttonLabel, value);
 
     switch (buttonLabel) {
@@ -143,7 +181,17 @@ export class Controller extends ControllerBase {
         break;
       case "allLayers":
         break;
-      case "background":
+      case "backgroundImage":
+        break;
+      case "backgroundImageShowCross":
+        // this.setBackgroundImage("cross", value);
+        break;
+      case "backgroundImageShowLength":
+        // this.setBackgroundImage("length", value);
+        break;
+      case "backgroundImageUrlCross":
+        break;
+      case "backgroundImageUrlLength":
         break;
       case "fileOps":
         break;
@@ -252,6 +300,17 @@ export class Controller extends ControllerBase {
     this.performCommand(null, command);
   }
 
+  public onBackgroundImageEvent(event: IBackgroundImageEvent) {
+    this.newSequence();
+    const command: ICommand = {
+      backgroundImageEvents: [],
+    };
+
+    command.backgroundImageEvents.push(event);
+    this.recordCommand(command);
+    this.performCommand(null, command);
+  }
+
   public updateButton(buttonLabel: string, value: any) {
     if(this.buttonStates[buttonLabel] === undefined) {
       // Just a simple non-toggling push button.
@@ -304,6 +363,12 @@ export class Controller extends ControllerBase {
   public updateViews(line: ILine) {
     this.views.forEach((view) => {
       view.updateLine(line);
+    });
+  }
+
+  public updateViewsBackgroundImage(backgroundImage: IBackgroundImage): void {
+    this.views.forEach((view) => {
+      view.setBackgroundImage(backgroundImage);
     });
   }
 
@@ -431,9 +496,11 @@ export class Controller extends ControllerBase {
       return false;
     }
     let returnVal = false;
-    command1.lineEvents.forEach((lineEvent1) => {
-      command2.lineEvents.forEach((lineEvent2) => {
-        if(lineEvent1.sequence === lineEvent2.sequence) {
+    const events1: any = command1.lineEvents || command1.backgroundImageEvents;
+    const events2: any = command2.lineEvents || command2.backgroundImageEvents;
+    events1.forEach((event1) => {
+      events2.forEach((event2) => {
+        if(event1.sequence === event2.sequence) {
           returnVal = true;
         }
       });
@@ -443,17 +510,24 @@ export class Controller extends ControllerBase {
 
   private loggableCommand(command: ICommand): boolean {
     let returnVal = false;
-    command.lineEvents.forEach((lineEvent) => {
-      if(lineEvent.selecting) {
-        returnVal = returnVal || (Boolean(lineEvent.startPos) && !lineEvent.id);
-      } else {
-        returnVal = returnVal ||
-          Boolean(lineEvent.startPos) ||
-          Boolean(lineEvent.finishPos) ||
-          lineEvent.toggleMirrored !== undefined;
-      }
-    });
-    // console.log("loggableCommand(", command, "):", returnVal);
+    if(command.lineEvents) {
+      command.lineEvents.forEach((lineEvent) => {
+        if(lineEvent.selecting) {
+          returnVal = returnVal ||
+            (Boolean(lineEvent.startPos) && !lineEvent.id);
+        } else {
+          returnVal = returnVal ||
+            Boolean(lineEvent.startPos) ||
+            Boolean(lineEvent.finishPos) ||
+            lineEvent.toggleMirrored !== undefined;
+        }
+      });
+    }
+    if(command.backgroundImageEvents) {
+      command.backgroundImageEvents.forEach((event) => {
+        returnVal = true;
+      });
+    }
     return returnVal;
   }
 
@@ -481,13 +555,20 @@ export class Controller extends ControllerBase {
       command = this.commands[commandIndex];
     }
 
-    command.lineEvents.forEach((lineEvent) => {
-      this.views.forEach((view) => {
-        view.syncSequence(lineEvent.id);
-      });
+    if(command.lineEvents) {
+      command.lineEvents.forEach((event) => {
+        this.views.forEach((view) => {
+          view.syncSequence(event.id);
+        });
 
-      this.model.onLineEvent(lineEvent);
-    });
+        this.model.onLineEvent(event);
+      });
+    }
+    if(command.backgroundImageEvents) {
+      command.backgroundImageEvents.forEach((event) => {
+        this.model.onBackgroundImageEvent(event);
+      });
+    }
 
     this.setButtonStates();
   }
@@ -507,18 +588,30 @@ export class Controller extends ControllerBase {
     }
 
     const command = this.commands[commandIndex];
-    command.lineEvents.forEach((lineEvent) => {
-      console.log(lineEvent);
-      const reverseLineEvent = {
-        id: lineEvent.id,
-        startPos: JSON.parse(JSON.stringify(lineEvent.finishPos)),
-        finishPos: JSON.parse(JSON.stringify(lineEvent.startPos)),
-        toggleMirrored: lineEvent.toggleMirrored,
-        // TODO Make test for interaction between undo and mirrored.
-        mirrored: lineEvent.mirrored,
-      };
-      this.model.onLineEvent(reverseLineEvent);
-    });
+    if(command.lineEvents) {
+      command.lineEvents.forEach((lineEvent) => {
+        console.log(lineEvent);
+        const reverseLineEvent = {
+          id: lineEvent.id,
+          startPos: JSON.parse(JSON.stringify(lineEvent.finishPos)),
+          finishPos: JSON.parse(JSON.stringify(lineEvent.startPos)),
+          toggleMirrored: lineEvent.toggleMirrored,
+          // TODO Make test for interaction between undo and mirrored.
+          mirrored: lineEvent.mirrored,
+        };
+        this.model.onLineEvent(reverseLineEvent);
+      });
+    }
+    if(command.backgroundImageEvents) {
+      command.backgroundImageEvents.forEach((event) => {
+        const reverseBackgroundImageEvent = JSON.parse(JSON.stringify(event));
+        reverseBackgroundImageEvent.startVisible = event.finishVisible;
+        reverseBackgroundImageEvent.finishVisible = event.startVisible;
+        reverseBackgroundImageEvent.startImage = event.finishImage;
+        reverseBackgroundImageEvent.finishImage = event.startImage;
+        this.model.onBackgroundImageEvent(reverseBackgroundImageEvent);
+      });
+    }
     this.setButtonStates();
   }
 

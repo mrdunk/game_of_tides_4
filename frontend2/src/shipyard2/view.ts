@@ -3,6 +3,8 @@
 import * as Konva from "konva";
 import {
   ControllerBase,
+  IBackgroundImage,
+  IBackgroundImageEvent,
   ILine,
   ILineEvent,
   ILinePos,
@@ -16,6 +18,7 @@ interface IHash {
 
 export class ViewBase {
   protected static widgetIdConter: number = 0;
+  protected widgetType: string = "base";
   protected controller: ControllerBase;
   protected sequence: string = "";
   private sequenceCounter: number = 0;
@@ -26,6 +29,8 @@ export class ViewBase {
   }
 
   public syncSequence(lineId: string) {
+    console.assert(Boolean(lineId));
+
     let lineType;
     let parsedWidget;
     let parsedSequence;
@@ -60,6 +65,10 @@ export class ViewBase {
   }
 
   public drawSelectCursor(a?: IPoint, b?: IPoint) {
+    //
+  }
+
+  public setBackgroundImage(backgroundImage: IBackgroundImage) {
     //
   }
 
@@ -116,6 +125,8 @@ export abstract class ViewSection extends ViewBase {
   protected geometry: Konva.Group;
   protected canvas: ViewCanvas;
   protected selectCursor: Konva.Rect;
+  protected backgroundImage: Konva.Image;
+  protected backgroundImageFilename: string;
 
   constructor(canvas: ViewCanvas,
               x?: number,
@@ -140,6 +151,7 @@ export abstract class ViewSection extends ViewBase {
       height: this.height,
       draggable: false,
     });
+    this.background.clip({x: 0, y: 0, width: this.width, height: this.height});
     canvas.layer.add(this.background);
 
     this.geometry = new Konva.Group({
@@ -182,6 +194,73 @@ export abstract class ViewSection extends ViewBase {
 
     this.layer.add(this.selectCursor);
     this.layer.draw();
+  }
+
+  public setBackgroundImage(backgroundImage: IBackgroundImage) {
+    if(backgroundImage.widgetType !== this.widgetType) {
+      return;
+    }
+
+    const filename = backgroundImage.finishImage;
+    const visible = backgroundImage.finishVisible;
+    if(this.backgroundImageFilename !== filename) {
+      console.log("initialising", filename);
+      const image = new Image();
+      image.onload = () => {
+        if(this.backgroundImage) {
+          this.backgroundImage.destroy();
+        }
+        this.backgroundImage = new Konva.Image({
+          x: 0,
+          y: 0,
+          image,
+          scaleX: 1,
+          scaleY: 1,
+          opacity: 0.5,
+          visible: true,
+        });
+
+        this.background.add(this.backgroundImage);
+        this.background.draw();
+        this.geometry.draw();
+      };
+      this.backgroundImageFilename = filename;
+      image.src = filename;
+    }
+
+    if(this.backgroundImage) {
+      if(!this.backgroundImageFilename) {
+        visible = false;
+      }
+      console.log("setting", visible);
+      this.backgroundImage.visible(visible);
+      this.background.draw();
+      this.geometry.draw();
+    }
+  }
+
+  protected updateBackgroundImage(visible: boolean, url: string) {
+    if(visible === null || visible === undefined) {
+      if(this.backgroundImage) {
+        visible = this.backgroundImage.visible();
+      }
+    }
+    if(url === null || url === undefined) {
+      url = this.backgroundImageFilename;
+    } else {
+      visible = true;
+    }
+    this.newSequence();
+    const event: IBackgroundImageEvent = {
+      sequence: this.sequence,
+      widgetType: this.widgetType,
+      startVisible: !visible,
+      finishVisible: visible,
+      startImage: this.backgroundImageFilename,
+      finishImage: url,
+    };
+
+    this.controller.onBackgroundImageEvent(event);
   }
 
   protected onMouseMove(event) {
@@ -317,6 +396,7 @@ export abstract class ViewSection extends ViewBase {
 
 export class ViewCrossSection extends ViewSection {
   public z: number = 0;
+  protected widgetType: string = "cross";
   private showLayersValue: boolean = false;
   private lengthSection: ViewSection;
   private lengthCursorL: Konva.Line;
@@ -418,7 +498,7 @@ export class ViewCrossSection extends ViewSection {
     this.layer.draw();
   }
 
-  public setButtonValue(buttonLabel: string, value: number) {
+  public setButtonValue(buttonLabel: string, value: any) {
     // console.log(buttonLabel, value);
     switch (buttonLabel) {
       case "allLayers":
@@ -435,6 +515,12 @@ export class ViewCrossSection extends ViewSection {
         if(value) {
           this.drawSelectCursor();
         }
+        break;
+      case "backgroundImageShowCross":
+        this.updateBackgroundImage(Boolean(value), null);
+        break;
+      case "backgroundImageUrlCross":
+        this.updateBackgroundImage(null, value);
         break;
     }
   }
@@ -528,6 +614,7 @@ export class ViewCrossSection extends ViewSection {
 
 export class ViewLengthSection extends ViewSection {
   public cursorPos: number = 0;
+  protected widgetType: string = "length";
   private cursorHover: Konva.Rect;
   private cursor: Konva.Rect;
   private cursorWidth: number = 20;
@@ -619,6 +706,12 @@ export class ViewLengthSection extends ViewSection {
         if(value) {
           this.drawSelectCursor();
         }
+        break;
+      case "backgroundImageShowLength":
+        this.updateBackgroundImage(Boolean(value), null);
+        break;
+      case "backgroundImageUrlLength":
+        this.updateBackgroundImage(null, value);
         break;
     }
   }
@@ -771,6 +864,7 @@ export class ViewMock extends ViewBase {
 
 export class ViewToolbar extends ViewBase {
   private buttonElements: Element[];
+  private backgroundDropDown: DropDown;
   private fileOpsDropDown: DropDown;
 
   constructor() {
@@ -783,12 +877,22 @@ export class ViewToolbar extends ViewBase {
       button.addEventListener("click", this.onClick.bind(this));
     });
 
+    const textInputs = [].slice.call(document.querySelectorAll(".auto-submit"));
+    this.buttonElements = this.buttonElements.concat(textInputs);
+    textInputs.forEach((testInput) => {
+      testInput.addEventListener("change", this.onClick.bind(this));
+    });
+
+    this.backgroundDropDown = new DropDown(
+      document.querySelector(".backgroundImage") as HTMLElement);
+
     this.fileOpsDropDown = new DropDown(
       document.querySelector(".fileOps") as HTMLElement);
   }
 
   public setButtonValue(buttonLabel: string, value: number) {
     // console.log(buttonLabel, value);
+
     const button = this.getButtonByLabel(buttonLabel);
     if(button) {
       if(value) {
@@ -798,8 +902,11 @@ export class ViewToolbar extends ViewBase {
       }
     }
     switch(buttonLabel) {
+      case "backgroundImage":
+        this.backgroundDropDown.show(Number(value));
+        break;
       case "fileOps":
-        this.fileOpsDropDown.show(value);
+        this.fileOpsDropDown.show(Number(value));
         this.populateFileMenu(".fileOpsLoad");
         this.populateFileMenu(".fileOpsDelete");
         break;
@@ -838,6 +945,16 @@ export class ViewToolbar extends ViewBase {
   private onClick(event: MouseEvent) {
     const button = event.currentTarget as Element;
     const buttonLabel = button.getAttribute("label");
+    if(event.srcElement && event.srcElement.type &&
+       event.srcElement.type === "checkbox") {
+      this.controller.onButtonEvent(buttonLabel, event.srcElement.checked);
+      return;
+    }
+    if(event.srcElement && event.srcElement.type &&
+       event.srcElement.type === "text") {
+      this.controller.onButtonEvent(buttonLabel, event.srcElement.value);
+      return;
+    }
     this.controller.onButtonEvent(buttonLabel);
   }
 
