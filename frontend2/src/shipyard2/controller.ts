@@ -10,7 +10,7 @@ interface ICommand {
   backgroundImageEvents?: IBackgroundImageEvent[];
 }
 
-interface Ixy {
+export interface Ixy {
   x: number;
   y: number;
 }
@@ -49,14 +49,19 @@ export interface ILine {
 }
 
 export interface ILineEvent extends ILine {
-  sequence: string;
-  startPos?: ILinePos;
-  toggleMirrored?: boolean;
-  selecting?: boolean;
+  sequence: string;         // Unique id for series of related commands.
+  widgetType?: string;      // Command originating widget type.
+  startPos?: ILinePos;      // Position before command executed.
+  toggleMirrored?: boolean; // Change mirroring status.
+  selecting?: boolean;      // Change selected status.
 }
 
 export function comparePoint(p1: IPoint, p2: IPoint): boolean {
   return (p1.x === p2.x && p1.y === p2.y && p1.z === p2.z);
+}
+
+export function subtractPoint(p1: IPoint, p2: IPoint): IPoint {
+  return {x: p1.x - p2.x, y: p1.y - p2.y, z: p1.z - p2.z};
 }
 
 export function compareLinePos(lp1: ILinePos, lp2: ILinePos): boolean {
@@ -99,7 +104,8 @@ export abstract class ControllerBase {
     });
   }
 
-  public onLineEvent(event): void {/**/}
+  public onLineEvent(lineEvent: ILineEvent,
+                     backgroundImageEvent?: IBackgroundImageEvent): void {/**/}
   public onBackgroundImageEvent(event: IBackgroundImageEvent) {/**/}
   public updateViews(line: ILine): void {/**/}
   public updateViewsBackgroundImage(backgroundImage: IBackgroundImage): void {
@@ -184,10 +190,8 @@ export class Controller extends ControllerBase {
       case "backgroundImage":
         break;
       case "backgroundImageShowCross":
-        // this.setBackgroundImage("cross", value);
         break;
       case "backgroundImageShowLength":
-        // this.setBackgroundImage("length", value);
         break;
       case "backgroundImageUrlCross":
         break;
@@ -220,7 +224,8 @@ export class Controller extends ControllerBase {
     }
   }
 
-  public onLineEvent(lineEvent: ILineEvent) {
+  public onLineEvent(lineEvent: ILineEvent,
+                     backgroundImageEvent?: IBackgroundImageEvent) {
     if(!lineEvent.id && !lineEvent.startPos && !lineEvent.finishPos) {
       this.logger.warn("No id, startPos or finishPos for line: ", lineEvent.id);
       return;
@@ -284,6 +289,8 @@ export class Controller extends ControllerBase {
         view.drawSelectCursor(lineEvent.finishPos.a, lineEvent.finishPos.b);
       });
       return;
+    } else if(this.buttonStates.backgroundImage.value) {
+      console.assert(Boolean(backgroundImageEvent));
     } else {
       if(lineEvent.finishPos) {
         // Ensure both endpoints are in the same plane.
@@ -293,9 +300,12 @@ export class Controller extends ControllerBase {
       }
     }
 
-    const command: ICommand = {
-      lineEvents: [lineEvent],
-    };
+    const command: ICommand = {};
+    if(this.buttonStates.addLine.value) {
+      command.lineEvents = [lineEvent];
+    } else if(this.buttonStates.backgroundImage.value && backgroundImageEvent) {
+      command.backgroundImageEvents = [backgroundImageEvent];
+    }
     this.recordCommand(command);
     this.performCommand(null, command);
   }
@@ -368,6 +378,7 @@ export class Controller extends ControllerBase {
 
   public updateViewsBackgroundImage(backgroundImage: IBackgroundImage): void {
     this.views.forEach((view) => {
+      // TODO Send this through updateButton(...) so it updated menu.
       view.setBackgroundImage(backgroundImage);
     });
   }
@@ -555,6 +566,8 @@ export class Controller extends ControllerBase {
       command = this.commands[commandIndex];
     }
 
+    // console.log(commandIndex, command);
+
     if(command.lineEvents) {
       command.lineEvents.forEach((event) => {
         this.views.forEach((view) => {
@@ -714,7 +727,7 @@ export class Controller extends ControllerBase {
       data = [];
     }
     data = JSON.stringify(data);
-    console.log(data);
+    // console.log(data);
     localStorage.setItem("shipYardCommandBufferStartup", data);
     location.reload();
   }
@@ -753,8 +766,8 @@ export class MockController extends ControllerBase {
     this.commands = [];
   }
 
-  public onLineEvent(event): void {
-    this.commands.push(event);
+  public onLineEvent(lineEvent: ILineEvent): void {
+    this.commands.push(lineEvent);
   }
 
   public getLine(lineId: string): ILine {

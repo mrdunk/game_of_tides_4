@@ -45,12 +45,21 @@ export class Modal {
 
 export class DropDown {
   public element: HTMLElement;
+  private BoundOnMouseMove;
+  private BoundOnMouseUp;
 
   constructor(parent: HTMLElement) {
-    this.element = parent;  // document.createElement("div");
+    this.element = parent;
     this.element.className = "dropDownContent";
-    // parent.appendChild(this.element);
     this.hide();
+
+    this.handle = this.element.getElementsByClassName("dragable")[0];
+    if(this.handle) {
+      this.handle.addEventListener("mousedown", this.onMouseDown.bind(this));
+    }
+
+    this.BoundOnMouseMove = this.onMouseMove.bind(this);
+    this.BoundOnMouseUp = this.onMouseUp.bind(this);
   }
 
   public show(value?: number) {
@@ -65,6 +74,35 @@ export class DropDown {
   public hide() {
     // console.log("Modal.hide()");
     this.element.style.display = "none";
+  }
+
+  private onMouseDown(event) {
+    // console.log("onMouseDown");
+    event = event || window.event;
+    this.handle.addEventListener("mousemove", this.BoundOnMouseMove);
+    this.handle.addEventListener("mouseup", this.BoundOnMouseUp);
+    this.handle.addEventListener("mouseout", this.BoundOnMouseUp);
+    this.lastX = event.clientX;
+    this.lastY = event.clientY;
+  }
+
+  private onMouseUp() {
+    // console.log("onMouseUp");
+    this.handle.removeEventListener("mousemove", this.BoundOnMouseMove);
+    this.handle.removeEventListener("mouseup", this.BoundOnMouseUp);
+    this.handle.removeEventListener("mouseout", this.BoundOnMouseUp);
+  }
+
+  private onMouseMove(event) {
+    // console.log("onMouseMove");
+    event = event || window.event;
+    const x = event.clientX - this.lastX;
+    const y = event.clientY - this.lastY;
+    this.lastX = event.clientX;
+    this.lastY = event.clientY;
+
+    this.element.style.top = (this.element.offsetTop + y) + "px";
+    this.element.style.left = (this.element.offsetLeft + x) + "px";
   }
 }
 

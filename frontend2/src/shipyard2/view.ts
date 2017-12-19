@@ -9,7 +9,9 @@ import {
   ILineEvent,
   ILinePos,
   IPoint,
-  MockController} from "./controller";
+  Ixy,
+  MockController,
+  subtractPoint} from "./controller";
 import {DropDown, Modal} from "./modal";
 
 interface IHash {
@@ -127,6 +129,7 @@ export abstract class ViewSection extends ViewBase {
   protected selectCursor: Konva.Rect;
   protected backgroundImage: Konva.Image;
   protected backgroundImageFilename: string;
+  protected backgroundImagePos: {sequence: string, pos: Ixy};
 
   constructor(canvas: ViewCanvas,
               x?: number,
@@ -194,6 +197,8 @@ export abstract class ViewSection extends ViewBase {
 
     this.layer.add(this.selectCursor);
     this.layer.draw();
+
+    this.backgroundImagePos = {sequence: "", pos: {x:0, y:0}};
   }
 
   public setBackgroundImage(backgroundImage: IBackgroundImage) {
@@ -202,7 +207,7 @@ export abstract class ViewSection extends ViewBase {
     }
 
     const filename = backgroundImage.finishImage;
-    const visible = backgroundImage.finishVisible;
+    let visible = backgroundImage.finishVisible;
     if(this.backgroundImageFilename !== filename) {
       console.log("initialising", filename);
       const image = new Image();
@@ -211,8 +216,8 @@ export abstract class ViewSection extends ViewBase {
           this.backgroundImage.destroy();
         }
         this.backgroundImage = new Konva.Image({
-          x: 0,
-          y: 0,
+          x: backgroundImage.finishPos.x,
+          y: backgroundImage.finishPos.y,
           image,
           scaleX: 1,
           scaleY: 1,
@@ -232,8 +237,11 @@ export abstract class ViewSection extends ViewBase {
       if(!this.backgroundImageFilename) {
         visible = false;
       }
-      console.log("setting", visible);
       this.backgroundImage.visible(visible);
+      if(backgroundImage.finishPos) {
+        this.backgroundImage.x(backgroundImage.finishPos.x);
+        this.backgroundImage.y(backgroundImage.finishPos.y);
+      }
       this.background.draw();
       this.geometry.draw();
     }
@@ -566,7 +574,7 @@ export class ViewCrossSection extends ViewSection {
                     finishPos: ILinePos,
                     highlight?: boolean,
                     selected?: boolean) {
-    const event: ILineEvent = {
+    const lineEvent: ILineEvent = {
       id,
       sequence,
       startPos,
@@ -574,7 +582,28 @@ export class ViewCrossSection extends ViewSection {
       highlight,
       selected,
     };
-    this.controller.onLineEvent(event);
+
+    // TODO Put this functioanlity in the base class.
+    if(!finishPos) {
+      this.controller.onLineEvent(lineEvent);
+      return;
+    }
+    if(this.backgroundImagePos.sequence !== this.sequence) {
+      this.backgroundImagePos.pos = {
+        x: this.backgroundImage.x(),
+        y: this.backgroundImage.y()};
+      this.backgroundImagePos.sequence = this.sequence;
+    }
+    const movedBy = subtractPoint(finishPos.b, finishPos.a);
+    movedBy.y = -movedBy.y;
+
+    const backgroundImageEvent: IBackgroundImageEvent = {
+      sequence,
+      widgetType: this.widgetType,
+      startPos: this.backgroundImagePos.pos,
+      finishPos: movedBy,
+    };
+    this.controller.onLineEvent(lineEvent, backgroundImageEvent);
   }
 
   private showLayers(value?: boolean) {
@@ -711,7 +740,7 @@ export class ViewLengthSection extends ViewSection {
         this.updateBackgroundImage(Boolean(value), null);
         break;
       case "backgroundImageUrlLength":
-        this.updateBackgroundImage(null, value);
+        this.updateBackgroundImage(null, "" + value);
         break;
     }
   }
@@ -755,14 +784,35 @@ export class ViewLengthSection extends ViewSection {
       finishPos.a.z = startPos.a.z;
       finishPos.b.z = startPos.b.z;
     }
-    const event: ILineEvent = {
+    const lineEvent: ILineEvent = {
       id,
       sequence,
       startPos,
       finishPos,
       highlight,
     };
-    this.controller.onLineEvent(event);
+
+    // TODO Put this functioanlity in the base class.
+    if(!finishPos) {
+      this.controller.onLineEvent(lineEvent);
+      return;
+    }
+    if(this.backgroundImagePos.sequence !== this.sequence) {
+      this.backgroundImagePos.pos = {
+        x: this.backgroundImage.x(),
+        y: this.backgroundImage.y()};
+      this.backgroundImagePos.sequence = this.sequence;
+    }
+    const movedBy = subtractPoint(finishPos.b, finishPos.a);
+    movedBy.y = -movedBy.y;
+
+    const backgroundImageEvent: IBackgroundImageEvent = {
+      sequence,
+      widgetType: this.widgetType,
+      startPos: this.backgroundImagePos.pos,
+      finishPos: movedBy,
+    };
+    this.controller.onLineEvent(lineEvent, backgroundImageEvent);
   }
 
   private setCursor(event) {
@@ -916,6 +966,23 @@ export class ViewToolbar extends ViewBase {
         this.populateFileMenu(".fileOpsDelete");
         break;
     }
+  }
+
+  public setBackgroundImage(backgroundImage: IBackgroundImage) {
+    let visible;
+    let url;
+    if(backgroundImage.widgetType === "cross") {
+      visible = document.getElementById("backgroundImageShowCross");
+      url = document.getElementById("backgroundImageUrlCross");
+    } else if(backgroundImage.widgetType === "length") {
+      visible = document.getElementById("backgroundImageShowLength");
+      url = document.getElementById("backgroundImageUrlLength");
+    } else {
+      console.assert(false && backgroundImage.widgetType);
+    }
+
+    visible.checked = backgroundImage.finishVisible;
+    url.value = backgroundImage.finishImage;
   }
 
   public populateFileMenu(id: string) {

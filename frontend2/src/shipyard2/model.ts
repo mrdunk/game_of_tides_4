@@ -44,7 +44,7 @@ export class Model extends ModelBase {
   }
 
   public onBackgroundImageEvent(event: IBackgroundImageEvent) {
-    console.log(event);
+    // console.log(event);
     if(!this.data.backgroundImages[event.widgetType]) {
       this.createBackgroundImage(event);
     }
@@ -223,15 +223,20 @@ export class Model extends ModelBase {
       if(event.finishPos) {
         backgroundImage.finishPos = JSON.parse(JSON.stringify(event.finishPos));
       }
+    } else if(event.finishPos) {
+      backgroundImage.finishPos.x =
+        event.startPos.x + event.finishPos.x;
+      backgroundImage.finishPos.y =
+        event.startPos.y + event.finishPos.y;
     } else {
       backgroundImage.finishVisible = false;
     }
 
     this.controller.updateViewsBackgroundImage(backgroundImage);
 
-    console.log(event);
-    console.log(backgroundImage);
-    console.log(this.data);
+    // console.log(event);
+    // console.log(backgroundImage);
+    // console.log(this.data);
   }
 }
 
