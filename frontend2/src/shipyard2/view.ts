@@ -583,12 +583,13 @@ export class ViewCrossSection extends ViewSection {
       selected,
     };
 
-    // TODO Put this functioanlity in the base class.
+    // TODO Put this functionality in the base class.
     if(!finishPos) {
       this.controller.onLineEvent(lineEvent);
       return;
     }
-    if(this.backgroundImagePos.sequence !== this.sequence) {
+    if(this.backgroundImage &&
+       this.backgroundImagePos.sequence !== this.sequence) {
       this.backgroundImagePos.pos = {
         x: this.backgroundImage.x(),
         y: this.backgroundImage.y()};
