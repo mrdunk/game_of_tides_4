@@ -5,9 +5,12 @@ import {compareLinePos,
   IBackgroundImage,
   IBackgroundImageEvent,
   ILine,
-  ILineEvent,
   ILinePos,
   IPoint} from "./controller";
+import {
+  EventBase,
+  IEventUiMouseDrag,
+  LineEnd} from "./events";
 
 export abstract class ModelBase {
   protected controller: ControllerBase;
@@ -15,7 +18,7 @@ export abstract class ModelBase {
     this.controller = controller;
   }
 
-  public abstract onLineEvent(event): void;
+  public abstract onLineEvent(event: EventBase): void;
   public abstract onBackgroundImageEvent(event): void;
   public nearestLine(line: ILine): {point: IPoint, mirrored: boolean} {
     return {point: null, mirrored: null};
@@ -35,12 +38,15 @@ export class Model extends ModelBase {
     selectedLines: {},
   };
 
-  public onLineEvent(event: ILineEvent) {
+  public onLineEvent(event: EventBase) {
     console.log(event);
-    if(!this.data.lines[event.id]) {
-      this.createLine(event);
+    switch(event.constructor.name) {
+      case "EventUiMouseDrag":
+        this.modifyLine(event as IEventUiMouseDrag);
+        break;
+      default:
+        console.error("Unknown event:", event);
     }
-    this.modifyLine(event);
   }
 
   public onBackgroundImageEvent(event: IBackgroundImageEvent) {
@@ -150,9 +156,9 @@ export class Model extends ModelBase {
     this.data.selectedLines = {};
   }
 
-  private createLine(event: ILineEvent) {
-    const line: ILine = {id: event.id};
-    this.data.lines[event.id] = line;
+  private createLine(event: IEventUiMouseDrag) {
+    const line: ILine = {id: event.lineId};
+    this.data.lines[event.lineId] = line;
   }
 
   private createBackgroundImage(event: IBackgroundImageEvent) {
@@ -160,15 +166,43 @@ export class Model extends ModelBase {
     this.data.backgroundImages[event.widgetType] = backgroundImage;
   }
 
-  private modifyLine(event: ILineEvent) {
-    const line: ILine = this.data.lines[event.id];
-    // console.log(event);
+  private modifyLine(event: IEventUiMouseDrag) {
+    console.assert(Boolean(event));
+    console.assert(Boolean(event.finishPoint));
+    console.assert(Boolean(event.lineId));
+    console.assert(event.lineEnd !== undefined && event.lineEnd !== null);
 
-    if(event.finishPos) {
+    if(!this.data.lines[event.lineId]) {
+      this.createLine(event);
+    }
+    const line: ILine = this.data.lines[event.lineId];
+    console.assert(Boolean(line));
+
+    switch(event.lineEnd) {
+      case LineEnd.A1:
+        line.finishPos.a = JSON.parse(JSON.stringify(event.finishPoint));
+        break;
+      case LineEnd.A2:
+        console.log("TODO Move mirrored line");
+        break;
+      case LineEnd.B1:
+        line.finishPos.b = JSON.parse(JSON.stringify(event.finishPoint));
+        break;
+      case LineEnd.B2:
+        console.log("TODO Move mirrored line");
+        break;
+      default:
+        console.log("TODO Move whole line");
+        return;
+    }
+
+    this.controller.updateViews(line);
+
+    /*if(event.finishPoint) {
       this.deSelectAll();
       line.selected = true;
       this.data.selectedLines[line.id] = true;
-      line.finishPos = JSON.parse(JSON.stringify(event.finishPos));
+      line.finishPos = JSON.parse(JSON.stringify(event.finishPoint));
     } else if(event.highlight === undefined &&
               event.toggleMirrored === undefined &&
               event.selecting === undefined) {
@@ -206,10 +240,10 @@ export class Model extends ModelBase {
         event.highlight === undefined &&
         event.toggleMirrored === undefined &&
         event.selecting === undefined) {
-      delete this.data.lines[event.id];
+      delete this.data.lines[event.lineId];
     }
-    // console.log(line);
-    // console.log(this.data);
+    // console.log(line);*/
+    console.log(this.data);
   }
 
   private modifyBackgroundImage(event: IBackgroundImageEvent) {
@@ -241,16 +275,16 @@ export class Model extends ModelBase {
 }
 
 export class ModelMock extends ModelBase {
-  public lineEvents: [ILineEvent] = ([] as [ILineEvent]);
+  public lineEvents: [EventBase] = ([] as [EventBase]);
   public mockGetLineValue: ILine = null;
   public mockNearestLine = {point: null, mirrored: null};
   public mockGetSelectedLines = {};
 
-  public onLineEvent(event: ILineEvent) {
+  public onLineEvent(event: EventBase) {
     this.lineEvents.push(event);
   }
 
-  public onBackgroundImageEvent(event: ILineEvent) {
+  public onBackgroundImageEvent(event: EventBase) {
     //
   }
 
