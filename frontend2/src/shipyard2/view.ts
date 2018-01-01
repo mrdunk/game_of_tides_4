@@ -128,10 +128,9 @@ export abstract class ViewSection extends ViewBase {
   protected layer: Konva.Layer;
   protected lines: IHash = {};
   protected mouseDown: boolean = false;
-  protected mouseDragging: Konva.Shape = null;
-  protected mouseDraggingStartPos: ILinePos = null;
-  protected mouseDrawingStartPos: IPoint = null;
-  protected mouseHighlight: string = "";
+  protected mouseDragStartPos: IPoint;
+  protected mouseDragStartLineId: string;
+  protected mouseDragStartEndId: LineEnd;
   protected background: Konva.Group;
   protected geometry: Konva.Group;
   protected canvas: ViewCanvas;
@@ -280,69 +279,121 @@ export abstract class ViewSection extends ViewBase {
     this.controller.onBackgroundImageEvent(event);
   }
 
+  // TODO Private?
+  protected getLineOver(event) {
+    const shape = event.target;
+    const parent: Line = shape.getParent();
+    let lineId;
+    let endId;
+    if(parent instanceof Line) {
+      lineId = parent.id();
+      if(shape.id() === "end1A") {
+        endId = LineEnd.A1;
+      } else if(shape.id() === "end2A") {
+        endId = LineEnd.A2;
+      } else if(shape.id() === "end1B") {
+        endId = LineEnd.B1;
+      } else if(shape.id() === "end2B") {
+        endId = LineEnd.B2;
+      }
+    }
+    return [lineId, endId];
+  }
+
   protected onMouseMove(event) {
+    const mouseDown = event.evt.buttons === 1;
+
+    const [lineId, lineEnd] = this.getLineOver(event);
+
+    if(mouseDown) {
+      if(!this.mouseDown) {
+        // Mouse button not pressed last cycle. This is a new Drag event.
+        this.newSequence();
+        this.mouseDragStartPos = this.getMousePosIn3d();  // TODO Get from Model
+        this.mouseDragStartLineId = lineId;
+        this.mouseDragStartEndId = lineEnd;
+      }
+
+      const dragEvent = new EventUiMouseDrag({
+        widgetType: this.widgetType,
+        sequence: this.sequence,
+        startPoint: this.mouseDragStartPos,
+        finishPoint: this.getMousePosIn3d(),
+        lineId: this.mouseDragStartLineId,
+        lineEnd: this.mouseDragStartEndId,
+      });
+      this.controller.onEvent(dragEvent);
+    } else {
+      const dragEvent = new EventUiMouseMove({
+        widgetType: this.widgetType,
+        startPoint: this.getMousePosIn3d(),
+        lineId,
+        lineEnd,
+      });
+      this.controller.onEvent(dragEvent);
+
+      this.mouseDragStartPos = undefined;
+      this.mouseDragStartLineId = undefined;
+      this.mouseDragStartEndId = undefined;
+    }
+    this.mouseDown = mouseDown;
+  }
+
+
+  // TODO: Refactor me. Split into onMouseDrag() and onMouseMove() methods?
+  /*protected onMouseMove2(event) {
+    const mouseDown = event.evt.buttons === 1;
+
     const parent: Line = event.target.getParent();
     let lineId;
     if(parent instanceof Line) {
       lineId = parent.id();
     }
 
-    const mouseDown = event.evt.buttons === 1;
-
     if(mouseDown) {
       if(!this.mouseDown) {
-        // Mouse button not pressed last cycle.
+        // Mouse button not pressed last cycle. This is a new Drag event.
         this.newSequence();
         if(lineId) {
-          this.mouseDragging = event.target;
-          this.mouseDraggingStartPos = JSON.parse(JSON.stringify(
+          this.mouseDragObj = event.target;
+          this.mouseDrawingStartPos = JSON.parse(JSON.stringify(
             this.controller.getLine(lineId).finishPos));
         } else {
           // New line.
           this.mouseDrawingStartPos = this.getMousePosIn3d();
         }
       }
-      let dragLineId: string;
-      let dragLineEnd: LineEnd;
-      if(this.mouseDragging) {
-        // console.log("Dragging:", this.mouseDragging);
-        dragLineId = this.mouseDragging.getParent().id();
-        // const dragLinePos = this.controller.getLine(dragLineId).finishPos;
-        // const mouseDraggingEndPos =
-        //   JSON.parse(JSON.stringify(this.mouseDraggingStartPos));
-        if(this.mouseDragging.id() === "end1A") {
-          // mouseDraggingEndPos.a = this.getMousePosIn3d(dragLinePos.a);
-          dragLineEnd = LineEnd.A1;
-        } else if(this.mouseDragging.id() === "end2A") {
-          // mouseDraggingEndPos.a = this.getMousePosIn3d(dragLinePos.a);
-          // mouseDraggingEndPos.a.x = -mouseDraggingEndPos.a.x;
-          dragLineEnd = LineEnd.A2;
-        } else if(this.mouseDragging.id() === "end1B") {
-          // mouseDraggingEndPos.b = this.getMousePosIn3d(dragLinePos.b);
-          dragLineEnd = LineEnd.B1;
-        } else if(this.mouseDragging.id() === "end2B") {
-          // mouseDraggingEndPos.b = this.getMousePosIn3d(dragLinePos.b);
-          // mouseDraggingEndPos.b.x = -mouseDraggingEndPos.b.x;
-          dragLineEnd = LineEnd.B2;
-        }
-          /*this.lineEvent(
-          dragLineId,
-          this.sequence,
-          this.mouseDraggingStartPos,
-          mouseDraggingEndPos);
-        } else {
-        const line: ILinePos = {
-          a: this.mouseDrawingStartPos, b: this.getMousePosIn3d()};
-        this.lineEvent(null, this.sequence, null, line);*/
-      }
+
       const dragEvent = new EventUiMouseDrag({
         widgetType: this.widgetType,
         sequence: this.sequence,
         startPoint: this.mouseDrawingStartPos,
         finishPoint: this.getMousePosIn3d(),
-        lineId: dragLineId,
-        lineEnd: dragLineEnd,
       });
+      if(this.mouseDragObj) {
+        // console.log("Dragging:", this.mouseDragObj);
+        // this.mouseDragObj = event.target;
+        dragEvent.lineId = this.mouseDragObj.getParent().id();
+
+        console.log(lineId, this.controller.getLine(lineId));
+        const controlerLineCopy = JSON.parse(JSON.stringify(
+          this.controller.getLine(lineId).finishPos));
+        console.log(controlerLineCopy);
+
+        if(this.mouseDragObj.id() === "end1A") {
+          dragEvent.lineEnd = LineEnd.A1;
+          dragEvent.startPoint = controlerLineCopy.b;
+        } else if(this.mouseDragObj.id() === "end2A") {
+          dragEvent.lineEnd = LineEnd.A2;
+          // dragEvent.finishPoint = controlerLineCopy.b;
+        } else if(this.mouseDragObj.id() === "end1B") {
+          dragEvent.lineEnd = LineEnd.B1;
+          dragEvent.startPoint = controlerLineCopy.a;
+        } else if(this.mouseDragObj.id() === "end2B") {
+          dragEvent.lineEnd = LineEnd.B2;
+          // dragEvent.finishPoint = controlerLineCopy.a;
+        }
+      }
       this.controller.onEvent(dragEvent);
     } else {
       const dragEvent = new EventUiMouseMove({
@@ -352,21 +403,11 @@ export abstract class ViewSection extends ViewBase {
       });
       this.controller.onEvent(dragEvent);
 
-      if(lineId) {
-        // console.log("Highlight:", lineId);
-        this.mouseHighlight = lineId;
-        // this.lineEvent(this.mouseHighlight, this.sequence, null, null, true);
-      } else if(this.mouseHighlight) {
-        // console.log("Un-highlight:", this.mouseHighlight);
-       // this.lineEvent(this.mouseHighlight, this.sequence, null, null, false);
-        this.mouseHighlight = "";
-      }
-      this.mouseDragging = null;
-      this.mouseDraggingStartPos = null;
+      this.mouseDragObj = null;
       this.mouseDrawingStartPos = null;
     }
     this.mouseDown = mouseDown;
-  }
+  }*/
 
   protected getPointerPosition(): {x: number, y: number} {
     const screenMousePos = this.layer.getStage().getPointerPosition();
@@ -887,14 +928,14 @@ export class ViewLengthSection extends ViewSection {
   }
 }
 
+/* Relax permissions for testing. */
 export class MockViewCrossSection extends ViewCrossSection {
   public layer: Konva.Layer;
   public lines: IHash = {};
   public mouseDown: boolean = false;
-  public mouseDragging: Konva.Shape = null;
-  public mouseDraggingStartPos: ILinePos = null;
-  public mouseDrawingStartPos: IPoint = null;
-  public mouseHighlight: string = "";
+  public mouseDragStartPos: IPoint;
+  public mouseDragStartLineId: string;
+  public mouseDragStartEndId: LineEnd;
   public mockScreenMousePosX: number = 0;
   public mockScreenMousePosY: number = 0;
   public background: Konva.Group;
@@ -935,19 +976,8 @@ export class ViewMock extends ViewBase {
     this.controller.onButtonEvent(event);
   }
 
-  public simulateLineEvent(id: string,
-                           sequence: string,
-                           startPos: ILinePos,
-                           finishPos: ILinePos,
-                           highlight?: boolean) {
-    const event: ILineEvent = {
-      id,
-      sequence,
-      startPos,
-      finishPos,
-      highlight,
-    };
-    // this.controller.onLineEvent(event);
+  public simulateLineEvent(event: EventBase) {
+    this.controller.onEvent(event);
   }
 }
 

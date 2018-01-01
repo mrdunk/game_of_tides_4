@@ -80,6 +80,7 @@ export class EventUiInputElement extends EventBase {
 }
 
 export class EventLineModify extends EventUiMouseDrag {}
+export class EventLineNew extends EventUiMouseDrag {}
 
 export class EventLineSelect extends EventBase {
   public lineId?: string;

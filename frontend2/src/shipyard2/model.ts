@@ -43,6 +43,7 @@ export class Model extends ModelBase {
 
   public onLineEvent(event: EventBase) {
     switch(event.constructor.name) {
+      case "EventLineNew":
       case "EventLineModify":
         this.modifyLine(event as EventLineModify);
         break;
@@ -185,6 +186,7 @@ export class Model extends ModelBase {
   }
 
   private modifyLine(event: EventLineModify) {
+    console.log(event);
     console.assert(Boolean(event));
     console.assert(Boolean(event.finishPoint));
     console.assert(Boolean(event.lineId));

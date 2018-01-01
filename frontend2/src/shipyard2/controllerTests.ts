@@ -4,12 +4,20 @@ import {LoggerMock, TrackAsserts} from "./commonFunctionstTests";
 import {
   compareLineEvent,
   compareLinePos,
+  comparePoint,
   ILine,
   ILineEvent,
   ILinePos,
   IPoint,
   TestController,
 } from "./controller";
+import {
+  EventBase,
+  EventUiInputElement,
+  EventUiMouseDrag,
+  EventUiMouseMove,
+  EventUiSelectRib,
+  LineEnd } from "./events";
 import {ModelMock} from "./model";
 import {ViewMock} from "./view";
 
@@ -136,13 +144,19 @@ export const controllerLineEventTests = {
       new TestController(model, [widget1, widget2, toolbar], logger);
 
     // Perform action under test.
-    widget1.simulateLineEvent(null, "sequence_1", null, null);
+    widget1.simulateLineEvent(new EventUiMouseDrag({
+      widgetType: widget1.widgetType,
+      sequence: "sequence_4",
+      startPoint: null,
+      finishPoint: null,
+    }));
 
     TrackAsserts.assert(model.lineEvents.length === 0);
     TrackAsserts.assert(
       logger.lastWarn &&
-      logger.lastWarn[0] === "No id, startPos or finishPos for line: " &&
-      logger.lastWarn[1] === null);
+      logger.lastWarn[0] === 
+        "Missing startPoint or finishPoint for new line: " &&
+      logger.lastWarn[1] === undefined);
   },
 
   testInvalidLine: () => {
@@ -155,12 +169,19 @@ export const controllerLineEventTests = {
       new TestController(model, [widget1, widget2, toolbar], logger);
 
     // Perform action under test.
-    widget1.simulateLineEvent("testLineId", "sequence_1", null, null);
+    widget1.simulateLineEvent(new EventUiMouseDrag({
+      widgetType: widget1.widgetType,
+      lineId: "testLineId",
+      sequence: "sequence_1",
+      startPoint: null,
+      finishPoint: null,
+    }));
 
     TrackAsserts.assert(model.lineEvents.length === 0);
     TrackAsserts.assert(
       logger.lastWarn &&
-      logger.lastWarn[0] === "No startPos, finishPos or options for line: " &&
+      logger.lastWarn[0] === 
+        "Missing startPoint or finishPoint for modified line: " &&
       logger.lastWarn[1] === "testLineId");
   },
 
@@ -174,10 +195,17 @@ export const controllerLineEventTests = {
       new TestController(model, [widget1, widget2, toolbar], logger);
 
     // Perform action under test.
-    widget1.simulateLineEvent(
-      "testLineId", "sequence_1", null, null, true);
+    widget1.simulateLineEvent(new EventUiMouseMove({
+      widgetType: widget1.widgetType,
+      lineId: "testLineId",
+      sequence: "sequence_1",
+      startPoint: null,
+      finishPoint: null,
+    }));
 
     TrackAsserts.assert(model.lineEvents.length === 1);
+    TrackAsserts.assert(
+      model.lineEvents[0].constructor.name === "EventLineHighlight");
     TrackAsserts.assert(toolbar.buttonStates.undo === false);
     TrackAsserts.assert(toolbar.buttonStates.redo === false);
   },
@@ -197,25 +225,37 @@ export const controllerLineEventTests = {
     };
 
     // Perform action under test.
-    widget1.simulateLineEvent(null, "sequence_1", linePos, null);
+    widget1.simulateLineEvent(new EventUiMouseDrag({
+      widgetType: widget1.widgetType,
+      sequence: "sequence_1",
+      startPoint: linePos.a,
+      finishPoint: null,
+    }));
 
     TrackAsserts.assert(model.lineEvents.length === 0);
     TrackAsserts.assert(
       logger.lastWarn &&
-      logger.lastWarn[0] === "Missing endpoint for startPos of line: " &&
-      logger.lastWarn[1] === null);
+      logger.lastWarn[0] ===
+        "Missing startPoint or finishPoint for new line: " &&
+      logger.lastWarn[1] === undefined);
 
     // Perform action under test again.
-    widget1.simulateLineEvent(null, "sequence_2", null, linePos);
+    widget1.simulateLineEvent(new EventUiMouseDrag({
+      widgetType: widget1.widgetType,
+      sequence: "sequence_1",
+      startPoint: null,
+      finishPoint: linePos.b,
+    }));
 
     TrackAsserts.assert(model.lineEvents.length === 0);
     TrackAsserts.assert(
       logger.lastWarn &&
-      logger.lastWarn[0] === "Missing endpoint for endPos of line: " &&
-      logger.lastWarn[1] === null);
+      logger.lastWarn[0] ===
+        "Missing startPoint or finishPoint for new line: " &&
+      logger.lastWarn[1] === undefined);
   },
 
-  testNewInvalidLineNoIdOnMove: () => {
+  testMoveLineMissingEnd: () => {
     const model = new ModelMock();
     const widget1 = new ViewMock();
     const widget2 = new ViewMock();
@@ -224,25 +264,24 @@ export const controllerLineEventTests = {
     const controller =
       new TestController(model, [widget1, widget2, toolbar], logger);
 
-    const linePosStart: ILinePos = {
-      a: {x:1, y:2, z:3},
-      b: {x:11, y:22, z:33},
-    };
-
-    const linePosFinish: ILinePos = {
-      a: {x:4, y:5, z:6},
-      b: {x:44, y:55, z:66},
-    };
+    const startPoint = {x:1, y:2, z:3};
+    const finishPoint = {x:11, y:22, z:33};
 
     // Perform action under test.
-    widget1.simulateLineEvent(
-      null, "sequence_1", linePosStart, linePosFinish);
+    widget1.simulateLineEvent(new EventUiMouseDrag({
+      widgetType: widget1.widgetType,
+      lineId: "someId",
+      sequence: "sequence_1",
+      startPoint,
+      finishPoint,
+    }));
 
     TrackAsserts.assert(model.lineEvents.length === 0);
     TrackAsserts.assert(
       logger.lastWarn &&
       logger.lastWarn[0] ===
-      "No id specified for line being moved or deleted.");
+        "Modified end not specified on line: " &&
+      logger.lastWarn[1] === "someId");
   },
 
   testMoveLine: () => {
@@ -254,23 +293,24 @@ export const controllerLineEventTests = {
     const controller =
       new TestController(model, [widget1, widget2, toolbar], logger);
 
-    const linePosStart: ILinePos = {
-      a: {x:1, y:2, z:3},
-      b: {x:11, y:22, z:33},
-    };
-
-    const linePosFinish: ILinePos = {
-      a: {x:4, y:5, z:6},
-      b: {x:44, y:55, z:66},
-    };
+    const startPoint = {x:1, y:2, z:3};
+    const finishPoint = {x:11, y:22, z:33};
 
     // Perform action under test.
     // Although this is moving a line that does not actually exist on the model,
     // it is not up to the controller to police this so the test passes.
-    widget1.simulateLineEvent(
-      "someId", "sequence_1", linePosStart, linePosFinish);
+    widget1.simulateLineEvent(new EventUiMouseDrag({
+      widgetType: widget1.widgetType,
+      lineId: "someId",
+      lineEnd: LineEnd.A1,
+      sequence: "sequence_1",
+      startPoint,
+      finishPoint,
+    }));
 
     TrackAsserts.assert(model.lineEvents.length === 1);
+    TrackAsserts.assert(
+      model.lineEvents[0].constructor.name === "EventLineModify");
     TrackAsserts.assert(toolbar.buttonStates.undo === true);
     TrackAsserts.assert(toolbar.buttonStates.redo === false);
   },
@@ -284,17 +324,30 @@ export const controllerLineEventTests = {
     const controller =
       new TestController(model, [widget1, widget2, toolbar], logger);
 
-    const linePosStart: ILinePos = {
+    const linePos: ILinePos = {
       a: {x:1, y:2, z:3},
       b: {x:11, y:22, z:33},
     };
+    const line1: ILine = {
+      id: "testLine_1",
+      finishPos: linePos,
+      selected: true,
+    }
+    const line2: ILine = {
+      id: "testLine_2",
+      finishPos: linePos,
+      selected: true,
+    }
+    model.mockGetSelectedLines = [line1, line2];
 
     // Perform action under test.
-    // Although this is deleting a line that does not actually exist on the
-    // model, it is not up to the controller to police this so the test passes.
-    widget1.simulateLineEvent("someId", "sequence_1", linePosStart, null);
+    widget1.simulateButtonPress("delete");
 
-    TrackAsserts.assert(model.lineEvents.length === 1);
+    TrackAsserts.assert(model.lineEvents.length === 2);
+    TrackAsserts.assert(
+      model.lineEvents[0].constructor.name === "EventLineDelete");
+    TrackAsserts.assert(
+      model.lineEvents[1].constructor.name === "EventLineDelete");
     TrackAsserts.assert(toolbar.buttonStates.undo === true);
     TrackAsserts.assert(toolbar.buttonStates.redo === false);
   },
@@ -308,15 +361,21 @@ export const controllerLineEventTests = {
     const controller =
       new TestController(model, [widget1, widget2, toolbar], logger);
 
-    const linePosFinish: ILinePos = {
-      a: {x:4, y:5, z:6},
-      b: {x:44, y:55, z:66},
-    };
+    const startPoint = {x:1, y:2, z:3};
+    const finishPoint = {x:11, y:22, z:33};
 
     // Perform action under test.
-    widget1.simulateLineEvent(null, "sequence_1", null, linePosFinish);
+    widget1.simulateLineEvent(new EventUiMouseDrag({
+      widgetType: widget1.widgetType,
+      sequence: "sequence_1",
+      startPoint,
+      finishPoint,
+    }));
 
     TrackAsserts.assert(model.lineEvents.length === 1);
+    TrackAsserts.assert(
+      model.lineEvents[0].constructor.name === "EventLineNew");
+
     TrackAsserts.assert(toolbar.buttonStates.undo === true);
     TrackAsserts.assert(toolbar.buttonStates.redo === false);
   },
@@ -330,15 +389,28 @@ export const controllerLineEventTests = {
     const controller =
       new TestController(model, [widget1, widget2, toolbar], logger);
 
-    const linePosFinish: ILinePos = {
-      a: {x:4, y:5, z:6},
-      b: {x:44, y:55, z:66},
-    };
+    const startPoint = {x:1, y:2, z:3};
+    const finishPoint = {x:11, y:22, z:33};
 
     // Add some lines.
-    widget1.simulateLineEvent(null, "sequence_1", null, linePosFinish);
-    widget1.simulateLineEvent(null, "sequence_2", null, linePosFinish);
-    widget1.simulateLineEvent(null, "sequence_3", null, linePosFinish);
+    widget1.simulateLineEvent(new EventUiMouseDrag({
+      widgetType: widget1.widgetType,
+      sequence: "sequence_1",
+      startPoint,
+      finishPoint,
+    }));
+    widget1.simulateLineEvent(new EventUiMouseDrag({
+      widgetType: widget1.widgetType,
+      sequence: "sequence_2",
+      startPoint,
+      finishPoint,
+    }));
+    widget1.simulateLineEvent(new EventUiMouseDrag({
+      widgetType: widget1.widgetType,
+      sequence: "sequence_3",
+      startPoint,
+      finishPoint,
+    }));
 
     TrackAsserts.assert(model.lineEvents.length === 3);
     TrackAsserts.assert(toolbar.buttonStates.undo === true);
@@ -354,33 +426,51 @@ export const controllerLineEventTests = {
     const controller =
       new TestController(model, [widget1, widget2, toolbar], logger);
 
-    const linePosFinish1: ILinePos = {
-      a: {x:4, y:5, z:6},
-      b: {x:44, y:55, z:11},
-    };
+    const startPoint = {x:1, y:2, z:3};
+    const finishPoint = {x:11, y:22, z:33};
 
-    const linePosFinish2: ILinePos = {
-      a: {x:4, y:5, z:6},
-      b: {x:44, y:55, z:22},
-    };
-
-    const linePosFinish3: ILinePos = {
-      a: {x:4, y:5, z:6},
-      b: {x:44, y:55, z:33},
-    };
-
-    // Add some lines.
-    widget1.simulateLineEvent(null, "sequence_1", null, linePosFinish1);
-    widget1.simulateLineEvent(null, "sequence_1", null, linePosFinish2);
-    widget1.simulateLineEvent(null, "sequence_1", null, linePosFinish3);
+    // Add some line commands with same sequence.
+    widget1.simulateLineEvent(new EventUiMouseDrag({
+      widgetType: widget1.widgetType,
+      sequence: "sequence_1",
+      startPoint,
+      finishPoint,
+    }));
+    widget1.simulateLineEvent(new EventUiMouseDrag({
+      widgetType: widget1.widgetType,
+      sequence: "sequence_1",
+      startPoint,
+      finishPoint,
+    }));
+    widget1.simulateLineEvent(new EventUiMouseDrag({
+      widgetType: widget1.widgetType,
+      sequence: "sequence_1",
+      startPoint,
+      finishPoint,
+    }));
 
     // Confirm lines with matching sequence collapsed into one.
     TrackAsserts.assert(controller.commands.length === 1);
 
-    // Add some more lines.
-    widget1.simulateLineEvent(null, "sequence_2", null, linePosFinish1);
-    widget1.simulateLineEvent(null, "sequence_2", null, linePosFinish2);
-    widget1.simulateLineEvent(null, "sequence_2", null, linePosFinish3);
+    // Add some more lines with different.
+    widget1.simulateLineEvent(new EventUiMouseDrag({
+      widgetType: widget1.widgetType,
+      sequence: "sequence_2",
+      startPoint,
+      finishPoint,
+    }));
+    widget1.simulateLineEvent(new EventUiMouseDrag({
+      widgetType: widget1.widgetType,
+      sequence: "sequence_2",
+      startPoint,
+      finishPoint,
+    }));
+    widget1.simulateLineEvent(new EventUiMouseDrag({
+      widgetType: widget1.widgetType,
+      sequence: "sequence_2",
+      startPoint,
+      finishPoint,
+    }));
 
     // Confirm lines they collapsed.
     TrackAsserts.assert(controller.commands.length === 2);
@@ -396,21 +486,31 @@ export const controllerLineEventTests = {
       new TestController(model, [widget1, widget2, toolbar], logger);
 
     const linePos: ILinePos = {
-      a: {x:4, y:5, z:6},
-      b: {x:44, y:55, z:66},
+      a: {x:1, y:2, z:3},
+      b: {x:11, y:22, z:33},
     };
+    const line1: ILine = {
+      id: "testLine_1",
+      finishPos: linePos,
+      selected: true,
+    }
+    const line2: ILine = {
+      id: "testLine_2",
+      finishPos: linePos,
+      selected: true,
+    }
+    model.mockGetSelectedLines = [line1, line2];
 
-    // Insert new line.
-    widget1.simulateLineEvent("drawnLine_1", "sequence_2", linePos, linePos);
-    // Make model return the new line when asked for highlighted lines.
-    model.mockGetSelectedLines[model.lineEvents[0].id] = model.lineEvents[0];
-    // Set toggleMirrored button.
+    // Perform action under test.
     widget1.simulateButtonPress("mirror");
 
     TrackAsserts.assert(model.lineEvents.length === 2);
+    TrackAsserts.assert(
+      model.lineEvents[0].constructor.name === "EventLineMirror");
+    TrackAsserts.assert(
+      model.lineEvents[1].constructor.name === "EventLineMirror");
     TrackAsserts.assert(toolbar.buttonStates.undo === true);
     TrackAsserts.assert(toolbar.buttonStates.redo === false);
-    TrackAsserts.assert(model.lineEvents[1].toggleMirrored === true);
   },
 
   testSnapMirroredLineToNonMirrored: () => {
@@ -641,14 +741,41 @@ export const controllerCommandHistoryTests = {
     };
 
     // Add some lines.
-    widget1.simulateLineEvent(null, "sequence_1", null, linePosFinish);
-    widget1.simulateLineEvent(null, "sequence_2", null, linePosFinish);
-    widget1.simulateLineEvent(null, "sequence_3", null, linePosFinish);
+    widget1.simulateLineEvent(new EventUiMouseDrag({
+      widgetType: widget1.widgetType,
+      sequence: "sequence_1",
+      startPoint: linePosFinish.a,
+      finishPoint: linePosFinish.b,
+    }));
+    const lineId = model.lineEvents[0].lineId;
+    const lineEnd = model.lineEvents[0].lineEnd;
+    widget1.simulateLineEvent(new EventUiMouseDrag({
+      widgetType: widget1.widgetType,
+      lineId,
+      lineEnd,
+      sequence: "sequence_2",
+      startPoint: linePosFinish.a,
+      finishPoint: linePosFinish.b,
+    }));
+    widget1.simulateLineEvent(new EventUiMouseDrag({
+      widgetType: widget1.widgetType,
+      lineId,
+      lineEnd,
+      sequence: "sequence_3",
+      startPoint: linePosFinish.a,
+      finishPoint: linePosFinish.b,
+    }));
 
     // Confirm we are on track.
     TrackAsserts.assert(model.lineEvents.length === 3);
     TrackAsserts.assert(toolbar.buttonStates.undo === true);
     TrackAsserts.assert(toolbar.buttonStates.redo === false);
+    TrackAsserts.assert(
+      model.lineEvents[0].constructor.name === "EventLineNew");
+    TrackAsserts.assert(
+      model.lineEvents[1].constructor.name === "EventLineModify");
+    TrackAsserts.assert(
+      model.lineEvents[2].constructor.name === "EventLineModify");
 
     // Perform action under test.
     toolbar.simulateButtonPress("undo");
@@ -657,11 +784,13 @@ export const controllerCommandHistoryTests = {
     TrackAsserts.assert(model.lineEvents.length === 4);
     TrackAsserts.assert(toolbar.buttonStates.undo === true);
     TrackAsserts.assert(toolbar.buttonStates.redo === true);
+    TrackAsserts.assert(
+      model.lineEvents[3].constructor.name === "EventLineModify");
     TrackAsserts.assert(model.lineEvents[2].id === model.lineEvents[3].id);
-    TrackAsserts.assert(compareLinePos(model.lineEvents[2].startPos,
-                                       model.lineEvents[3].finishPos));
-    TrackAsserts.assert(compareLinePos(model.lineEvents[2].finishPos,
-                                       model.lineEvents[3].startPos));
+    TrackAsserts.assert(comparePoint(model.lineEvents[2].startPoint,
+                                     model.lineEvents[3].finishPoint));
+    TrackAsserts.assert(comparePoint(model.lineEvents[2].finishPoint,
+                                     model.lineEvents[3].startPoint));
 
     // Perform action under test. Undo back to the start.
     toolbar.simulateButtonPress("undo");
@@ -672,17 +801,17 @@ export const controllerCommandHistoryTests = {
     TrackAsserts.assert(toolbar.buttonStates.undo === false);
     TrackAsserts.assert(toolbar.buttonStates.redo === true);
 
-    TrackAsserts.assert(model.lineEvents[1].id === model.lineEvents[4].id);
-    TrackAsserts.assert(compareLinePos(model.lineEvents[1].startPos,
-                                       model.lineEvents[4].finishPos));
-    TrackAsserts.assert(compareLinePos(model.lineEvents[1].finishPos,
-                                       model.lineEvents[4].startPos));
+    TrackAsserts.assert(
+      model.lineEvents[4].constructor.name === "EventLineModify");
+    TrackAsserts.assert(model.lineEvents[2].id === model.lineEvents[4].id);
+    TrackAsserts.assert(comparePoint(model.lineEvents[2].startPoint,
+                                     model.lineEvents[4].finishPoint));
+    TrackAsserts.assert(comparePoint(model.lineEvents[2].finishPoint,
+                                     model.lineEvents[4].startPoint));
 
-    TrackAsserts.assert(model.lineEvents[0].id === model.lineEvents[5].id);
-    TrackAsserts.assert(compareLinePos(model.lineEvents[0].startPos,
-                                       model.lineEvents[5].finishPos));
-    TrackAsserts.assert(compareLinePos(model.lineEvents[0].finishPos,
-                                       model.lineEvents[5].startPos));
+    TrackAsserts.assert(
+      model.lineEvents[5].constructor.name === "EventLineDelete");
+    TrackAsserts.assert(model.lineEvents[2].id === model.lineEvents[5].id);
 
     // Perform action under test. Undo part start of buffer.
     toolbar.simulateButtonPress("undo");
@@ -715,9 +844,30 @@ export const controllerCommandHistoryTests = {
     };
 
     // Add some lines.
-    widget1.simulateLineEvent(null, "sequence_1", null, linePosFinish);
-    widget1.simulateLineEvent(null, "sequence_2", null, linePosFinish);
-    widget1.simulateLineEvent(null, "sequence_3", null, linePosFinish);
+    widget1.simulateLineEvent(new EventUiMouseDrag({
+      widgetType: widget1.widgetType,
+      sequence: "sequence_1",
+      startPoint: linePosFinish.a,
+      finishPoint: linePosFinish.b,
+    }));
+    const lineId = model.lineEvents[0].lineId;
+    const lineEnd = model.lineEvents[0].lineEnd;
+    widget1.simulateLineEvent(new EventUiMouseDrag({
+      widgetType: widget1.widgetType,
+      lineId,
+      lineEnd,
+      sequence: "sequence_2",
+      startPoint: linePosFinish.a,
+      finishPoint: linePosFinish.b,
+    }));
+    widget1.simulateLineEvent(new EventUiMouseDrag({
+      widgetType: widget1.widgetType,
+      lineId,
+      lineEnd,
+      sequence: "sequence_3",
+      startPoint: linePosFinish.a,
+      finishPoint: linePosFinish.b,
+    }));
 
     // Confirm we are on track.
     TrackAsserts.assert(model.lineEvents.length === 3);
@@ -729,23 +879,26 @@ export const controllerCommandHistoryTests = {
 
     // Confirm we are on track.
     TrackAsserts.assert(model.lineEvents.length === 6);
+
+    TrackAsserts.assert(
+      model.lineEvents[3].constructor.name === "EventLineModify");
     TrackAsserts.assert(model.lineEvents[2].id === model.lineEvents[3].id);
-    TrackAsserts.assert(compareLinePos(model.lineEvents[2].startPos,
-                                       model.lineEvents[3].finishPos));
-    TrackAsserts.assert(compareLinePos(model.lineEvents[2].finishPos,
-                                       model.lineEvents[3].startPos));
+    TrackAsserts.assert(comparePoint(model.lineEvents[2].startPoint,
+                                     model.lineEvents[3].finishPoint));
+    TrackAsserts.assert(comparePoint(model.lineEvents[2].finishPoint,
+                                     model.lineEvents[3].startPoint));
 
+    TrackAsserts.assert(
+      model.lineEvents[4].constructor.name === "EventLineModify");
     TrackAsserts.assert(model.lineEvents[1].id === model.lineEvents[4].id);
-    TrackAsserts.assert(compareLinePos(model.lineEvents[1].startPos,
-                                       model.lineEvents[4].finishPos));
-    TrackAsserts.assert(compareLinePos(model.lineEvents[1].finishPos,
-                                       model.lineEvents[4].startPos));
+    TrackAsserts.assert(comparePoint(model.lineEvents[1].startPoint,
+                                     model.lineEvents[4].finishPoint));
+    TrackAsserts.assert(comparePoint(model.lineEvents[1].finishPoint,
+                                     model.lineEvents[4].startPoint));
 
+    TrackAsserts.assert(
+      model.lineEvents[5].constructor.name === "EventLineDelete");
     TrackAsserts.assert(model.lineEvents[0].id === model.lineEvents[5].id);
-    TrackAsserts.assert(compareLinePos(model.lineEvents[0].startPos,
-                                       model.lineEvents[5].finishPos));
-    TrackAsserts.assert(compareLinePos(model.lineEvents[0].finishPos,
-                                       model.lineEvents[5].startPos));
 
     // Perform action under test.
     toolbar.simulateButtonPress("redo");
@@ -798,9 +951,30 @@ export const controllerCommandHistoryTests = {
     };
 
     // Add some lines.
-    widget1.simulateLineEvent(null, "sequence_1", null, linePosFinish);
-    widget1.simulateLineEvent(null, "sequence_2", null, linePosFinish);
-    widget1.simulateLineEvent(null, "sequence_3", null, linePosFinish);
+    widget1.simulateLineEvent(new EventUiMouseDrag({
+      widgetType: widget1.widgetType,
+      sequence: "sequence_1",
+      startPoint: linePosFinish.a,
+      finishPoint: linePosFinish.b,
+    }));
+    const lineId = model.lineEvents[0].lineId;
+    const lineEnd = model.lineEvents[0].lineEnd;
+    widget1.simulateLineEvent(new EventUiMouseDrag({
+      widgetType: widget1.widgetType,
+      lineId,
+      lineEnd,
+      sequence: "sequence_2",
+      startPoint: linePosFinish.a,
+      finishPoint: linePosFinish.b,
+    }));
+    widget1.simulateLineEvent(new EventUiMouseDrag({
+      widgetType: widget1.widgetType,
+      lineId,
+      lineEnd,
+      sequence: "sequence_3",
+      startPoint: linePosFinish.a,
+      finishPoint: linePosFinish.b,
+    }));
 
     // Confirm we are on track.
     TrackAsserts.assert(model.lineEvents.length === 3);
@@ -812,26 +986,34 @@ export const controllerCommandHistoryTests = {
 
     // Confirm we are on track.
     TrackAsserts.assert(model.lineEvents.length === 6);
+
+    TrackAsserts.assert(
+      model.lineEvents[3].constructor.name === "EventLineModify");
     TrackAsserts.assert(model.lineEvents[2].id === model.lineEvents[3].id);
-    TrackAsserts.assert(compareLinePos(model.lineEvents[2].startPos,
-                                       model.lineEvents[3].finishPos));
-    TrackAsserts.assert(compareLinePos(model.lineEvents[2].finishPos,
-                                       model.lineEvents[3].startPos));
+    TrackAsserts.assert(comparePoint(model.lineEvents[2].startPoint,
+                                     model.lineEvents[3].finishPoint));
+    TrackAsserts.assert(comparePoint(model.lineEvents[2].finishPoint,
+                                     model.lineEvents[3].startPoint));
 
+    TrackAsserts.assert(
+      model.lineEvents[4].constructor.name === "EventLineModify");
     TrackAsserts.assert(model.lineEvents[1].id === model.lineEvents[4].id);
-    TrackAsserts.assert(compareLinePos(model.lineEvents[1].startPos,
-                                       model.lineEvents[4].finishPos));
-    TrackAsserts.assert(compareLinePos(model.lineEvents[1].finishPos,
-                                       model.lineEvents[4].startPos));
+    TrackAsserts.assert(comparePoint(model.lineEvents[1].startPoint,
+                                     model.lineEvents[4].finishPoint));
+    TrackAsserts.assert(comparePoint(model.lineEvents[1].finishPoint,
+                                     model.lineEvents[4].startPoint));
 
+    TrackAsserts.assert(
+      model.lineEvents[5].constructor.name === "EventLineDelete");
     TrackAsserts.assert(model.lineEvents[0].id === model.lineEvents[5].id);
-    TrackAsserts.assert(compareLinePos(model.lineEvents[0].startPos,
-                                       model.lineEvents[5].finishPos));
-    TrackAsserts.assert(compareLinePos(model.lineEvents[0].finishPos,
-                                       model.lineEvents[5].startPos));
 
     // Perform action under test. Add another line.
-    widget1.simulateLineEvent(null, "sequence_1", null, linePosFinish);
+    widget1.simulateLineEvent(new EventUiMouseDrag({
+      widgetType: widget1.widgetType,
+      sequence: "sequence_4",
+      startPoint: linePosFinish.a,
+      finishPoint: linePosFinish.b,
+    }));
 
     // Confirm we are on track.
     TrackAsserts.assert(model.lineEvents.length === 7);
@@ -850,5 +1032,12 @@ export const controllerCommandHistoryTests = {
     TrackAsserts.assert(toolbar.buttonStates.redo === false);
   },
 
+  testUndoDeleteEvent: () => {
+    TrackAsserts.assert(false && "TODO");
+  },
+
+  testUndoMirrorEvent: () => {
+    TrackAsserts.assert(false && "TODO");
+  },
 };
 
