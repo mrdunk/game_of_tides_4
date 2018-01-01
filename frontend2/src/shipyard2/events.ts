@@ -11,68 +11,35 @@ export enum LineEnd {
   Line2,
 }
 
-export interface IEventBase {
-  readonly widgetType: string;      // Command originating widget type.
-}
-export class EventBase implements IEventBase {
-  public readonly widgetType: string;
+/* Events are implemented as Classes rather than TypeScript Interfaces so we
+ * can tell what kind of Event is being passed (typeof eventInstacen).
+ * If we used Interfaces for this we would need to pass a variable containing
+ * the Event type as part of the Interface and set it manually every time a new
+ * Event is declared. */
 
-  constructor(args: IEventBase) {
+export class EventBase {
+  public readonly widgetType: string;  // Widget type where Event originates.
+
+  constructor(args: EventBase) {
     this.widgetType = args.widgetType;
   }
 }
 
-export interface IEventUiMouseOver extends IEventBase {
-  lineId?: string;
-}
-
-export interface IEventUiDelete extends IEventBase {
-  lineId?: string;
-}
-export class EventUiDelete extends EventBase implements IEventUiDelete {
-  public lineId?: string;
-
-  constructor(args: IEventUiDelete) {
-    super(args);
-    this.lineId = args.lineId;
-  }
-}
-
-export interface IEventUiMirror extends IEventBase {
-  lineId?: string;
-}
-export class EventUiMirror extends EventBase implements IEventUiMirror {
-  public lineId?: string;
-
-  constructor(args: IEventUiMirror) {
-    super(args);
-    this.lineId = args.lineId;
-  }
-}
-
-export interface IEventUiSelectRib extends IEventBase {
-  z: number;
-}
-export class EventUiSelectRib extends EventBase implements IEventUiSelectRib {
+export class EventUiSelectRib extends EventBase {
   public z: number;
 
-  constructor(args: IEventUiSelectRib) {
+  constructor(args: EventUiSelectRib) {
     super(args);
     this.z = args.z;
   }
 }
 
-export interface IEventUiMouseMove extends IEventBase {
-  startPoint: IPoint;
-  lineId?: string;
-  lineEnd?: LineEnd;
-}
-export class EventUiMouseMove extends EventBase implements IEventUiMouseMove {
+export class EventUiMouseMove extends EventBase {
   public startPoint: IPoint;
   public lineId?: string;
   public lineEnd?: LineEnd;
 
-  constructor(args: IEventUiMouseMove) {
+  constructor(args: EventUiMouseMove) {
     super(args);
     this.startPoint = args.startPoint;
     this.lineId = args.lineId;
@@ -80,21 +47,14 @@ export class EventUiMouseMove extends EventBase implements IEventUiMouseMove {
   }
 }
 
-export interface IEventUiMouseDrag extends IEventBase {
-  readonly sequence: string;        // Unique id for series of related commands.
-  startPoint: IPoint;
-  finishPoint: IPoint;
-  lineId?: string;
-  lineEnd?: LineEnd;
-}
-export class EventUiMouseDrag extends EventBase implements IEventUiMouseDrag {
+export class EventUiMouseDrag extends EventBase {
   public readonly sequence: string; // Unique id for series of related commands.
   public startPoint: IPoint;
   public finishPoint: IPoint;
   public lineId?: string;
   public lineEnd?: LineEnd;
 
-  constructor(args: IEventUiMouseDrag) {
+  constructor(args: EventUiMouseDrag) {
     super(args);
     this.sequence = args.sequence;
     this.startPoint = args.startPoint;
@@ -104,20 +64,13 @@ export class EventUiMouseDrag extends EventBase implements IEventUiMouseDrag {
   }
 }
 
-export interface IEventUiInputElement extends IEventBase {
-  label: string;
-  elementType: string;
-  valueText?: string;
-  valueBool?: boolean;
-}
-export class EventUiInputElement extends EventBase
-    implements IEventUiInputElement {
+export class EventUiInputElement extends EventBase {
   public label: string;
   public elementType: string;
   public valueText?: string;
   public valueBool?: boolean;
 
-  constructor(args: IEventUiInputElement) {
+  constructor(args: EventUiInputElement) {
     super(args);
     this.label = args.label;
     this.elementType = args.elementType;
@@ -125,4 +78,43 @@ export class EventUiInputElement extends EventBase
     this.valueBool = args.valueBool;
   }
 }
+
+export class EventLineModify extends EventUiMouseDrag {}
+
+export class EventLineSelect extends EventBase {
+  public lineId?: string;
+
+  constructor(args: EventLineSelect) {
+    super(args);
+    this.lineId = args.lineId;
+  }
+}
+
+export class EventLineHighlight extends EventBase {
+  public lineId?: string;
+
+  constructor(args: EventLineHighlight) {
+    super(args);
+    this.lineId = args.lineId;
+  }
+}
+
+export class EventLineDelete extends EventBase {
+  public lineId?: string;
+
+  constructor(args: EventLineDelete) {
+    super(args);
+    this.lineId = args.lineId;
+  }
+}
+
+export class EventLineMirror extends EventBase {
+  public lineId?: string;
+
+  constructor(args: EventLineMirror) {
+    super(args);
+    this.lineId = args.lineId;
+  }
+}
+
 

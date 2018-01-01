@@ -9,7 +9,11 @@ import {compareLinePos,
   IPoint} from "./controller";
 import {
   EventBase,
-  IEventUiMouseDrag,
+  EventLineDelete,
+  EventLineHighlight,
+  EventLineMirror,
+  EventLineModify,
+  EventLineSelect,
   LineEnd} from "./events";
 
 export abstract class ModelBase {
@@ -24,11 +28,10 @@ export abstract class ModelBase {
     return {point: null, mirrored: null};
   }
   public abstract getLine(lineId: string): ILine;
-  public deSelectAll() { /**/ }
   public getSelectedLines(): {} {
     return null;
   }
-
+  protected deSelectAll() { console.error("Undefined method"); }
 }
 
 export class Model extends ModelBase {
@@ -39,10 +42,21 @@ export class Model extends ModelBase {
   };
 
   public onLineEvent(event: EventBase) {
-    console.log(event);
     switch(event.constructor.name) {
-      case "EventUiMouseDrag":
-        this.modifyLine(event as IEventUiMouseDrag);
+      case "EventLineModify":
+        this.modifyLine(event as EventLineModify);
+        break;
+      case "EventLineSelect":
+        this.selectLine(event as EventLineSelect);
+        break;
+      case "EventLineHighlight":
+        this.highlightLine(event as EventLineHighlight);
+        break;
+      case "EventLineMirror":
+        this.mirrorLine(event as EventLineMirror);
+        break;
+      case "EventLineDelete":
+        this.deleteLine(event as EventLineDelete);
         break;
       default:
         console.error("Unknown event:", event);
@@ -143,11 +157,11 @@ export class Model extends ModelBase {
     return this.data.selectedLines;
   }
 
-  public deSelectAll() {
+  protected deSelectAll() {
     for(const lineId in this.data.selectedLines) {
       if(this.data.selectedLines.hasOwnProperty(lineId)) {
         const line = this.data.lines[lineId];
-        if(line) {
+        if(line && line.selected) {
           line.selected = false;
           this.controller.updateViews(line);
         }
@@ -156,8 +170,12 @@ export class Model extends ModelBase {
     this.data.selectedLines = {};
   }
 
-  private createLine(event: IEventUiMouseDrag) {
-    const line: ILine = {id: event.lineId};
+  private createLine(event: EventLineModify) {
+    const line: ILine = {
+      id: event.lineId,
+      finishPos: {a: JSON.parse(JSON.stringify(event.startPoint)),
+                  b: {x: 0, y: 0, z: 0}},
+    };
     this.data.lines[event.lineId] = line;
   }
 
@@ -166,7 +184,7 @@ export class Model extends ModelBase {
     this.data.backgroundImages[event.widgetType] = backgroundImage;
   }
 
-  private modifyLine(event: IEventUiMouseDrag) {
+  private modifyLine(event: EventLineModify) {
     console.assert(Boolean(event));
     console.assert(Boolean(event.finishPoint));
     console.assert(Boolean(event.lineId));
@@ -178,18 +196,24 @@ export class Model extends ModelBase {
     const line: ILine = this.data.lines[event.lineId];
     console.assert(Boolean(line));
 
+    this.deSelectAll();
+    line.selected = true;
+    this.data.selectedLines[line.id] = true;
+
     switch(event.lineEnd) {
       case LineEnd.A1:
         line.finishPos.a = JSON.parse(JSON.stringify(event.finishPoint));
         break;
       case LineEnd.A2:
-        console.log("TODO Move mirrored line");
+        line.finishPos.a = JSON.parse(JSON.stringify(event.finishPoint));
+        line.finishPos.a.x = -line.finishPos.a.x;
         break;
       case LineEnd.B1:
         line.finishPos.b = JSON.parse(JSON.stringify(event.finishPoint));
         break;
       case LineEnd.B2:
-        console.log("TODO Move mirrored line");
+        line.finishPos.b = JSON.parse(JSON.stringify(event.finishPoint));
+        line.finishPos.b.x = -line.finishPos.b.x;
         break;
       default:
         console.log("TODO Move whole line");
@@ -244,6 +268,70 @@ export class Model extends ModelBase {
     }
     // console.log(line);*/
     console.log(this.data);
+  }
+
+  private deleteLine(event: EventLineDelete) {
+    console.assert(Boolean(event));
+    console.assert(Boolean(event.lineId));
+
+    if(this.data.lines[event.lineId] !== undefined) {
+      const line: ILine = this.data.lines[event.lineId];
+      delete line.finishPos;
+      this.controller.updateViews(line);
+
+      delete this.data.lines[event.lineId];
+    }
+    if(this.data.selectedLines[event.lineId] !== undefined) {
+      delete this.data.selectedLines[event.lineId];
+    }
+  }
+
+  private selectLine(event: EventLineSelect) {
+    console.assert(Boolean(event));
+    console.assert(Boolean(event.lineId));
+
+    const line: ILine = this.data.lines[event.lineId];
+    console.assert(Boolean(line));
+
+    line.selected = !line.selected;
+    this.data.selectedLines[line.id] = line.selected;
+    if(this.data.selectedLines[line.id] === false) {
+      delete this.data.selectedLines[line.id];
+    }
+    this.controller.updateViews(line);
+  }
+
+  private highlightLine(event: EventLineHighlight) {
+    console.assert(Boolean(event));
+
+    // Un-highlight all lines.
+    for(const key in this.data.lines) {
+      if(this.data.lines.hasOwnProperty(key)) {
+        if(this.data.lines[key].highlight) {
+          this.data.lines[key].highlight = false;
+          this.controller.updateViews(this.data.lines[key]);
+        }
+      }
+    }
+
+    const line: ILine = this.data.lines[event.lineId];
+    if(!Boolean(line)) {
+      return;
+    }
+
+    line.highlight = true;
+    this.controller.updateViews(line);
+  }
+
+  private mirrorLine(event: EventLineMirror) {
+    console.assert(Boolean(event));
+    console.assert(Boolean(event.lineId));
+
+    const line: ILine = this.data.lines[event.lineId];
+    console.assert(Boolean(line));
+
+    line.mirrored = !line.mirrored;
+    this.controller.updateViews(line);
   }
 
   private modifyBackgroundImage(event: IBackgroundImageEvent) {

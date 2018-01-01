@@ -18,10 +18,6 @@ import {
   EventUiMouseDrag,
   EventUiMouseMove,
   EventUiSelectRib,
-  IEventBase,
-  IEventUiInputElement,
-  IEventUiMouseDrag,
-  IEventUiMouseOver,
   LineEnd } from "./events";
 import {
   DropDown,
