@@ -154,7 +154,7 @@ export const controllerLineEventTests = {
     TrackAsserts.assert(model.lineEvents.length === 0);
     TrackAsserts.assert(
       logger.lastWarn &&
-      logger.lastWarn[0] === 
+      logger.lastWarn[0] ===
         "Missing startPoint or finishPoint for new line: " &&
       logger.lastWarn[1] === undefined);
   },
@@ -180,7 +180,7 @@ export const controllerLineEventTests = {
     TrackAsserts.assert(model.lineEvents.length === 0);
     TrackAsserts.assert(
       logger.lastWarn &&
-      logger.lastWarn[0] === 
+      logger.lastWarn[0] ===
         "Missing startPoint or finishPoint for modified line: " &&
       logger.lastWarn[1] === "testLineId");
   },
@@ -332,12 +332,12 @@ export const controllerLineEventTests = {
       id: "testLine_1",
       finishPos: linePos,
       selected: true,
-    }
+    };
     const line2: ILine = {
       id: "testLine_2",
       finishPos: linePos,
       selected: true,
-    }
+    };
     model.mockGetSelectedLines = [line1, line2];
 
     // Perform action under test.
@@ -493,12 +493,12 @@ export const controllerLineEventTests = {
       id: "testLine_1",
       finishPos: linePos,
       selected: true,
-    }
+    };
     const line2: ILine = {
       id: "testLine_2",
       finishPos: linePos,
       selected: true,
-    }
+    };
     model.mockGetSelectedLines = [line1, line2];
 
     // Perform action under test.

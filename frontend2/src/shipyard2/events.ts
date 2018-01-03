@@ -19,9 +19,15 @@ export enum LineEnd {
 
 export class EventBase {
   public readonly widgetType: string;  // Widget type where Event originates.
+  public __name__?: string;
 
   constructor(args: EventBase) {
     this.widgetType = args.widgetType;
+  }
+
+  public toJSON(key) {
+    this.__name__ = this.constructor.name;
+    return this;
   }
 }
 

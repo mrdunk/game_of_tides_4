@@ -1,5 +1,6 @@
 // Copyright 2017 duncan law (mrdunk@gmail.com)
 
+import * as testEvents from "./events";
 import {
   EventBase,
   EventLineDelete,
@@ -448,6 +449,7 @@ export class Controller extends ControllerBase {
     // window.alert(data);
     if(data) {
       this.commands = JSON.parse(data);
+      this.commands = this.applyClasses(this.commands);
     }
     this.commandPointer = 0;
     if(this.commands === undefined || this.commands === null) {
@@ -568,7 +570,7 @@ export class Controller extends ControllerBase {
           ["EventLineModify",
             "EventLineNew",
             "EventLineDelete",
-            "EventLineMirror",].includes(lineEvent.constructor.name);
+            "EventLineMirror"].includes(lineEvent.constructor.name);
       });
     }
     if(command.backgroundImageEvents) {
@@ -766,7 +768,7 @@ export class Controller extends ControllerBase {
     }
     allCommandBuffers[filename] = this.commands;
     localStorage.setItem(storageName, JSON.stringify(allCommandBuffers));
-    console.log(allCommandBuffers);
+    console.log(JSON.stringify(allCommandBuffers, null, "  "));
   }
 
   private deleteCommands(filename: string) {
@@ -788,6 +790,20 @@ export class Controller extends ControllerBase {
     // console.log(data);
     localStorage.setItem("shipYardCommandBufferStartup", data);
     location.reload();
+  }
+
+  /* Parse events for __name__ and convert to Event Classes. */
+  private applyClasses(data) {
+    const returnData = [];
+    data.forEach((command) => {
+      const newCommand = {events: []};
+      returnData.push(newCommand);
+      command.events.forEach((event) => {
+        const cloneObj = new testEvents[event.__name__](event);
+        newCommand.events.push(cloneObj);
+      });
+    });
+    return returnData;
   }
 
   private newCommands() {
