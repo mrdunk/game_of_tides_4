@@ -29,7 +29,7 @@ interface IHash {
 
 export class ViewBase {
   protected static widgetIdConter: number = 0;
-  protected widgetType: string = "base";
+  public widgetType: string = "base";
   protected controller: ControllerBase;
   protected sequence: string = "";
   private sequenceCounter: number = 0;
@@ -474,7 +474,7 @@ export abstract class ViewSection extends ViewBase {
 
 export class ViewCrossSection extends ViewSection {
   public z: number = 0;
-  protected widgetType: string = "cross";
+  public widgetType: string = "cross";
   private showLayersValue: boolean = false;
   private lengthSection: ViewSection;
   private lengthCursorL: Konva.Line;
@@ -714,7 +714,7 @@ export class ViewCrossSection extends ViewSection {
 
 export class ViewLengthSection extends ViewSection {
   public cursorPos: number = 0;
-  protected widgetType: string = "length";
+  public widgetType: string = "length";
   private cursorHover: Konva.Rect;
   private cursor: Konva.Rect;
   private cursorWidth: number = 20;
@@ -982,7 +982,7 @@ export class ViewMock extends ViewBase {
 }
 
 export class ViewToolbar extends ViewBase {
-  protected widgetType: string = "toolbar";
+  public widgetType: string = "toolbar";
   private buttonElements: Element[];
   private backgroundDropDown: DropDown;
   private fileOpsDropDown: DropDown;

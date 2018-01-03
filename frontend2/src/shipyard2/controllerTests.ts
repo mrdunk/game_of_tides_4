@@ -198,9 +198,7 @@ export const controllerLineEventTests = {
     widget1.simulateLineEvent(new EventUiMouseMove({
       widgetType: widget1.widgetType,
       lineId: "testLineId",
-      sequence: "sequence_1",
       startPoint: null,
-      finishPoint: null,
     }));
 
     TrackAsserts.assert(model.lineEvents.length === 1);
@@ -539,13 +537,19 @@ export const controllerLineEventTests = {
     };
 
     // Modify line.
-    widget1.simulateLineEvent(
-      "drawnLine_1", "sequence_2", linePosStart, linePosFinish);
+    widget1.simulateLineEvent(new EventUiMouseDrag({
+      lineId: "drawnLine_1",
+      lineEnd: LineEnd.A1,
+      widgetType: widget1.widgetType,
+      sequence: "sequence_2",
+      startPoint: linePosStart.a,
+      finishPoint: linePosFinish.a,
+    }));
 
-    // Confirm correct so far.
+    // Confirm correct so far. (No snapping yet.)
     TrackAsserts.assert(model.lineEvents.length === 1);
-    TrackAsserts.assert(compareLinePos(linePosFinish,
-                                       model.lineEvents[0].finishPos));
+    TrackAsserts.assert(comparePoint(
+      linePosFinish.a, (model.lineEvents[0] as EventUiMouseDrag).finishPoint));
 
     // Set a nearby line to snap() to.
     const linePosNearby: ILinePos = {
@@ -555,14 +559,20 @@ export const controllerLineEventTests = {
     model.mockNearestLine = {point: linePosNearby.a, mirrored: false};
 
     // Modify line.
-    widget1.simulateLineEvent(
-      "drawnLine_1", "sequence_2", linePosStart, linePosFinish);
+    widget1.simulateLineEvent(new EventUiMouseDrag({
+      lineId: "drawnLine_1",
+      lineEnd: LineEnd.A1,
+      widgetType: widget1.widgetType,
+      sequence: "sequence_2",
+      startPoint: linePosStart.a,
+      finishPoint: linePosFinish.a,
+    }));
 
     // Confirm correct so far.
     TrackAsserts.assert(model.lineEvents.length === 2);
     // This time line has snapped "a" end to linePosNearby.
-    TrackAsserts.assert(compareLinePos({a: linePosNearby.a, b: linePosFinish.b},
-                                       model.lineEvents[1].finishPos));
+    TrackAsserts.assert(comparePoint(
+      linePosNearby.a, (model.lineEvents[1] as EventUiMouseDrag).finishPoint));
 
     // Set a nearby mirrored line to snap() to.
     const linePosMirrorNear: ILinePos = {
@@ -570,21 +580,27 @@ export const controllerLineEventTests = {
       b: {x:-43, y:55, z:66},
     };
     const linePosMirrorNearPartner: ILinePos = {
-      a: {x:124, y:125, z:166},
+      a: {x:-124, y:125, z:166},
       b: {x:43, y:55, z:66},
     };
     model.mockNearestLine = {point: linePosMirrorNear.b, mirrored: false};
 
     // Modify line.
-    widget1.simulateLineEvent(
-      "drawnLine_1", "sequence_2", linePosStart, linePosFinish);
+    widget1.simulateLineEvent(new EventUiMouseDrag({
+      lineId: "drawnLine_1",
+      lineEnd: LineEnd.B1,
+      widgetType: widget1.widgetType,
+      sequence: "sequence_2",
+      startPoint: linePosStart.b,
+      finishPoint: linePosFinish.b,
+    }));
 
     // Confirm correct.
     TrackAsserts.assert(model.lineEvents.length === 3);
     // This time line has snapped "b" end to linePosNearby.
-    TrackAsserts.assert(compareLinePos({a: linePosFinish.a,
-                                        b: linePosMirrorNearPartner.b},
-                                       model.lineEvents[2].finishPos));
+    TrackAsserts.assert(compareLinePos(
+      {a: linePosFinish.a, b: linePosMirrorNearPartner.b},
+      (model.lineEvents[2] as EventUiMouseDrag).finishPos));
   },
 
   testSnapLineToMirrored: () => {
@@ -613,13 +629,19 @@ export const controllerLineEventTests = {
     };
 
     // Modify line.
-    widget1.simulateLineEvent(
-      "drawnLine_1", "sequence_2", linePosStart, linePosFinish);
+    widget1.simulateLineEvent(new EventUiMouseDrag({
+      lineId: "drawnLine_1",
+      lineEnd: LineEnd.A1,
+      widgetType: widget1.widgetType,
+      sequence: "sequence_2",
+      startPoint: linePosStart.a,
+      finishPoint: linePosFinish.a,
+    }));
 
     // Confirm correct so far.
     TrackAsserts.assert(model.lineEvents.length === 1);
-    TrackAsserts.assert(compareLinePos(linePosFinish,
-                                       model.lineEvents[0].finishPos));
+    TrackAsserts.assert(compareLinePos(
+      linePosFinish, (model.lineEvents[0] as EventUiMouseDrag).finishPos));
 
     // Set a nearby line to snap() to.
     const linePosNearby: ILinePos = {
@@ -629,14 +651,21 @@ export const controllerLineEventTests = {
     model.mockNearestLine = {point: linePosNearby.a, mirrored: true};
 
     // Modify line.
-    widget1.simulateLineEvent(
-      "drawnLine_1", "sequence_2", linePosStart, linePosFinish);
+    widget1.simulateLineEvent(new EventUiMouseDrag({
+      lineId: "drawnLine_1",
+      lineEnd: LineEnd.A1,
+      widgetType: widget1.widgetType,
+      sequence: "sequence_2",
+      startPoint: linePosStart.a,
+      finishPoint: linePosFinish.a,
+    }));
 
     // Confirm correct so far.
     TrackAsserts.assert(model.lineEvents.length === 2);
     // This time line has snapped "a" end to linePosNearby.
-    TrackAsserts.assert(compareLinePos({a: linePosNearby.a, b: linePosFinish.b},
-                                       model.lineEvents[1].finishPos));
+    TrackAsserts.assert(compareLinePos(
+      {a: linePosNearby.a, b: linePosFinish.b},
+      (model.lineEvents[1] as EventUiMouseDrag).finishPos));
 
     // Set a nearby mirrored line to snap() to.
     const linePosMirrorNear: ILinePos = {
@@ -650,15 +679,21 @@ export const controllerLineEventTests = {
     model.mockNearestLine = {point: linePosMirrorNear.b, mirrored: true};
 
     // Modify line.
-    widget1.simulateLineEvent(
-      "drawnLine_1", "sequence_2", linePosStart, linePosFinish);
+    widget1.simulateLineEvent(new EventUiMouseDrag({
+      lineId: "drawnLine_1",
+      lineEnd: LineEnd.B1,
+      widgetType: widget1.widgetType,
+      sequence: "sequence_2",
+      startPoint: linePosStart.b,
+      finishPoint: linePosFinish.b,
+    }));
 
     // Confirm correct so far.
     TrackAsserts.assert(model.lineEvents.length === 3);
     // This time line has snapped "b" end to linePosNearby.
-    TrackAsserts.assert(compareLinePos({a: linePosFinish.a,
-                                        b: linePosMirrorNearPartner.b},
-                                       model.lineEvents[2].finishPos));
+    TrackAsserts.assert(compareLinePos(
+      {a: linePosFinish.a, b: linePosMirrorNearPartner.b},
+      (model.lineEvents[2] as EventUiMouseDrag).finishPos));
   },
 
   testSnapLineToCentre: () => {
@@ -694,15 +729,21 @@ export const controllerLineEventTests = {
     };
 
     // Modify line.
-    widget1.simulateLineEvent(
-      "drawnLine_1", "sequence_2", linePosStart, linePosFinish);
+    widget1.simulateLineEvent(new EventUiMouseDrag({
+      lineId: "drawnLine_1",
+      lineEnd: LineEnd.A1,
+      widgetType: widget1.widgetType,
+      sequence: "sequence_2",
+      startPoint: linePosStart.a,
+      finishPoint: linePosFinish.a,
+    }));
 
     // Confirm correct so far.
     TrackAsserts.assert(model.lineEvents.length === 1);
     // Should not have snapped anything.
     // (Not mirrored so didn't snap to centre and nothing else close enough.)
-    TrackAsserts.assert(compareLinePos(linePosFinish,
-      model.lineEvents[0].finishPos));
+    TrackAsserts.assert(compareLinePos(
+      linePosFinish, (model.lineEvents[0] as EventUiMouseDrag).finishPos));
 
     // Force model to return a mirrored result.
     model.mockGetLineValue = {
@@ -712,15 +753,21 @@ export const controllerLineEventTests = {
     };
 
     // Modify line.
-    widget1.simulateLineEvent(
-      "drawnLine_1", "sequence_2", linePosStart, linePosFinish);
+    widget1.simulateLineEvent(new EventUiMouseDrag({
+      lineId: "drawnLine_1",
+      lineEnd: LineEnd.A1,
+      widgetType: widget1.widgetType,
+      sequence: "sequence_2",
+      startPoint: linePosStart.a,
+      finishPoint: linePosFinish.a,
+    }));
 
     // Confirm correct so far.
     TrackAsserts.assert(model.lineEvents.length === 2);
     // This time line has snapped "a" end to linePosNearby.
-    TrackAsserts.assert(compareLinePos({a: {x:0, y:25, z:66},
-                                        b: linePosFinish.b},
-                                       model.lineEvents[1].finishPos));
+    TrackAsserts.assert(compareLinePos(
+      {a: {x:0, y:25, z:66}, b: linePosFinish.b},
+      (model.lineEvents[1] as EventUiMouseDrag).finishPos));
   },
 
 };
@@ -747,8 +794,8 @@ export const controllerCommandHistoryTests = {
       startPoint: linePosFinish.a,
       finishPoint: linePosFinish.b,
     }));
-    const lineId = model.lineEvents[0].lineId;
-    const lineEnd = model.lineEvents[0].lineEnd;
+    const lineId = (model.lineEvents[0] as EventUiMouseDrag).lineId;
+    const lineEnd = (model.lineEvents[0] as EventUiMouseDrag).lineEnd;
     widget1.simulateLineEvent(new EventUiMouseDrag({
       widgetType: widget1.widgetType,
       lineId,
@@ -786,11 +833,15 @@ export const controllerCommandHistoryTests = {
     TrackAsserts.assert(toolbar.buttonStates.redo === true);
     TrackAsserts.assert(
       model.lineEvents[3].constructor.name === "EventLineModify");
-    TrackAsserts.assert(model.lineEvents[2].id === model.lineEvents[3].id);
-    TrackAsserts.assert(comparePoint(model.lineEvents[2].startPoint,
-                                     model.lineEvents[3].finishPoint));
-    TrackAsserts.assert(comparePoint(model.lineEvents[2].finishPoint,
-                                     model.lineEvents[3].startPoint));
+    TrackAsserts.assert(
+      (model.lineEvents[2] as EventUiMouseDrag).lineId ===
+      (model.lineEvents[3] as EventUiMouseDrag).lineId);
+    TrackAsserts.assert(
+      comparePoint((model.lineEvents[2] as EventUiMouseDrag).startPoint,
+                   (model.lineEvents[3] as EventUiMouseDrag).finishPoint));
+    TrackAsserts.assert(
+      comparePoint((model.lineEvents[2] as EventUiMouseDrag).finishPoint,
+                   (model.lineEvents[3] as EventUiMouseDrag).startPoint));
 
     // Perform action under test. Undo back to the start.
     toolbar.simulateButtonPress("undo");
@@ -803,15 +854,21 @@ export const controllerCommandHistoryTests = {
 
     TrackAsserts.assert(
       model.lineEvents[4].constructor.name === "EventLineModify");
-    TrackAsserts.assert(model.lineEvents[2].id === model.lineEvents[4].id);
-    TrackAsserts.assert(comparePoint(model.lineEvents[2].startPoint,
-                                     model.lineEvents[4].finishPoint));
-    TrackAsserts.assert(comparePoint(model.lineEvents[2].finishPoint,
-                                     model.lineEvents[4].startPoint));
+    TrackAsserts.assert(
+      (model.lineEvents[2] as EventUiMouseDrag).lineId ===
+      (model.lineEvents[4] as EventUiMouseDrag).lineId);
+    TrackAsserts.assert(
+      comparePoint((model.lineEvents[2] as EventUiMouseDrag).startPoint,
+                   (model.lineEvents[4] as EventUiMouseDrag).finishPoint));
+    TrackAsserts.assert(
+      comparePoint((model.lineEvents[2] as EventUiMouseDrag).finishPoint,
+                   (model.lineEvents[4] as EventUiMouseDrag).startPoint));
 
     TrackAsserts.assert(
       model.lineEvents[5].constructor.name === "EventLineDelete");
-    TrackAsserts.assert(model.lineEvents[2].id === model.lineEvents[5].id);
+    TrackAsserts.assert(
+      (model.lineEvents[2] as EventUiMouseDrag).lineId ===
+      (model.lineEvents[5] as EventUiMouseDrag).lineId);
 
     // Perform action under test. Undo part start of buffer.
     toolbar.simulateButtonPress("undo");
@@ -850,8 +907,8 @@ export const controllerCommandHistoryTests = {
       startPoint: linePosFinish.a,
       finishPoint: linePosFinish.b,
     }));
-    const lineId = model.lineEvents[0].lineId;
-    const lineEnd = model.lineEvents[0].lineEnd;
+    const lineId = (model.lineEvents[0] as EventUiMouseDrag).lineId;
+    const lineEnd = (model.lineEvents[0] as EventUiMouseDrag).lineEnd;
     widget1.simulateLineEvent(new EventUiMouseDrag({
       widgetType: widget1.widgetType,
       lineId,
@@ -882,23 +939,32 @@ export const controllerCommandHistoryTests = {
 
     TrackAsserts.assert(
       model.lineEvents[3].constructor.name === "EventLineModify");
-    TrackAsserts.assert(model.lineEvents[2].id === model.lineEvents[3].id);
-    TrackAsserts.assert(comparePoint(model.lineEvents[2].startPoint,
-                                     model.lineEvents[3].finishPoint));
-    TrackAsserts.assert(comparePoint(model.lineEvents[2].finishPoint,
-                                     model.lineEvents[3].startPoint));
+    TrackAsserts.assert(
+      (model.lineEvents[2] as EventUiMouseDrag).lineId ===
+      (model.lineEvents[3] as EventUiMouseDrag).lineId);
+    TrackAsserts.assert(
+      comparePoint((model.lineEvents[2] as EventUiMouseDrag).startPoint,
+                   (model.lineEvents[3] as EventUiMouseDrag).finishPoint));
+    TrackAsserts.assert(
+      comparePoint((model.lineEvents[2] as EventUiMouseDrag).finishPoint,
+                   (model.lineEvents[3] as EventUiMouseDrag).startPoint));
 
     TrackAsserts.assert(
       model.lineEvents[4].constructor.name === "EventLineModify");
-    TrackAsserts.assert(model.lineEvents[1].id === model.lineEvents[4].id);
-    TrackAsserts.assert(comparePoint(model.lineEvents[1].startPoint,
-                                     model.lineEvents[4].finishPoint));
-    TrackAsserts.assert(comparePoint(model.lineEvents[1].finishPoint,
-                                     model.lineEvents[4].startPoint));
+    TrackAsserts.assert(
+      (model.lineEvents[1] as EventUiMouseDrag).lineId ===
+      (model.lineEvents[4] as EventUiMouseDrag).lineId);
+    TrackAsserts.assert(
+      comparePoint((model.lineEvents[1] as EventUiMouseDrag).startPoint,
+                   (model.lineEvents[4] as EventUiMouseDrag).finishPoint));
+    TrackAsserts.assert(
+      comparePoint((model.lineEvents[1] as EventUiMouseDrag).finishPoint,
+                   (model.lineEvents[4] as EventUiMouseDrag).startPoint));
 
     TrackAsserts.assert(
       model.lineEvents[5].constructor.name === "EventLineDelete");
-    TrackAsserts.assert(model.lineEvents[0].id === model.lineEvents[5].id);
+    TrackAsserts.assert((model.lineEvents[0] as EventUiMouseDrag).lineId ===
+                        (model.lineEvents[5] as EventUiMouseDrag).lineId);
 
     // Perform action under test.
     toolbar.simulateButtonPress("redo");
@@ -908,11 +974,14 @@ export const controllerCommandHistoryTests = {
     // Confirm we are on track.
     TrackAsserts.assert(model.lineEvents.length === 9);
     TrackAsserts.assert(
-      compareLineEvent(model.lineEvents[0], model.lineEvents[6]));
+      compareLineEvent((model.lineEvents[0] as EventUiMouseDrag),
+                       (model.lineEvents[6] as EventUiMouseDrag)));
     TrackAsserts.assert(
-      compareLineEvent(model.lineEvents[1], model.lineEvents[7]));
+      compareLineEvent((model.lineEvents[1] as EventUiMouseDrag),
+                       (model.lineEvents[7] as EventUiMouseDrag)));
     TrackAsserts.assert(
-      compareLineEvent(model.lineEvents[2], model.lineEvents[8]));
+      compareLineEvent((model.lineEvents[2] as EventUiMouseDrag),
+                       (model.lineEvents[8] as EventUiMouseDrag)));
 
     TrackAsserts.assert(toolbar.buttonStates.undo === true);
     TrackAsserts.assert(toolbar.buttonStates.redo === false);
@@ -957,8 +1026,8 @@ export const controllerCommandHistoryTests = {
       startPoint: linePosFinish.a,
       finishPoint: linePosFinish.b,
     }));
-    const lineId = model.lineEvents[0].lineId;
-    const lineEnd = model.lineEvents[0].lineEnd;
+    const lineId = (model.lineEvents[0] as EventUiMouseDrag).lineId;
+    const lineEnd = (model.lineEvents[0] as EventUiMouseDrag).lineEnd;
     widget1.simulateLineEvent(new EventUiMouseDrag({
       widgetType: widget1.widgetType,
       lineId,
@@ -989,23 +1058,30 @@ export const controllerCommandHistoryTests = {
 
     TrackAsserts.assert(
       model.lineEvents[3].constructor.name === "EventLineModify");
-    TrackAsserts.assert(model.lineEvents[2].id === model.lineEvents[3].id);
-    TrackAsserts.assert(comparePoint(model.lineEvents[2].startPoint,
-                                     model.lineEvents[3].finishPoint));
-    TrackAsserts.assert(comparePoint(model.lineEvents[2].finishPoint,
-                                     model.lineEvents[3].startPoint));
+    TrackAsserts.assert((model.lineEvents[2] as EventUiMouseDrag).lineId ===
+                        (model.lineEvents[3] as EventUiMouseDrag).lineId);
+    TrackAsserts.assert(
+      comparePoint((model.lineEvents[2] as EventUiMouseDrag).startPoint,
+                   (model.lineEvents[3] as EventUiMouseDrag).finishPoint));
+    TrackAsserts.assert(
+      comparePoint((model.lineEvents[2] as EventUiMouseDrag).finishPoint,
+                   (model.lineEvents[3] as EventUiMouseDrag).startPoint));
 
     TrackAsserts.assert(
       model.lineEvents[4].constructor.name === "EventLineModify");
-    TrackAsserts.assert(model.lineEvents[1].id === model.lineEvents[4].id);
-    TrackAsserts.assert(comparePoint(model.lineEvents[1].startPoint,
-                                     model.lineEvents[4].finishPoint));
-    TrackAsserts.assert(comparePoint(model.lineEvents[1].finishPoint,
-                                     model.lineEvents[4].startPoint));
+    TrackAsserts.assert((model.lineEvents[1] as EventUiMouseDrag).lineId ===
+                        (model.lineEvents[4] as EventUiMouseDrag).lineId);
+    TrackAsserts.assert(
+      comparePoint((model.lineEvents[1] as EventUiMouseDrag).startPoint,
+                   (model.lineEvents[4] as EventUiMouseDrag).finishPoint));
+    TrackAsserts.assert(
+      comparePoint((model.lineEvents[1] as EventUiMouseDrag).finishPoint,
+                   (model.lineEvents[4] as EventUiMouseDrag).startPoint));
 
     TrackAsserts.assert(
       model.lineEvents[5].constructor.name === "EventLineDelete");
-    TrackAsserts.assert(model.lineEvents[0].id === model.lineEvents[5].id);
+    TrackAsserts.assert((model.lineEvents[0] as EventUiMouseDrag).lineId ===
+                        (model.lineEvents[5] as EventUiMouseDrag).lineId);
 
     // Perform action under test. Add another line.
     widget1.simulateLineEvent(new EventUiMouseDrag({
