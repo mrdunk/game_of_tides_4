@@ -598,9 +598,9 @@ export const controllerLineEventTests = {
     // Confirm correct.
     TrackAsserts.assert(model.lineEvents.length === 3);
     // This time line has snapped "b" end to linePosNearby.
-    TrackAsserts.assert(compareLinePos(
-      {a: linePosFinish.a, b: linePosMirrorNearPartner.b},
-      (model.lineEvents[2] as EventUiMouseDrag).finishPos));
+    TrackAsserts.assert(comparePoint(
+      linePosMirrorNearPartner.b,
+      (model.lineEvents[1] as EventUiMouseDrag).finishPoint));
   },
 
   testSnapLineToMirrored: () => {
@@ -640,8 +640,8 @@ export const controllerLineEventTests = {
 
     // Confirm correct so far.
     TrackAsserts.assert(model.lineEvents.length === 1);
-    TrackAsserts.assert(compareLinePos(
-      linePosFinish, (model.lineEvents[0] as EventUiMouseDrag).finishPos));
+    TrackAsserts.assert(comparePoint(
+      linePosFinish.a, (model.lineEvents[0] as EventUiMouseDrag).finishPoint));
 
     // Set a nearby line to snap() to.
     const linePosNearby: ILinePos = {
@@ -663,9 +663,8 @@ export const controllerLineEventTests = {
     // Confirm correct so far.
     TrackAsserts.assert(model.lineEvents.length === 2);
     // This time line has snapped "a" end to linePosNearby.
-    TrackAsserts.assert(compareLinePos(
-      {a: linePosNearby.a, b: linePosFinish.b},
-      (model.lineEvents[1] as EventUiMouseDrag).finishPos));
+    TrackAsserts.assert(comparePoint(
+      linePosNearby.a, (model.lineEvents[1] as EventUiMouseDrag).finishPoint));
 
     // Set a nearby mirrored line to snap() to.
     const linePosMirrorNear: ILinePos = {
@@ -690,10 +689,10 @@ export const controllerLineEventTests = {
 
     // Confirm correct so far.
     TrackAsserts.assert(model.lineEvents.length === 3);
-    // This time line has snapped "b" end to linePosNearby.
-    TrackAsserts.assert(compareLinePos(
-      {a: linePosFinish.a, b: linePosMirrorNearPartner.b},
-      (model.lineEvents[2] as EventUiMouseDrag).finishPos));
+    // This time line has snapped "b" end to linePosMirrorNearPartner.
+    TrackAsserts.assert(comparePoint(
+      linePosMirrorNearPartner.b,
+      (model.lineEvents[2] as EventUiMouseDrag).finishPoint));
   },
 
   testSnapLineToCentre: () => {
@@ -742,8 +741,8 @@ export const controllerLineEventTests = {
     TrackAsserts.assert(model.lineEvents.length === 1);
     // Should not have snapped anything.
     // (Not mirrored so didn't snap to centre and nothing else close enough.)
-    TrackAsserts.assert(compareLinePos(
-      linePosFinish, (model.lineEvents[0] as EventUiMouseDrag).finishPos));
+    TrackAsserts.assert(comparePoint(
+      linePosFinish.a, (model.lineEvents[0] as EventUiMouseDrag).finishPoint));
 
     // Force model to return a mirrored result.
     model.mockGetLineValue = {
@@ -765,9 +764,9 @@ export const controllerLineEventTests = {
     // Confirm correct so far.
     TrackAsserts.assert(model.lineEvents.length === 2);
     // This time line has snapped "a" end to linePosNearby.
-    TrackAsserts.assert(compareLinePos(
-      {a: {x:0, y:25, z:66}, b: linePosFinish.b},
-      (model.lineEvents[1] as EventUiMouseDrag).finishPos));
+    TrackAsserts.assert(comparePoint(
+      {x:0, y:25, z:66},
+      (model.lineEvents[1] as EventUiMouseDrag).finishPoint));
   },
 
 };
