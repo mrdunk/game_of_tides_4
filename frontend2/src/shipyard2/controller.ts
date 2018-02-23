@@ -368,69 +368,57 @@ export class Controller extends ControllerBase {
 
   // Make endpoints move towards nearby endpoint if it is close enough.
   // line is modified in place.
-  protected snap(line: ILine): void {
+  protected snap(event: EventUiMouseDrag): void {
     const snapDistance = 10;
 
     // Look line up from the Model to discover it should be mirrored or not.
-    const lookup = this.getLine(line.id);
-    let mirrored;
-    let nearest;
-    if(lookup) {
-      // Found line in Model.
-      nearest = this.model.nearestLine(lookup);
-      mirrored = lookup.mirrored;
-    } else {
+    const line = this.getLine(event.lineId);
+    if(!line) {
       // Didn't find line in Model. Probably a new line.
-      nearest = this.model.nearestLine(line);
+      return;
     }
+    // Found line in Model.
 
-    if(lookup && lookup.mirrored) {
+    if(line && line.mirrored) {
       // Make mirrored lines meet if they come close to the centre.
-      if(Math.abs(line.finishPos.a.x) < snapDistance) {
-        line.finishPos.a.x = 0;
-      }
-      if(Math.abs(line.finishPos.b.x) < snapDistance) {
-        line.finishPos.b.x = 0;
+      if(Math.abs(event.finishPoint.x) < snapDistance) {
+        event.finishPoint.x = 0;
       }
     }
 
+    const nearest = this.model.nearestLine(event.finishPoint, [event.lineId]);
+    const mirrored = nearest.mirrored;
     const nearestPoint = nearest.point;
+
     if(!nearestPoint) {
       // No other line with a matching z coordinate.
       return;
     }
-    mirrored = mirrored || nearest.mirrored;
 
     const matches = [];
     matches.push([
-      Math.abs(nearestPoint.x - line.finishPos.a.x) +
-      Math.abs(nearestPoint.y - line.finishPos.a.y),
-      line.finishPos.a,
-    ]);
-    matches.push([
-      Math.abs(nearestPoint.x - line.finishPos.b.x) +
-      Math.abs(nearestPoint.y - line.finishPos.b.y),
-      line.finishPos.b,
+      Math.abs(nearestPoint.x - event.finishPoint.x) +
+      Math.abs(nearestPoint.y - event.finishPoint.y),
+      event.finishPoint,
+      false,
     ]);
     if(mirrored) {
       matches.push([
-        Math.abs(nearestPoint.x + line.finishPos.a.x) +
-        Math.abs(nearestPoint.y - line.finishPos.a.y),
-        line.finishPos.a,
-      ]);
-      matches.push([
-        Math.abs(nearestPoint.x + line.finishPos.b.x) +
-        Math.abs(nearestPoint.y - line.finishPos.b.y),
-        line.finishPos.b,
+        Math.abs(nearestPoint.x + event.finishPoint.x) +
+        Math.abs(nearestPoint.y - event.finishPoint.y),
+        event.finishPoint,
+        true,
       ]);
     }
 
-    let closestDist = 99999999;
-    let closest;
+    let closestDist = matches[0][0];
+    let closest = 0;
+    let matchMirrored = matches[0][2];
     matches.forEach((match, index) => {
       if(match[0] < closestDist) {
         closestDist = match[0];
         closest = index;
+        matchMirrored = match[2];
       }
     });
 
@@ -439,9 +427,9 @@ export class Controller extends ControllerBase {
       pointReference.x = nearestPoint.x;
       pointReference.y = nearestPoint.y;
       pointReference.z = nearestPoint.z;
-      if(closest >= 2) {
+      if(matchMirrored) {
         // One of the mirrored points.
-        pointReference.x = -matches[closest][1].x;
+        pointReference.x = -pointReference.x;
       }
     }
   }
@@ -496,7 +484,7 @@ export class Controller extends ControllerBase {
       newLine = true;
     }
 
-    // this.snap(event);  // TODO Fix snap().
+    this.snap(event);
 
     const command: ICommand = {};
     command.events =
@@ -827,8 +815,8 @@ export class Controller extends ControllerBase {
 export class TestController extends Controller {
   public commands: ICommand[];
 
-  public snap(line: ILine): void {
-    super.snap(line);
+  public snap(event: EventUiMouseDrag): void {
+    super.snap(event);
   }
 
   protected onStartupCommands() {

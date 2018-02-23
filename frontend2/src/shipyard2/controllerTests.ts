@@ -577,10 +577,6 @@ export const controllerLineEventTests = {
     // Set a nearby mirrored line to snap() to.
     const linePosMirrorNear: ILinePos = {
       a: {x:124, y:125, z:166},
-      b: {x:-43, y:55, z:66},
-    };
-    const linePosMirrorNearPartner: ILinePos = {
-      a: {x:-124, y:125, z:166},
       b: {x:43, y:55, z:66},
     };
     model.mockNearestLine = {point: linePosMirrorNear.b, mirrored: false};
@@ -599,8 +595,8 @@ export const controllerLineEventTests = {
     TrackAsserts.assert(model.lineEvents.length === 3);
     // This time line has snapped "b" end to linePosNearby.
     TrackAsserts.assert(comparePoint(
-      linePosMirrorNearPartner.b,
-      (model.lineEvents[1] as EventUiMouseDrag).finishPoint));
+      linePosMirrorNear.b,
+      (model.lineEvents[2] as EventUiMouseDrag).finishPoint));
   },
 
   testSnapLineToMirrored: () => {

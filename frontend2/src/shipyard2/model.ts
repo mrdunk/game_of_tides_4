@@ -24,7 +24,8 @@ export abstract class ModelBase {
 
   public abstract onLineEvent(event: EventBase): void;
   public abstract onBackgroundImageEvent(event): void;
-  public nearestLine(line: ILine): {point: IPoint, mirrored: boolean} {
+  public nearestLine(point: IPoint, ignoreLines): {point: IPoint,
+                                                       mirrored: boolean} {
     return {point: null, mirrored: null};
   }
   public abstract getLine(lineId: string): ILine;
@@ -72,79 +73,49 @@ export class Model extends ModelBase {
     this.modifyBackgroundImage(event);
   }
 
-  public nearestLine(line: ILine): {point: IPoint, mirrored: boolean} {
+  public nearestLine(point: IPoint, ignoreLines): {point: IPoint,
+                                                       mirrored: boolean} {
     let nearestDist: number = 99999999;
     let nearest: IPoint;
     let mirrored = false;
     Object.getOwnPropertyNames(this.data.lines).forEach((lineName) => {
       const testLine = this.data.lines[lineName];
-      if(line.id !== lineName) {
-        if(testLine.finishPos.a.z === line.finishPos.a.z &&
-            testLine.finishPos.b.z === line.finishPos.b.z) {
-          let dist =
-            Math.abs(testLine.finishPos.a.x - line.finishPos.a.x) +
-            Math.abs(testLine.finishPos.a.y - line.finishPos.a.y);
+      if(ignoreLines.indexOf(lineName) < 0) {
+        let dist =
+          Math.abs(testLine.finishPos.a.x - point.x) +
+          Math.abs(testLine.finishPos.a.y - point.y);
+        if(dist < nearestDist && dist > 0) {
+          nearestDist = dist;
+          nearest = testLine.finishPos.a;
+          mirrored = false;
+        }
+        dist =
+          Math.abs(testLine.finishPos.b.x - point.x) +
+          Math.abs(testLine.finishPos.b.y - point.y);
+        if(dist < nearestDist && dist > 0) {
+          nearestDist = dist;
+          nearest = testLine.finishPos.b;
+          mirrored = false;
+        }
+        if(testLine.mirrored) {
+          dist =
+            Math.abs(testLine.finishPos.a.x + point.x) +
+            Math.abs(testLine.finishPos.a.y - point.y);
           if(dist < nearestDist && dist > 0) {
             nearestDist = dist;
             nearest = testLine.finishPos.a;
+            mirrored = true;
           }
           dist =
-            Math.abs(testLine.finishPos.b.x - line.finishPos.a.x) +
-            Math.abs(testLine.finishPos.b.y - line.finishPos.a.y);
+            Math.abs(testLine.finishPos.b.x + point.x) +
+            Math.abs(testLine.finishPos.b.y - point.y);
           if(dist < nearestDist && dist > 0) {
             nearestDist = dist;
             nearest = testLine.finishPos.b;
-          }
-          dist =
-            Math.abs(testLine.finishPos.a.x - line.finishPos.b.x) +
-            Math.abs(testLine.finishPos.a.y - line.finishPos.b.y);
-          if(dist < nearestDist && dist > 0) {
-            nearestDist = dist;
-            nearest = testLine.finishPos.a;
-          }
-          dist =
-            Math.abs(testLine.finishPos.b.x - line.finishPos.b.x) +
-            Math.abs(testLine.finishPos.b.y - line.finishPos.b.y);
-          if(dist < nearestDist && dist > 0) {
-            nearestDist = dist;
-            nearest = testLine.finishPos.b;
-          }
-
-          if(testLine.mirrored || line.mirrored) {
-            dist =
-              Math.abs(testLine.finishPos.a.x + line.finishPos.a.x) +
-              Math.abs(testLine.finishPos.a.y - line.finishPos.a.y);
-            if(dist < nearestDist && dist > 0) {
-              nearestDist = dist;
-              nearest = testLine.finishPos.a;
-              mirrored = true;
-            }
-            dist =
-              Math.abs(testLine.finishPos.b.x + line.finishPos.a.x) +
-              Math.abs(testLine.finishPos.b.y - line.finishPos.a.y);
-            if(dist < nearestDist && dist > 0) {
-              nearestDist = dist;
-              nearest = testLine.finishPos.b;
-              mirrored = true;
-            }
-            dist =
-              Math.abs(testLine.finishPos.a.x + line.finishPos.b.x) +
-              Math.abs(testLine.finishPos.a.y - line.finishPos.b.y);
-            if(dist < nearestDist && dist > 0) {
-              nearestDist = dist;
-              nearest = testLine.finishPos.a;
-              mirrored = true;
-            }
-            dist =
-              Math.abs(testLine.finishPos.b.x + line.finishPos.b.x) +
-              Math.abs(testLine.finishPos.b.y - line.finishPos.b.y);
-            if(dist < nearestDist && dist > 0) {
-              nearestDist = dist;
-              nearest = testLine.finishPos.b;
-              mirrored = true;
-            }
+            mirrored = true;
           }
         }
+
       }
     });
     return {point: nearest, mirrored};
@@ -382,7 +353,8 @@ export class ModelMock extends ModelBase {
     return this.mockGetLineValue;
   }
 
-  public nearestLine(line: ILine): {point: IPoint, mirrored: boolean} {
+  public nearestLine(point: IPoint, ignoreLines): {point: IPoint,
+                                                      mirrored: boolean} {
     return this.mockNearestLine;
   }
 
