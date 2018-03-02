@@ -70,7 +70,7 @@ function init() {
 
   const browserInfo = new BrowserInfo();
 
-  const menuWidget = new MenuWidget("world_tiles", UIMaster, new UIMenu());
+  const menuWidget = new MenuWidget(UIMaster, new UIMenu(), scene);
   const fpsWidget = new StatusWidget(scene);
   const cameraWidget = new CameraPositionWidget(camera);
   const cursorWidget = new CursorPositionWidget(scene);

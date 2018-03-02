@@ -393,7 +393,7 @@ export class Scene extends THREE.Scene {
   private face: IFace = {indexHigh: -1, indexLow: -1, recursion: -1};
   private activeObjects: {} = {};
   private throttleMouseclick: number = 0;
-  private lastJob: ITileTaskHash;
+  private updateTimer: number = 0;
 
   constructor(public label: string, public worker) {
     super();
@@ -434,7 +434,11 @@ export class Scene extends THREE.Scene {
       console.log("done cleanup");
     });
 
-    for(let section = 0; section < 8; section++) {
+    while(this.workQueue.length <= maxTileRecursion) {
+      this.workQueue.push({});
+    }
+
+    /*for(let section = 0; section < 8; section++) {
       const rootFace = section * Math.pow(2, 29);
       this.addGenerateTileTask({indexHigh: rootFace,
                                 indexLow: 0,
@@ -443,7 +447,7 @@ export class Scene extends THREE.Scene {
                                 neighbours: true,
                                 children: true,
                                 batch: this.batchCounter});
-    }
+    }*/
     this.initWorker();
     this.doTask();
     this.add(this.cursor);
@@ -517,6 +521,7 @@ export class Scene extends THREE.Scene {
                                  maxTileRecursion + tileDetail);
           break;
         case "cameraPosSet":
+          this.updateTimer = performance.now();
           const recursionLevel =
             heightToRecursion((input as ICustomInputEvent).size);
           console.log(recursionLevel);
@@ -531,11 +536,16 @@ export class Scene extends THREE.Scene {
             this.face.recursion = face.recursion;
 
             this.workQueue = [];  // Clear the workQueue.
+            while(this.workQueue.length <= maxTileRecursion) {
+              this.workQueue.push({});
+            }
+
             window.clearTimeout(this.workTimer);
             this.batchCounter++;
             let high;
             let low;
             for(let r = 0; r <= this.generateTileLevel; r++) {
+              //const r = this.generateTileLevel;
               [high, low] =
                 self.Module.IndexAtRecursion(face.indexHigh,
                                         face.indexLow,
@@ -543,9 +553,12 @@ export class Scene extends THREE.Scene {
               const task = {indexHigh: high,
                             indexLow: low,
                             recursion: r,
-                            parent: true,
-                            neighbours: true,
-                            children: true,
+                //parent: true,
+                //neighbours: true,
+                //children: true,
+                parent: false,
+                neighbours: true,
+                children: true,
                             batch: this.batchCounter};
               this.addGenerateTileTask(task);
             }
@@ -570,6 +583,9 @@ export class Scene extends THREE.Scene {
   }*/
 
   private createBox(face: IFace) {
+    if(!face) {
+      return;
+    }
     // const label = makeTileLabel(face);
     // const tile = this.findMesh(label);
     console.log(face);
@@ -683,9 +699,6 @@ export class Scene extends THREE.Scene {
   }
 
   private addGenerateTileTask(task: IGenerateTileTask): void {
-    if(this.workQueue[task.recursion] === undefined) {
-      this.workQueue[task.recursion] = {};
-    }
     const label = makeTileLabel(task);
     task.type = "generateTile";
     if(this.workQueue[task.recursion][label] !== undefined) {
@@ -705,16 +718,10 @@ export class Scene extends THREE.Scene {
   /* Pop a task off the queue. */
   private getGenerateTileTask(): IGenerateTileTask {
     let returnval: IGenerateTileTask;
-    let job;
-    if(this.lastJob && Object.keys(this.lastJob).length > 0) {
-      job = this.lastJob;
-    } else {
-      job = this.workQueue.find((tiles) => {
-        return Object.keys(tiles).length > 0;
+    const job = this.workQueue.find((tiles) => {
+        return tiles && Object.keys(tiles).length > 0;
       });
-    }
     if(job) {
-      this.lastJob = job;
       const key = Object.keys(job)[0];
       returnval = job[key];
       delete job[key];
@@ -740,8 +747,10 @@ export class Scene extends THREE.Scene {
       // Queue empty.
       this.cleanUpOldTiles();
 
-      Globals.startupTime = performance.now();
-      console.log(performance.now());
+      if(!Globals.startupTime) {
+        Globals.startupTime = performance.now();
+      }
+      console.log((performance.now() - this.updateTimer) / 1000);
       this.updating = false;
       return;
     }

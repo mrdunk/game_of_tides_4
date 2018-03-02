@@ -183,11 +183,12 @@ export class CameraPositionWidget extends WidgetBase {
 
 export class MenuWidget extends WidgetBase {
   public userInput: Array<KeyboardEvent | ICustomInputEvent> = [];
+  private recursion: number;
 
-  constructor(public label: string,
-              private uIMaster,
-              private uIMenu) {
-    super(label);
+  constructor(private uIMaster,
+              private uIMenu,
+              private scene: Scene) {
+    super("world_tiles");
     setInterval(this.service.bind(this), 1000);
 
     // uIMaster.registerClient(this);
@@ -328,6 +329,21 @@ export class MenuWidget extends WidgetBase {
           }
           break;
       }
+    }
+    if(this.recursion !== this.scene.generateTileLevel) {
+      this.setRecursion();
+    }
+  }
+
+  private setRecursion() {
+    this.recursion = this.scene.generateTileLevel;
+    const elements = Array.prototype.slice.call(
+      this.content.getElementsByTagName("div"),
+    ).filter((element) => element.parentElement === this.content);
+
+    for(let i = 0; i < elements.length; i++) {
+      const element = elements[i];
+      element.style.display = (i <= this.recursion)?"block":"none";
     }
   }
 

@@ -177,26 +177,28 @@ class WorldTileWorker {
     const face = this.terrainGenerator.rayCrossesFace(mouseRay.origin,
                                                       mouseRay.direction,
                                                       recursion);
-    if(face) {
-      const surfacePoint0: IPoint = {
-        point: new THREE.Vector3().fromArray(face.points[0]),
-        height: face.heights[0]};
-      const surfacePoint1: IPoint = {
-        point: new THREE.Vector3().fromArray(face.points[1]),
-        height: face.heights[1]};
-      const surfacePoint2: IPoint = {
-        point: new THREE.Vector3().fromArray(face.points[2]),
-        height: face.heights[2]};
-      const returnVal = {indexHigh: face.index_high as number,
-                         indexLow: face.index_low as number,
-                         recursion,
-                         height: face.height as number,
-                         points: [surfacePoint0, surfacePoint1, surfacePoint2],
-                        };
-      face.delete();
-
-      return returnVal;
+    if(!face) {
+      return;
     }
+
+    const surfacePoint0: IPoint = {
+      point: new THREE.Vector3().fromArray(face.points[0]),
+      height: face.heights[0]};
+    const surfacePoint1: IPoint = {
+      point: new THREE.Vector3().fromArray(face.points[1]),
+      height: face.heights[1]};
+    const surfacePoint2: IPoint = {
+      point: new THREE.Vector3().fromArray(face.points[2]),
+      height: face.heights[2]};
+    const returnVal = {indexHigh: face.index_high as number,
+                       indexLow: face.index_low as number,
+                       recursion,
+                       height: face.height as number,
+                       points: [surfacePoint0, surfacePoint1, surfacePoint2],
+                      };
+    face.delete();
+
+    return returnVal;
   }
 
   private init() {
