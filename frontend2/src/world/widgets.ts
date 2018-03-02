@@ -111,7 +111,7 @@ export class StatusWidget extends WidgetBase {
   private scene: Scene;
 
   constructor(scene) {
-    super("FPS", 100, 100);
+    super("FPS", 100, 50);
     this.scene = scene;
     setInterval(this.service.bind(this), 1000);
 

@@ -379,7 +379,7 @@ export class Scene extends THREE.Scene {
   public userInput: Array<KeyboardEvent | ICustomInputEvent> = [];
   public activeMeshes: {} = {};
   public cursorSize: number = 6;
-  public scene: boolean = false;
+  public updating: boolean = false;
   private activeTileLevels: boolean[] = [];
   private cursor: Cursor = new Cursor();
   private workQueue: ITileTaskHash[] = [];
@@ -393,6 +393,7 @@ export class Scene extends THREE.Scene {
   private face: IFace = {indexHigh: -1, indexLow: -1, recursion: -1};
   private activeObjects: {} = {};
   private throttleMouseclick: number = 0;
+  private lastJob: ITileTaskHash;
 
   constructor(public label: string, public worker) {
     super();
@@ -704,18 +705,20 @@ export class Scene extends THREE.Scene {
   /* Pop a task off the queue. */
   private getGenerateTileTask(): IGenerateTileTask {
     let returnval: IGenerateTileTask;
-
-    const job = this.workQueue[0];
+    let job;
+    if(this.lastJob && Object.keys(this.lastJob).length > 0) {
+      job = this.lastJob;
+    } else {
+      job = this.workQueue.find((tiles) => {
+        return Object.keys(tiles).length > 0;
+      });
+    }
     if(job) {
+      this.lastJob = job;
       const key = Object.keys(job)[0];
       returnval = job[key];
       delete job[key];
-
-      if(Object.keys(job).length === 0) {
-        this.workQueue.shift();
-      }
     }
-
     return returnval;
   }
 
