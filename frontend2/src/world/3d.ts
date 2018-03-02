@@ -379,6 +379,7 @@ export class Scene extends THREE.Scene {
   public userInput: Array<KeyboardEvent | ICustomInputEvent> = [];
   public activeMeshes: {} = {};
   public cursorSize: number = 6;
+  public scene: boolean = false;
   private activeTileLevels: boolean[] = [];
   private cursor: Cursor = new Cursor();
   private workQueue: ITileTaskHash[] = [];
@@ -703,26 +704,28 @@ export class Scene extends THREE.Scene {
   /* Pop a task off the queue. */
   private getGenerateTileTask(): IGenerateTileTask {
     let returnval: IGenerateTileTask;
-    const isJob = (jobList) => {
-      if(returnval === undefined) {
-        const key = Object.keys(jobList)[0];
-        if(key !== undefined) {
-          returnval = jobList[key];
-          delete jobList[key];
-        }
+
+    const job = this.workQueue[0];
+    if(job) {
+      const key = Object.keys(job)[0];
+      returnval = job[key];
+      delete job[key];
+
+      if(Object.keys(job).length === 0) {
+        this.workQueue.shift();
       }
-    };
-    this.workQueue.forEach(isJob);
+    }
+
     return returnval;
   }
 
   private doTask(): void {
-    let testStr = "";
+    /*let testStr = "";
     const testFunc = (tiles, index) => {
       testStr += ", " + index + ":" + Object.keys(tiles).length;
     };
     this.workQueue.forEach(testFunc);
-    console.log("doTask()", testStr);
+    console.log("doTask()", testStr);*/
 
     window.clearTimeout(this.workTimer);
 
@@ -736,9 +739,11 @@ export class Scene extends THREE.Scene {
 
       Globals.startupTime = performance.now();
       console.log(performance.now());
+      this.updating = false;
       return;
     }
     this.lockWorkQueue = true;
+    this.updating = true;
 
     const tileLabel = makeTileLabel(job);
     const tile = this.findMesh(tileLabel);
@@ -780,8 +785,8 @@ export class Scene extends THREE.Scene {
     let indexHigh;
     let indexLow;
     [indexHigh, indexLow] = self.Module.IndexAtRecursion(job.indexHigh,
-                                                    job.indexLow,
-                                                    job.recursion -1);
+                                                         job.indexLow,
+                                                         job.recursion -1);
     const task: IGenerateTileTask = {indexHigh,
                                      indexLow,
                                      recursion: job.recursion -1,

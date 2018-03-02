@@ -9,7 +9,6 @@ import {
   BrowserInfoWidget,
   CameraPositionWidget,
   CursorPositionWidget,
-  LoginWidget,
   MenuWidget,
   StatusWidget,
 } from "./widgets";
@@ -72,11 +71,10 @@ function init() {
   const browserInfo = new BrowserInfo();
 
   const menuWidget = new MenuWidget("world_tiles", UIMaster, new UIMenu());
-  const fpsWidget = new StatusWidget();
+  const fpsWidget = new StatusWidget(scene);
   const cameraWidget = new CameraPositionWidget(camera);
   const cursorWidget = new CursorPositionWidget(scene);
   const browserInfoWidget = new BrowserInfoWidget(browserInfo);
-  const loginWidget = new LoginWidget(browserInfo);
   const widgetContainer = document.createElement("div");
   widgetContainer.className = "widget-container";
   widgetContainer.appendChild(menuWidget.element);
@@ -84,7 +82,6 @@ function init() {
   widgetContainer.appendChild(cameraWidget.element);
   widgetContainer.appendChild(cursorWidget.element);
   widgetContainer.appendChild(browserInfoWidget.element);
-  widgetContainer.appendChild(loginWidget.element);
   renderer.element.appendChild(widgetContainer);
 }
 

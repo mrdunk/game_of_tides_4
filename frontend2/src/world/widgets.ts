@@ -108,9 +108,11 @@ class WidgetBase {
 
 export class StatusWidget extends WidgetBase {
   private message: HTMLElement;
+  private scene: Scene;
 
-  constructor() {
-    super("FPS", 100, 50);
+  constructor(scene) {
+    super("FPS", 100, 100);
+    this.scene = scene;
     setInterval(this.service.bind(this), 1000);
 
     this.message = document.createElement("div");
@@ -123,7 +125,10 @@ export class StatusWidget extends WidgetBase {
   }
 
   public service() {
-    this.message.innerHTML = "FPS: " + Math.round(MainLoop.FPS);
+    this.message.innerHTML = "FPS: " + Math.round(MainLoop.FPS) + "<br/>";
+    if(this.scene.updating) {
+      this.message.innerHTML += "updating world";
+    }
 
     const bar = document.createElement("div");
     bar.classList.add("bar");
@@ -444,41 +449,6 @@ export class BrowserInfoWidget extends WidgetBase {
       this.content.style.height = "0";
       this.content.style.width = "0";
     }
-  }
-}
-
-export class LoginWidget extends WidgetBase {
-  // https://docs.mongodb.com/stitch/getting-started/todo-web/
-  constructor(private browserInfo: BrowserInfo) {
-    super("BrowserInfo");
-    const buttonGoogle = document.createElement("button");
-    this.content.appendChild(buttonGoogle);
-    buttonGoogle.innerHTML = "google";
-    buttonGoogle.addEventListener("click", this.loginGoogle.bind(this));
-
-    const buttonDeleteAll = document.createElement("button");
-    this.content.appendChild(buttonDeleteAll);
-    buttonDeleteAll.innerHTML = "deleteAll";
-    buttonDeleteAll.addEventListener("click",
-                                     (e) => {console.log("deleteAll");});
-    buttonDeleteAll.addEventListener("click", this.deleteAll.bind(this));
-  }
-
-  private loginGoogle() {
-    console.log("loginGoogle()");
-    console.log(this.browserInfo.db, this.browserInfo.client);
-    if(this.browserInfo.db === undefined) {
-      this.browserInfo.mongoLogin();
-    }
-    this.browserInfo.client.authWithOAuth("google");
-  }
-
-  private deleteAll() {
-    if(this.browserInfo.db === undefined) {
-      this.browserInfo.mongoLogin();
-    }
-    this.browserInfo.db.collection("sessions").deleteMany({})
-      .then(() => {console.log("done");});
   }
 }
 
