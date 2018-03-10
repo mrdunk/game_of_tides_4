@@ -1,0 +1,16 @@
+.test-pending {
+  background-color: orange;
+}
+
+.test-fail {
+  background-color: red;
+}
+
+.test-pass {
+  background-color: lightgreen;
+}
+
+.test-header {
+  background-color: lightgrey;
+  font-size: large;
+}

@@ -191,8 +191,6 @@ export class MenuWidget extends WidgetBase {
     super("world_tiles");
     setInterval(this.service.bind(this), 1000);
 
-    // uIMaster.registerClient(this);
-
     const content = {
       worldLevel0: {
         label: "0",
@@ -269,11 +267,25 @@ export class MenuWidget extends WidgetBase {
         type: "checkbox",
         key: "14",
       },
+      overideRecursion: {
+        label: "Overide recursion",
+        type: "number",
+        key: "overideRecursion",
+      },
+      detailLevel: {
+        label: "Detail",
+        type: "number",
+        key: "overideDetail",
+      },
     };
 
     for(const id in content) {
       if(content.hasOwnProperty(id)) {
         const newElement = document.createElement("div");
+        newElement.classList.add(content[id].key);
+        if(Number.parseInt(content[id].key, 10)) {
+          newElement.classList.add("showRecursionLevel");
+        }
 
         const newLabel = document.createElement("div");
         newLabel.innerHTML = content[id].label;
@@ -301,6 +313,11 @@ export class MenuWidget extends WidgetBase {
         newInput.onclick = this.onClick.bind(this);
       }
     }
+
+    const detailElement =
+      this.content.getElementsByClassName("overideDetail")[0];
+    detailElement.getElementsByTagName("input")[0].value =
+      "" + this.scene.tileDetail;
   }
 
   private service() {
@@ -343,7 +360,11 @@ export class MenuWidget extends WidgetBase {
 
     for(let i = 0; i < elements.length; i++) {
       const element = elements[i];
-      element.style.display = (i <= this.recursion)?"block":"none";
+      if(element.classList.contains("showRecursionLevel")) {
+        element.style.display = (i <= this.recursion)?"block":"none";
+      } else if(element.classList.contains("overideRecursion")) {
+        element.getElementsByTagName("input")[0].value = this.recursion;
+      }
     }
   }
 

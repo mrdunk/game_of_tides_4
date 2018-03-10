@@ -380,6 +380,7 @@ export class Scene extends THREE.Scene {
   public activeMeshes: {} = {};
   public cursorSize: number = 6;
   public updating: boolean = false;
+  public tileDetail: number = tileDetail;
   private activeTileLevels: boolean[] = [];
   private cursor: Cursor = new Cursor();
   private workQueue: ITileTaskHash[] = [];
@@ -394,6 +395,8 @@ export class Scene extends THREE.Scene {
   private activeObjects: {} = {};
   private throttleMouseclick: number = 0;
   private updateTimer: number = 0;
+  private overideFace: IFace;
+  private lastFaceOver: IFace = {indexHigh: -1, indexLow: -1, recursion: -1};
 
   constructor(public label: string, public worker) {
     super();
@@ -425,12 +428,7 @@ export class Scene extends THREE.Scene {
     window.addEventListener("beforeunload", (event) => {
       // Try to cleanup memory allocation before page reload.
       console.log("Reloading page");
-      for(const mesh in this.activeMeshes) {
-        if(this.activeMeshes.hasOwnProperty(mesh) && this.activeMeshes[mesh]) {
-          this.activeMeshes[mesh].dispose();
-          delete this.activeMeshes[mesh];
-        }
-      }
+      this.destroyMeshCache();
       console.log("done cleanup");
     });
 
@@ -438,16 +436,6 @@ export class Scene extends THREE.Scene {
       this.workQueue.push({});
     }
 
-    /*for(let section = 0; section < 8; section++) {
-      const rootFace = section * Math.pow(2, 29);
-      this.addGenerateTileTask({indexHigh: rootFace,
-                                indexLow: 0,
-                                recursion: 0,
-                                parent: true,
-                                neighbours: true,
-                                children: true,
-                                batch: this.batchCounter});
-    }*/
     this.initWorker();
     this.doTask();
     this.add(this.cursor);
@@ -484,7 +472,6 @@ export class Scene extends THREE.Scene {
       // console.log(input.key || input.type);
       switch(input.key || input.type) {
         case "mousedown":
-          console.log("mouseclick", input);
           if(this.faceUnderMouse &&
               Date.now() - this.throttleMouseclick > 200) {
             this.throttleMouseclick = Date.now();
@@ -518,15 +505,32 @@ export class Scene extends THREE.Scene {
         case "mouseray":
           this.getFaceUnderMouse(input as ICustomInputEvent,
                                  this.cursorSize,
-                                 maxTileRecursion + tileDetail);
+                                 maxTileRecursion + this.tileDetail);
           break;
+        case "overideDetail":
+          this.tileDetail =
+            Number.parseInt((input as ICustomInputEvent).value as string, 10);
+          this.destroyMeshCache();
+          break;
+        case "overideRecursion":
+          console.log(input);
+          this.overideFace = {
+            indexHigh: this.lastFaceOver.indexHigh,
+            indexLow: this.lastFaceOver.indexLow,
+            recursion: Number.parseInt(
+              (input as ICustomInputEvent).value as string, 10),
+          };
+          // Do not break. Perform cameraPosSet.
         case "cameraPosSet":
+          // TODO Refactor the content of this block into separate method.
           this.updateTimer = performance.now();
           const recursionLevel =
+            this.overideFace ?
+            this.overideFace.recursion :
             heightToRecursion((input as ICustomInputEvent).size);
-          console.log(recursionLevel);
           this.cursorSize = this.generateTileLevel = recursionLevel;
-          const face = (input as ICustomInputEvent).face;
+          const face = this.overideFace || (input as ICustomInputEvent).face;
+          this.lastFaceOver = face;
           if(face !== undefined &&
              (face.indexHigh !== this.face.indexHigh ||
                face.indexLow !== this.face.indexLow ||
@@ -545,7 +549,6 @@ export class Scene extends THREE.Scene {
             let high;
             let low;
             for(let r = 0; r <= this.generateTileLevel; r++) {
-              //const r = this.generateTileLevel;
               [high, low] =
                 self.Module.IndexAtRecursion(face.indexHigh,
                                         face.indexLow,
@@ -553,17 +556,15 @@ export class Scene extends THREE.Scene {
               const task = {indexHigh: high,
                             indexLow: low,
                             recursion: r,
-                //parent: true,
-                //neighbours: true,
-                //children: true,
-                parent: false,
-                neighbours: true,
-                children: true,
+                            parent: false,
+                            neighbours: true,
+                            children: true,
                             batch: this.batchCounter};
               this.addGenerateTileTask(task);
             }
             this.doTask();
           }
+          this.overideFace = undefined;
           break;
       }
     }
@@ -584,6 +585,7 @@ export class Scene extends THREE.Scene {
 
   private createBox(face: IFace) {
     if(!face) {
+      console.log("No box");
       return;
     }
     // const label = makeTileLabel(face);
@@ -597,14 +599,13 @@ export class Scene extends THREE.Scene {
     center.add(a);
     center.add(b);
     center.add(c);
+    center.divideScalar(3);
+
     const height = Math.max(sealevel,
                             (face.points[0].height +
                              face.points[1].height +
                              face.points[2].height) / 3);
-
-    center.divideScalar(3);
     center.multiplyScalar(1 + (height * heightMultiplier));
-    console.log(a, center);
 
     const box = new Box("test_box");
     box.position.set(center.x, center.y, center.z);
@@ -718,8 +719,10 @@ export class Scene extends THREE.Scene {
   /* Pop a task off the queue. */
   private getGenerateTileTask(): IGenerateTileTask {
     let returnval: IGenerateTileTask;
-    const job = this.workQueue.find((tiles) => {
-        return tiles && Object.keys(tiles).length > 0;
+    const job = this.workQueue.find((tiles, index) => {
+      return tiles &&
+             index + 6 > this.generateTileLevel &&
+             Object.keys(tiles).length > 0;
       });
     if(job) {
       const key = Object.keys(job)[0];
@@ -870,7 +873,7 @@ export class Scene extends THREE.Scene {
   }
 
   private generateTile(parentTile: WorldTile, job: ITile): void {
-    const depth = job.recursion + tileDetail;
+    const depth = job.recursion + this.tileDetail;
     const label = makeTileLabel(job);
     let mesh = this.findMesh(label);
     if(mesh) {
@@ -977,6 +980,19 @@ export class Scene extends THREE.Scene {
       if(this.activeMeshes.hasOwnProperty(meshLabel)) {
         const mesh = this.activeMeshes[meshLabel];
         mesh.setMaterial(this.materialIndex, mesh.recursion);
+      }
+    }
+  }
+
+  private destroyMeshCache() {
+    console.log("destroyMeshCache");
+    for(const mesh in this.activeMeshes) {
+      if(this.activeMeshes.hasOwnProperty(mesh) && this.activeMeshes[mesh]) {
+        this.remove(this.activeMeshes[mesh]);
+        this.activeMeshes[mesh].geometry.dispose();
+        this.activeMeshes[mesh].material.dispose();
+        this.activeMeshes[mesh].dispose();
+        delete this.activeMeshes[mesh];
       }
     }
   }
@@ -1168,19 +1184,17 @@ abstract class Mesh extends THREE.Mesh {
 }
 
 class Box extends Mesh {
-  private static randomSize: number = 0;
+  private static size: number = 0;
 
   constructor(label: string) {
     super(label);
-    const size = Math.pow(10, Box.randomSize) / 1000;
-    Box.randomSize++;
-    if(Box.randomSize > 3) {
-      Box.randomSize = 0;
-    }
+    const size = Math.pow(10, Box.size % 3) / 1000;
+    Box.size++;
 
     this.geometry = new THREE.BoxGeometry(size, size, size);
-    const m = new THREE.MeshLambertMaterial( { color: 0xAAAAAA } );
+    const m = new THREE.MeshLambertMaterial( { color: 0xFF8888 } );
     this.material = m;
+    console.log("Box size: " + (size * 1000) + "m");
   }
 
   public service() {

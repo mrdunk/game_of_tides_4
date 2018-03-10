@@ -625,6 +625,35 @@ export class Controller extends ControllerBase {
     this.setButtonStates();
   }
 
+  // Walk back through previous commands to find last command with a matching
+  // lineId.
+  // Used for undo-ing delete events but could be used for undoing anything.
+  private getLastCommandEvent(lineId: string): EventBase {
+    let commandIndex = this.commandPointer -1;
+    let returnEvent;
+    while(commandIndex > 0) {
+      const command = this.commands[commandIndex--];
+      if(command.events) {
+        command.events.forEach((event) => {
+          if(!returnEvent &&
+              event && (event as EventUiMouseDrag).lineId === lineId) {
+            switch(event.constructor.name) {
+              case "EventLineNew":
+                returnEvent = new EventLineNew(event as EventLineNew);
+                break;
+              case "EventLineModify":
+                returnEvent = new EventLineModify(event as EventLineModify);
+                break;
+              default:
+                console.assert(false);
+            }
+          }
+        });
+      }
+    }
+    return returnEvent;
+  }
+
   private undoCommand(commandIndex?: number) {
     this.commandPointer--;
 
@@ -654,9 +683,6 @@ export class Controller extends ControllerBase {
               lineEnd: lineEvent.lineEnd,
               startPoint: JSON.parse(JSON.stringify(lineEvent.finishPoint)),
               finishPoint: JSON.parse(JSON.stringify(lineEvent.startPoint)),
-              // toggleMirrored: event.toggleMirrored,
-              // TODO Make test for interaction between undo and mirrored.
-              // mirrored: event.mirrored,
             });
             this.model.onLineEvent(reverseLineEvent);
             break;
@@ -667,6 +693,14 @@ export class Controller extends ControllerBase {
               lineId: lineEvent.lineId,
             });
             this.model.onLineEvent(reverseLineEvent);
+            break;
+          case "EventLineDelete":
+            reverseLineEvent =
+              this.getLastCommandEvent((event as EventUiMouseDrag).lineId);
+            this.model.onLineEvent(reverseLineEvent);
+            break;
+          case "EventLineMirror":
+            this.model.onLineEvent(event);
             break;
           default:
             console.error("Undoing unknown Event:", event);
@@ -721,7 +755,7 @@ export class Controller extends ControllerBase {
       if(selectedLines.hasOwnProperty(lineId)) {
         const line = this.model.getLine(lineId);
         const event = new EventLineDelete({
-          widgetType: "TODO",
+          widgetType: "menu",
           lineId,
         });
         command.events.push(event);
@@ -743,7 +777,7 @@ export class Controller extends ControllerBase {
       if(selectedLines.hasOwnProperty(lineId)) {
         const line = this.model.getLine(lineId);
         const event = new EventLineMirror({
-          widgetType: "TODO",
+          widgetType: "menu",
           lineId,
         });
         command.events.push(event);
