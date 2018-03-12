@@ -47,6 +47,9 @@ export class DropDown {
   public element: HTMLElement;
   private BoundOnMouseMove;
   private BoundOnMouseUp;
+  private handle: Element;
+  private lastX: number;
+  private lastY: number;
 
   constructor(parent: HTMLElement) {
     this.element = parent;

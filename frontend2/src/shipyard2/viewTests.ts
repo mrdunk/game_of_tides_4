@@ -3,9 +3,16 @@
 import * as Konva from "konva";
 import {LoggerMock, TrackAsserts} from "./commonFunctionstTests";
 import {comparePoint, MockController} from "./controller";
+import {
+  EventBase,
+  EventUiInputElement,
+  EventUiMouseDrag,
+  EventUiMouseMove,
+  EventUiSelectRib,
+  LineEnd } from "./events";
 import {Line, MockViewCrossSection, ViewCanvas} from "./view";
 
-export const viewOnMouseDown = {
+export const viewMouseEventTests = {
   testNoClickNoLineUnderMouse: () => {
     const canvas = document.createElement("canvas");
     canvas.id = "canvas";
@@ -19,10 +26,9 @@ export const viewOnMouseDown = {
 
     // Confirm sane start conditions.
     TrackAsserts.assert(view.mouseDown === false);
-    TrackAsserts.assert(view.mouseHighlight === "");
-    TrackAsserts.assert(!view.mouseDragging);
-    TrackAsserts.assert(!view.mouseDraggingStartPos);
-    TrackAsserts.assert(!view.mouseDrawingStartPos);
+    TrackAsserts.assert(!view.mouseDragStartPos);
+    TrackAsserts.assert(!view.mouseDragStartLineId);
+    TrackAsserts.assert(!view.mouseDragStartEndId);
 
     // Simulate mouse event.
     const mouseEvent = new MouseEvent("mousemove", {
@@ -42,13 +48,18 @@ export const viewOnMouseDown = {
 
     // No clicks and no interesting mouseOver === No change
     TrackAsserts.assert(view.mouseDown === false);
-    TrackAsserts.assert(view.mouseHighlight === "");
-    TrackAsserts.assert(!view.mouseDragging);
-    TrackAsserts.assert(!view.mouseDraggingStartPos);
-    TrackAsserts.assert(!view.mouseDrawingStartPos);
+    TrackAsserts.assert(!view.mouseDragStartPos);
+    TrackAsserts.assert(!view.mouseDragStartLineId);
+    TrackAsserts.assert(!view.mouseDragStartEndId);
+
+    TrackAsserts.assert(controller.commands.length === 1);
+    TrackAsserts.assert(controller.commands[0] instanceof EventUiMouseMove);
+    TrackAsserts.assert(Boolean(controller.commands[0].startPoint));
+    TrackAsserts.assert(controller.commands[0].lineId === undefined);
+    TrackAsserts.assert(controller.commands[0].lineEnd === undefined);
   },
 
-  testDrawLine: () => {
+  testMouseDrag: () => {
     const canvas = document.createElement("canvas");
     canvas.id = "canvas";
     document.body.appendChild(canvas);
@@ -62,10 +73,9 @@ export const viewOnMouseDown = {
 
     // Confirm sane start conditions.
     TrackAsserts.assert(view.mouseDown === false);
-    TrackAsserts.assert(view.mouseHighlight === "");
-    TrackAsserts.assert(!view.mouseDragging);
-    TrackAsserts.assert(!view.mouseDraggingStartPos);
-    TrackAsserts.assert(!view.mouseDrawingStartPos);
+    TrackAsserts.assert(!view.mouseDragStartPos);
+    TrackAsserts.assert(!view.mouseDragStartLineId);
+    TrackAsserts.assert(!view.mouseDragStartEndId);
 
     // Simulate mouse-down event.
     const mouseEvent = new MouseEvent("mousemove", {
@@ -79,26 +89,26 @@ export const viewOnMouseDown = {
       evt: mouseEvent,
       target,
     };
+    const startPos = {
+      x: -offsetX - (target.width() / 2),
+      y: offsetY + (target.height() / 2),
+      z: 0};
 
     view.onMouseMove(event);
 
-    // Mouse down and no interesting mouseOver implies line-draw.
+    // Mouse down and no interesting mouseOver.
     TrackAsserts.assert(view.mouseDown === true);
-    TrackAsserts.assert(view.mouseHighlight === "");
-    TrackAsserts.assert(!view.mouseDragging);
-    TrackAsserts.assert(!view.mouseDraggingStartPos);
-    TrackAsserts.assert(Boolean(view.mouseDrawingStartPos));
-    TrackAsserts.assert(
-      view.mouseDrawingStartPos.x === -offsetX - (target.width() / 2));
-    TrackAsserts.assert(
-      view.mouseDrawingStartPos.y === offsetY + (target.height() / 2));
+    TrackAsserts.assert(Boolean(view.mouseDragStartPos));
+    TrackAsserts.assert(!view.mouseDragStartLineId);
+    TrackAsserts.assert(!view.mouseDragStartEndId);
     TrackAsserts.assert(controller.commands.length === 1);
-    // Unset startPos implies this is a new line rather than dragging existing.
-    TrackAsserts.assert(!controller.commands[0].startPos);
-    TrackAsserts.assert(comparePoint(controller.commands[0].finishPos.a,
-                                view.mouseDrawingStartPos));
-    TrackAsserts.assert(comparePoint(controller.commands[0].finishPos.a,
-                                controller.commands[0].finishPos.b));
+    TrackAsserts.assert(controller.commands[0] instanceof EventUiMouseDrag);
+    TrackAsserts.assert(comparePoint(controller.commands[0].startPoint,
+                                     startPos));
+    TrackAsserts.assert(comparePoint(controller.commands[0].finishPoint,
+                                     startPos));
+    TrackAsserts.assert(controller.commands[0].lineId === undefined);
+    TrackAsserts.assert(controller.commands[0].lineEnd === undefined);
 
     // Move mouse to centre of view (0,0,0).
     view.mockScreenMousePosX = offsetX + (target.width() / 2);
@@ -106,24 +116,24 @@ export const viewOnMouseDown = {
 
     view.onMouseMove(event);
 
-    // Mouse still down and no interesting mouseOver: line-draw happening.
+    // Mouse still down and no interesting mouseOver: mouse-drag happening.
     TrackAsserts.assert(view.mouseDown === true);
-    TrackAsserts.assert(view.mouseHighlight === "");
-    TrackAsserts.assert(!view.mouseDragging);
-    TrackAsserts.assert(!view.mouseDraggingStartPos);
-    TrackAsserts.assert(Boolean(view.mouseDrawingStartPos));
-    TrackAsserts.assert(
-      view.mouseDrawingStartPos.x === -offsetX - (target.width() / 2));
-    TrackAsserts.assert(
-      view.mouseDrawingStartPos.y === offsetY + (target.height() / 2));
+    TrackAsserts.assert(Boolean(view.mouseDragStartPos));
+    TrackAsserts.assert(!view.mouseDragStartLineId);
+    TrackAsserts.assert(!view.mouseDragStartEndId);
     TrackAsserts.assert(controller.commands.length === 2);
-    // Unset startPos implies this is a new line rather than dragging existing.
-    TrackAsserts.assert(!controller.commands[1].startPos);
-    // Line between view.mouseDrawingStartPos and centre of view (0,0,0).
-    TrackAsserts.assert(comparePoint(controller.commands[1].finishPos.a,
-                                view.mouseDrawingStartPos));
-    TrackAsserts.assert(comparePoint({x: 0, y:0, z: 0},
-                                controller.commands[1].finishPos.b));
+    TrackAsserts.assert(controller.commands[1] instanceof EventUiMouseDrag);
+
+    // Line between startPos and centre of view (0,0,0).
+    TrackAsserts.assert(comparePoint(controller.commands[1].startPoint,
+                                     startPos));
+    TrackAsserts.assert(comparePoint(controller.commands[1].finishPoint,
+                                     {x: 0, y:0, z: 0}));
+
+    TrackAsserts.assert(
+      controller.commands[0].sequence === controller.commands[1].sequence);
+    TrackAsserts.assert(controller.commands[0].lineId === undefined);
+    TrackAsserts.assert(controller.commands[0].lineEnd === undefined);
   },
 
   testDragExistingLine: () => {
@@ -139,10 +149,9 @@ export const viewOnMouseDown = {
 
     // Confirm sane start conditions.
     TrackAsserts.assert(view.mouseDown === false);
-    TrackAsserts.assert(view.mouseHighlight === "");
-    TrackAsserts.assert(!view.mouseDragging);
-    TrackAsserts.assert(!view.mouseDraggingStartPos);
-    TrackAsserts.assert(!view.mouseDrawingStartPos);
+    TrackAsserts.assert(!view.mouseDragStartPos);
+    TrackAsserts.assert(!view.mouseDragStartLineId);
+    TrackAsserts.assert(!view.mouseDragStartEndId);
 
     // Simulate mouse event.
     const mouseEvent = new MouseEvent("mousemove", {
@@ -163,7 +172,7 @@ export const viewOnMouseDown = {
     const mockLineEndB = {x:4, y:5, z:6};
 
     view.controller.getLineReturnValue = {
-      id: "test_line_pos",
+      id: "testLine",
       finishPos: {a: mockLineEndA, b: mockLineEndB},
     };
 
@@ -173,16 +182,19 @@ export const viewOnMouseDown = {
 
     // Line end has been dragged to mouse position.
     TrackAsserts.assert(view.mouseDown === true);
-    TrackAsserts.assert(view.mouseHighlight === "");
-    TrackAsserts.assert(Boolean(view.mouseDragging));
-    TrackAsserts.assert(comparePoint(view.mouseDraggingStartPos.a,
-                                     mockLineEndA));
-    TrackAsserts.assert(comparePoint(view.mouseDraggingStartPos.b,
-                                     mockLineEndB));
-    TrackAsserts.assert(!view.mouseDrawingStartPos);
+    TrackAsserts.assert(Boolean(view.mouseDragStartPos));
+    TrackAsserts.assert(view.mouseDragStartLineId === "testLine");
+    TrackAsserts.assert(view.mouseDragStartEndId === LineEnd.A1);
+
+    TrackAsserts.assert(controller.commands.length === 1);
+    TrackAsserts.assert(controller.commands[0] instanceof EventUiMouseDrag);
+    TrackAsserts.assert(controller.commands[0].lineId === "testLine");
+    TrackAsserts.assert(controller.commands[0].lineEnd === LineEnd.A1);
+    TrackAsserts.assert(Boolean(controller.commands[0].startPoint));
+    TrackAsserts.assert(Boolean(controller.commands[0].finishPoint));
   },
 
-  testLineHighlight: () => {
+  testMouseMove: () => {
     const canvas = document.createElement("canvas");
     canvas.id = "canvas";
     document.body.appendChild(canvas);
@@ -195,10 +207,9 @@ export const viewOnMouseDown = {
 
     // Confirm sane start conditions.
     TrackAsserts.assert(view.mouseDown === false);
-    TrackAsserts.assert(view.mouseHighlight === "");
-    TrackAsserts.assert(!view.mouseDragging);
-    TrackAsserts.assert(!view.mouseDraggingStartPos);
-    TrackAsserts.assert(!view.mouseDrawingStartPos);
+    TrackAsserts.assert(!view.mouseDragStartPos);
+    TrackAsserts.assert(!view.mouseDragStartLineId);
+    TrackAsserts.assert(!view.mouseDragStartEndId);
 
     // Simulate mouse event.
     const mouseEvent = new MouseEvent("mousemove", {
@@ -219,24 +230,29 @@ export const viewOnMouseDown = {
 
     // No clicks and mouseOver line === highlight line.
     TrackAsserts.assert(view.mouseDown === false);
-    TrackAsserts.assert(view.mouseHighlight === line.id());
-    TrackAsserts.assert(!view.mouseDragging);
-    TrackAsserts.assert(!view.mouseDraggingStartPos);
-    TrackAsserts.assert(!view.mouseDrawingStartPos);
+    TrackAsserts.assert(!view.mouseDragStartPos);
+    TrackAsserts.assert(!view.mouseDragStartLineId);
+    TrackAsserts.assert(!view.mouseDragStartEndId);
+
     TrackAsserts.assert(controller.commands.length === 1);
-    TrackAsserts.assert(controller.commands[0].highlight);
+    TrackAsserts.assert(controller.commands[0] instanceof EventUiMouseMove);
+    TrackAsserts.assert(Boolean(controller.commands[0].startPoint));
+    TrackAsserts.assert(controller.commands[0].lineId === "testLine");
+    TrackAsserts.assert(controller.commands[0].lineEnd === LineEnd.A1);
 
     event.target = view.background;
     view.onMouseMove(event);
 
     // No clicks and not mouseOver line === not highlight line.
     TrackAsserts.assert(view.mouseDown === false);
-    TrackAsserts.assert(view.mouseHighlight === "");
-    TrackAsserts.assert(!view.mouseDragging);
-    TrackAsserts.assert(!view.mouseDraggingStartPos);
-    TrackAsserts.assert(!view.mouseDrawingStartPos);
+    // TrackAsserts.assert(!view.mouseDragObj);
+    // TrackAsserts.assert(!view.mouseDragObjStartPos);
+    // TrackAsserts.assert(!view.mouseDrawingStartPos);
     TrackAsserts.assert(controller.commands.length === 2);
-    TrackAsserts.assert(!controller.commands[1].highlight);
+    TrackAsserts.assert(controller.commands[1] instanceof EventUiMouseMove);
+    TrackAsserts.assert(Boolean(controller.commands[1].startPoint));
+    TrackAsserts.assert(controller.commands[1].lineId === undefined);
+    TrackAsserts.assert(controller.commands[1].endId === undefined);
   },
 };
 

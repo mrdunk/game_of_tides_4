@@ -108,9 +108,11 @@ class WidgetBase {
 
 export class StatusWidget extends WidgetBase {
   private message: HTMLElement;
+  private scene: Scene;
 
-  constructor() {
+  constructor(scene) {
     super("FPS", 100, 50);
+    this.scene = scene;
     setInterval(this.service.bind(this), 1000);
 
     this.message = document.createElement("div");
@@ -123,7 +125,10 @@ export class StatusWidget extends WidgetBase {
   }
 
   public service() {
-    this.message.innerHTML = "FPS: " + Math.round(MainLoop.FPS);
+    this.message.innerHTML = "FPS: " + Math.round(MainLoop.FPS) + "<br/>";
+    if(this.scene.updating) {
+      this.message.innerHTML += "updating world";
+    }
 
     const bar = document.createElement("div");
     bar.classList.add("bar");
@@ -178,14 +183,13 @@ export class CameraPositionWidget extends WidgetBase {
 
 export class MenuWidget extends WidgetBase {
   public userInput: Array<KeyboardEvent | ICustomInputEvent> = [];
+  private recursion: number;
 
-  constructor(public label: string,
-              private uIMaster,
-              private uIMenu) {
-    super(label);
+  constructor(private uIMaster,
+              private uIMenu,
+              private scene: Scene) {
+    super("world_tiles");
     setInterval(this.service.bind(this), 1000);
-
-    // uIMaster.registerClient(this);
 
     const content = {
       worldLevel0: {
@@ -263,11 +267,25 @@ export class MenuWidget extends WidgetBase {
         type: "checkbox",
         key: "14",
       },
+      overideRecursion: {
+        label: "Overide recursion",
+        type: "number",
+        key: "overideRecursion",
+      },
+      detailLevel: {
+        label: "Detail",
+        type: "number",
+        key: "overideDetail",
+      },
     };
 
     for(const id in content) {
       if(content.hasOwnProperty(id)) {
         const newElement = document.createElement("div");
+        newElement.classList.add(content[id].key);
+        if(Number.parseInt(content[id].key, 10)) {
+          newElement.classList.add("showRecursionLevel");
+        }
 
         const newLabel = document.createElement("div");
         newLabel.innerHTML = content[id].label;
@@ -295,6 +313,11 @@ export class MenuWidget extends WidgetBase {
         newInput.onclick = this.onClick.bind(this);
       }
     }
+
+    const detailElement =
+      this.content.getElementsByClassName("overideDetail")[0];
+    detailElement.getElementsByTagName("input")[0].value =
+      "" + this.scene.tileDetail;
   }
 
   private service() {
@@ -322,6 +345,25 @@ export class MenuWidget extends WidgetBase {
             this.onKeyPress(input as KeyboardEvent);
           }
           break;
+      }
+    }
+    if(this.recursion !== this.scene.generateTileLevel) {
+      this.setRecursion();
+    }
+  }
+
+  private setRecursion() {
+    this.recursion = this.scene.generateTileLevel;
+    const elements = Array.prototype.slice.call(
+      this.content.getElementsByTagName("div"),
+    ).filter((element) => element.parentElement === this.content);
+
+    for(let i = 0; i < elements.length; i++) {
+      const element = elements[i];
+      if(element.classList.contains("showRecursionLevel")) {
+        element.style.display = (i <= this.recursion)?"block":"none";
+      } else if(element.classList.contains("overideRecursion")) {
+        element.getElementsByTagName("input")[0].value = this.recursion;
       }
     }
   }
@@ -444,41 +486,6 @@ export class BrowserInfoWidget extends WidgetBase {
       this.content.style.height = "0";
       this.content.style.width = "0";
     }
-  }
-}
-
-export class LoginWidget extends WidgetBase {
-  // https://docs.mongodb.com/stitch/getting-started/todo-web/
-  constructor(private browserInfo: BrowserInfo) {
-    super("BrowserInfo");
-    const buttonGoogle = document.createElement("button");
-    this.content.appendChild(buttonGoogle);
-    buttonGoogle.innerHTML = "google";
-    buttonGoogle.addEventListener("click", this.loginGoogle.bind(this));
-
-    const buttonDeleteAll = document.createElement("button");
-    this.content.appendChild(buttonDeleteAll);
-    buttonDeleteAll.innerHTML = "deleteAll";
-    buttonDeleteAll.addEventListener("click",
-                                     (e) => {console.log("deleteAll");});
-    buttonDeleteAll.addEventListener("click", this.deleteAll.bind(this));
-  }
-
-  private loginGoogle() {
-    console.log("loginGoogle()");
-    console.log(this.browserInfo.db, this.browserInfo.client);
-    if(this.browserInfo.db === undefined) {
-      this.browserInfo.mongoLogin();
-    }
-    this.browserInfo.client.authWithOAuth("google");
-  }
-
-  private deleteAll() {
-    if(this.browserInfo.db === undefined) {
-      this.browserInfo.mongoLogin();
-    }
-    this.browserInfo.db.collection("sessions").deleteMany({})
-      .then(() => {console.log("done");});
   }
 }
 
