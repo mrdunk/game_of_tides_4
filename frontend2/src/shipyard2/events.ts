@@ -3,6 +3,7 @@
 import { IPoint } from "./controller";
 
 export enum LineEnd {
+  null,  // Allow us to test for undefined value. "if(lineEnd){...}"
   A1,
   B1,
   A2,

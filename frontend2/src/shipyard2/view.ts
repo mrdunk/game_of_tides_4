@@ -123,6 +123,7 @@ export class ViewCanvas {
 
 export abstract class ViewSection extends ViewBase {
   public fixedAxis: string;
+  public fixedDragAxis: string;
   public offsetX: number;
   public offsetY: number;
   public width: number;
@@ -315,19 +316,21 @@ export abstract class ViewSection extends ViewBase {
 
     const [lineId, lineEnd] = this.getLineOver(event);
 
-    const hintLine = this.controller.getLine(lineId);
-    let hintPoint: IPoint;
-    if(hintLine) {
-      const end = LineEnd[lineEnd];
-      if(end) {
-        hintPoint = hintLine.finishPos[end.toLowerCase()[0]];
-        if(this.fixedAxis) {
-
-        }
-      }
-    }
-
     if(mouseDown) {
+      const hintLine =
+        this.controller.getLine(this.mouseDragStartLineId || lineId);
+      let hintPoint: IPoint;
+      if(hintLine) {
+        // Line already exists.
+        const end = LineEnd[this.mouseDragStartEndId || lineEnd];
+        if(end) {
+          hintPoint = hintLine.finishPos[end.toLowerCase()[0]];
+        }
+      } else {
+        // New line.
+        hintPoint = this.mouseDragStartPos || this.getMousePosIn3d();
+      }
+
       if(!this.mouseDown) {
         // Mouse button not pressed last cycle. This is a new Drag event.
         this.newSequence();
@@ -344,6 +347,10 @@ export abstract class ViewSection extends ViewBase {
         lineId: this.mouseDragStartLineId,
         lineEnd: this.mouseDragStartEndId,
       });
+      if(this.fixedDragAxis && hintPoint) {
+        dragEvent.finishPoint[this.fixedDragAxis] =
+          hintPoint[this.fixedDragAxis];
+      }
       this.controller.onEvent(dragEvent);
     } else {
       const dragEvent = new EventUiMouseMove({
@@ -662,6 +669,7 @@ export class ViewLengthSection extends ViewSection {
     this.background.on("mouseleave", this.hideCursor.bind(this));
 
     this.fixedAxis = "x";
+    this.fixedDragAxis = "z";
   }
 
   public updateLine(lineEvent: ILine) {
