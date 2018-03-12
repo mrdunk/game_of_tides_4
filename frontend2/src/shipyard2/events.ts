@@ -18,10 +18,12 @@ export enum LineEnd {
  * Event is declared. */
 
 export class EventBase {
+  public readonly sequence?: string;// Unique id for series of related commands.
   public readonly widgetType: string;  // Widget type where Event originates.
   public className?: string;
 
   constructor(args: EventBase) {
+    this.sequence = args.sequence;
     this.widgetType = args.widgetType;
   }
 
@@ -54,7 +56,6 @@ export class EventUiMouseMove extends EventBase {
 }
 
 export class EventUiMouseDrag extends EventBase {
-  public readonly sequence: string; // Unique id for series of related commands.
   public startPoint: IPoint;
   public finishPoint: IPoint;
   public lineId?: string;
@@ -62,7 +63,6 @@ export class EventUiMouseDrag extends EventBase {
 
   constructor(args: EventUiMouseDrag) {
     super(args);
-    this.sequence = args.sequence;
     this.startPoint = args.startPoint;
     this.finishPoint = args.finishPoint;
     this.lineId = args.lineId;

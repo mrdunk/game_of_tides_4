@@ -5,8 +5,8 @@ import {
   ControllerBase,
   IBackgroundImage,
   IBackgroundImageEvent,
+  ICommand,
   ILine,
-  ILineEvent,
   ILinePos,
   IPoint,
   Ixy,
@@ -14,6 +14,7 @@ import {
   subtractPoint} from "./controller";
 import {
   EventBase,
+  EventLineHighlight,
   EventUiInputElement,
   EventUiMouseDrag,
   EventUiMouseMove,
@@ -121,6 +122,7 @@ export class ViewCanvas {
 }
 
 export abstract class ViewSection extends ViewBase {
+  public fixedAxis: string;
   public offsetX: number;
   public offsetY: number;
   public width: number;
@@ -138,6 +140,7 @@ export abstract class ViewSection extends ViewBase {
   protected backgroundImage: Konva.Image;
   protected backgroundImageFilename: string;
   protected backgroundImagePos: {sequence: string, pos: Ixy};
+  protected selectedLines: string[] = [];
 
   constructor(canvas: ViewCanvas,
               x?: number,
@@ -255,6 +258,13 @@ export abstract class ViewSection extends ViewBase {
     }
   }
 
+  public unhighlightAll() {
+    Object.getOwnPropertyNames(this.lines).forEach((lineName) => {
+      const line = this.lines[lineName];
+      line.highlight(false);
+    });
+  }
+
   protected updateBackgroundImage(visible: boolean, url: string) {
     if(visible === null || visible === undefined) {
       if(this.backgroundImage) {
@@ -305,11 +315,23 @@ export abstract class ViewSection extends ViewBase {
 
     const [lineId, lineEnd] = this.getLineOver(event);
 
+    const hintLine = this.controller.getLine(lineId);
+    let hintPoint: IPoint;
+    if(hintLine) {
+      const end = LineEnd[lineEnd];
+      if(end) {
+        hintPoint = hintLine.finishPos[end.toLowerCase()[0]];
+        if(this.fixedAxis) {
+
+        }
+      }
+    }
+
     if(mouseDown) {
       if(!this.mouseDown) {
         // Mouse button not pressed last cycle. This is a new Drag event.
         this.newSequence();
-        this.mouseDragStartPos = this.getMousePosIn3d();  // TODO Get from Model
+        this.mouseDragStartPos = this.getMousePosIn3d(hintPoint);
         this.mouseDragStartLineId = lineId;
         this.mouseDragStartEndId = lineEnd;
       }
@@ -318,7 +340,7 @@ export abstract class ViewSection extends ViewBase {
         widgetType: this.widgetType,
         sequence: this.sequence,
         startPoint: this.mouseDragStartPos,
-        finishPoint: this.getMousePosIn3d(),
+        finishPoint: this.getMousePosIn3d(hintPoint),
         lineId: this.mouseDragStartLineId,
         lineEnd: this.mouseDragStartEndId,
       });
@@ -339,76 +361,6 @@ export abstract class ViewSection extends ViewBase {
     this.mouseDown = mouseDown;
   }
 
-
-  // TODO: Refactor me. Split into onMouseDrag() and onMouseMove() methods?
-  /*protected onMouseMove2(event) {
-    const mouseDown = event.evt.buttons === 1;
-
-    const parent: Line = event.target.getParent();
-    let lineId;
-    if(parent instanceof Line) {
-      lineId = parent.id();
-    }
-
-    if(mouseDown) {
-      if(!this.mouseDown) {
-        // Mouse button not pressed last cycle. This is a new Drag event.
-        this.newSequence();
-        if(lineId) {
-          this.mouseDragObj = event.target;
-          this.mouseDrawingStartPos = JSON.parse(JSON.stringify(
-            this.controller.getLine(lineId).finishPos));
-        } else {
-          // New line.
-          this.mouseDrawingStartPos = this.getMousePosIn3d();
-        }
-      }
-
-      const dragEvent = new EventUiMouseDrag({
-        widgetType: this.widgetType,
-        sequence: this.sequence,
-        startPoint: this.mouseDrawingStartPos,
-        finishPoint: this.getMousePosIn3d(),
-      });
-      if(this.mouseDragObj) {
-        // console.log("Dragging:", this.mouseDragObj);
-        // this.mouseDragObj = event.target;
-        dragEvent.lineId = this.mouseDragObj.getParent().id();
-
-        console.log(lineId, this.controller.getLine(lineId));
-        const controlerLineCopy = JSON.parse(JSON.stringify(
-          this.controller.getLine(lineId).finishPos));
-        console.log(controlerLineCopy);
-
-        if(this.mouseDragObj.id() === "end1A") {
-          dragEvent.lineEnd = LineEnd.A1;
-          dragEvent.startPoint = controlerLineCopy.b;
-        } else if(this.mouseDragObj.id() === "end2A") {
-          dragEvent.lineEnd = LineEnd.A2;
-          // dragEvent.finishPoint = controlerLineCopy.b;
-        } else if(this.mouseDragObj.id() === "end1B") {
-          dragEvent.lineEnd = LineEnd.B1;
-          dragEvent.startPoint = controlerLineCopy.a;
-        } else if(this.mouseDragObj.id() === "end2B") {
-          dragEvent.lineEnd = LineEnd.B2;
-          // dragEvent.finishPoint = controlerLineCopy.a;
-        }
-      }
-      this.controller.onEvent(dragEvent);
-    } else {
-      const dragEvent = new EventUiMouseMove({
-        widgetType: this.widgetType,
-        startPoint: this.getMousePosIn3d(),
-        lineId,
-      });
-      this.controller.onEvent(dragEvent);
-
-      this.mouseDragObj = null;
-      this.mouseDrawingStartPos = null;
-    }
-    this.mouseDown = mouseDown;
-  }*/
-
   protected getPointerPosition(): {x: number, y: number} {
     const screenMousePos = this.layer.getStage().getPointerPosition();
     const scale = this.canvas.stage.scale();
@@ -428,13 +380,6 @@ export abstract class ViewSection extends ViewBase {
         pos: {x: number, y: number}): {x: number, y: number} {
     return this.limitBounds(this.translateWidget(
       {x: pos.x - this.background.x(), y: pos.y - this.background.y()}));
-  }
-
-  protected unhighlightAll() {
-    Object.getOwnPropertyNames(this.lines).forEach((lineName) => {
-      const line = this.lines[lineName];
-      line.highlight(false);
-    });
   }
 
   protected translateWidget(
@@ -464,12 +409,6 @@ export abstract class ViewSection extends ViewBase {
   }
 
   protected abstract getMousePosIn3d(hint?: IPoint): IPoint;
-
-  /*protected abstract lineEvent(id: string,
-                               sequence: string,
-                               startPos: ILinePos,
-                               finishPos: ILinePos,
-                               highlight?: boolean);*/
 }
 
 export class ViewCrossSection extends ViewSection {
@@ -497,6 +436,7 @@ export class ViewCrossSection extends ViewSection {
     });
 
     this.background.add(midline);
+    this.fixedAxis = "z";
   }
 
   public registerLengthSection(section: ViewSection) {
@@ -562,7 +502,6 @@ export class ViewCrossSection extends ViewSection {
     }
 
     if(lineEvent.highlight !== undefined) {
-      this.unhighlightAll();
       line.highlight(lineEvent.highlight);
     }
     if(lineEvent.selected !== undefined) {
@@ -589,11 +528,6 @@ export class ViewCrossSection extends ViewSection {
         this.showLayers();
         this.updateLengthCursor();
         break;
-      case "clearSelectCursor":
-        if(value) {
-          this.drawSelectCursor();
-        }
-        break;
       case "backgroundImageShowCross":
         this.updateBackgroundImage(Boolean(value), null);
         break;
@@ -603,6 +537,7 @@ export class ViewCrossSection extends ViewSection {
     }
   }
 
+  // TODO Refactor into Base class.
   public drawSelectCursor(a?: IPoint, b?: IPoint) {
     if(a && b) {
       const aa = this.translateWidgetToScreen({x: a.x, y: a.y});
@@ -618,17 +553,26 @@ export class ViewCrossSection extends ViewSection {
       this.selectCursor.visible(true);
       this.layer.draw();
 
+      this.selectedLines = [];
       Object.keys(this.lines).forEach((lineKey) => {
         const line = this.lines[lineKey];
         if(line.z === this.z) {
           if(line.doesOverlap(this.selectCursor)) {
-            console.log(line.line1.getClientRect());
-            // this.lineEvent(lineKey, this.sequence, null, null, null, true);
+            this.selectedLines.push(lineKey);
           }
         }
       });
+      this.newSequence();
+      this.controller.highlightLines(
+        this.sequence, this.widgetType, this.selectedLines);
       return;
     }
+
+    this.selectedLines.forEach((lineId) => {
+      this.controller.toggleLineSelect(this.widgetType, lineId);
+    });
+    this.selectedLines = [];
+
     this.selectCursor.visible(false);
     this.layer.draw();
   }
@@ -637,45 +581,6 @@ export class ViewCrossSection extends ViewSection {
     const mousePos = this.getPointerPosition();
     return {x: mousePos.x, y: mousePos.y, z: this.z};
   }
-
-    /*protected lineEvent(id: string,
-                    sequence: string,
-                    startPos: ILinePos,
-                    finishPos: ILinePos,
-                    highlight?: boolean,
-                    selected?: boolean) {
-    const lineEvent: ILineEvent = {
-      id,
-      sequence,
-      startPos,
-      finishPos,
-      highlight,
-      selected,
-    };
-
-    // TODO Put this functionality in the base class.
-    if(!finishPos) {
-      this.controller.onLineEvent(lineEvent);
-      return;
-    }
-    if(this.backgroundImage &&
-       this.backgroundImagePos.sequence !== this.sequence) {
-      this.backgroundImagePos.pos = {
-        x: this.backgroundImage.x(),
-        y: this.backgroundImage.y()};
-      this.backgroundImagePos.sequence = this.sequence;
-    }
-    const movedBy = subtractPoint(finishPos.b, finishPos.a);
-    movedBy.y = -movedBy.y;
-
-    const backgroundImageEvent: IBackgroundImageEvent = {
-      sequence,
-      widgetType: this.widgetType,
-      startPos: this.backgroundImagePos.pos,
-      finishPos: movedBy,
-    };
-    this.controller.onLineEvent(lineEvent, backgroundImageEvent);
-  }*/
 
   private showLayers(value?: boolean) {
     if(value === undefined) {
@@ -713,6 +618,7 @@ export class ViewCrossSection extends ViewSection {
 }
 
 export class ViewLengthSection extends ViewSection {
+  public readonly x: number = 0;
   public cursorPos: number = 0;
   public widgetType: string = "length";
   private cursorHover: Konva.Rect;
@@ -754,6 +660,8 @@ export class ViewLengthSection extends ViewSection {
     this.background.on("mousedown", this.setCursor.bind(this));
     this.background.on("mousemove", this.moveCursor.bind(this));
     this.background.on("mouseleave", this.hideCursor.bind(this));
+
+    this.fixedAxis = "x";
   }
 
   public updateLine(lineEvent: ILine) {
@@ -785,11 +693,10 @@ export class ViewLengthSection extends ViewSection {
 
       line.moveEnd(LineEnd.A1, a1.x, a1.y);
       line.moveEnd(LineEnd.B1, b1.x, b1.y);
-      line.z = lineEvent.finishPos.a.x;
+      line.z = lineEvent.finishPos.a.z;
     }
 
     if(lineEvent.highlight !== undefined) {
-      this.unhighlightAll();
       line.highlight(lineEvent.highlight);
     }
     if(lineEvent.selected !== undefined) {
@@ -802,11 +709,6 @@ export class ViewLengthSection extends ViewSection {
   public setButtonValue(buttonLabel: string, value: number) {
     // console.log(buttonLabel, value);
     switch (buttonLabel) {
-      case "clearSelectCursor":
-        if(value) {
-          this.drawSelectCursor();
-        }
-        break;
       case "backgroundImageShowLength":
         this.updateBackgroundImage(Boolean(value), null);
         break;
@@ -816,6 +718,7 @@ export class ViewLengthSection extends ViewSection {
     }
   }
 
+  // TODO Refactor into Base class.
   public drawSelectCursor(a?: IPoint, b?: IPoint) {
     if(a && b) {
       const aa = this.translateWidgetToScreen({x: this.cursorPos - 10, y: a.y});
@@ -830,8 +733,27 @@ export class ViewLengthSection extends ViewSection {
       this.selectCursor.height(bb.y - aa.y);
       this.selectCursor.visible(true);
       this.layer.draw();
+
+      this.selectedLines = [];
+      Object.keys(this.lines).forEach((lineKey) => {
+        const line = this.lines[lineKey];
+        if(line.z === this.cursorPos) {
+          if(line.doesOverlap(this.selectCursor)) {
+            this.selectedLines.push(lineKey);
+          }
+        }
+      });
+      this.newSequence();
+      this.controller.highlightLines(
+        this.sequence, this.widgetType, this.selectedLines);
       return;
     }
+
+    this.selectedLines.forEach((lineId) => {
+      this.controller.toggleLineSelect(this.widgetType, lineId);
+    });
+    this.selectedLines = [];
+
     this.selectCursor.visible(false);
     this.layer.draw();
   }
@@ -845,46 +767,6 @@ export class ViewLengthSection extends ViewSection {
     mousePos.x = Math.round(mousePos.x / this.zResolution) * this.zResolution;
     return {x, y: mousePos.y, z: mousePos.x};
   }
-
-    /*protected lineEvent(id: string,
-                    sequence: string,
-                    startPos: ILinePos,
-                    finishPos: ILinePos,
-                    highlight?: boolean) {
-    if(startPos) {
-      finishPos.a.z = startPos.a.z;
-      finishPos.b.z = startPos.b.z;
-    }
-    const lineEvent: ILineEvent = {
-      id,
-      sequence,
-      startPos,
-      finishPos,
-      highlight,
-    };
-
-    // TODO Put this functioanlity in the base class.
-    if(!finishPos) {
-      this.controller.onLineEvent(lineEvent);
-      return;
-    }
-    if(this.backgroundImagePos.sequence !== this.sequence) {
-      this.backgroundImagePos.pos = {
-        x: this.backgroundImage.x(),
-        y: this.backgroundImage.y()};
-      this.backgroundImagePos.sequence = this.sequence;
-    }
-    const movedBy = subtractPoint(finishPos.b, finishPos.a);
-    movedBy.y = -movedBy.y;
-
-    const backgroundImageEvent: IBackgroundImageEvent = {
-      sequence,
-      widgetType: this.widgetType,
-      startPos: this.backgroundImagePos.pos,
-      finishPos: movedBy,
-    };
-    this.controller.onLineEvent(lineEvent, backgroundImageEvent);
-  }*/
 
   private setCursor(event) {
     const mousePos = this.getPointerPosition();
@@ -1214,7 +1096,7 @@ export class Line extends Konva.Group {
         this.end2B.y(y);
         break;
       default:
-        console.log("TODO Move whle line");
+        console.log("TODO Move whole line");
     }
     this.line1.points(
       [this.end1A.x(), this.end1A.y(), this.end1B.x(), this.end1B.y()]);

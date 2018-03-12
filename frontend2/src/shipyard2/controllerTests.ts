@@ -6,7 +6,6 @@ import {
   compareLinePos,
   comparePoint,
   ILine,
-  ILineEvent,
   ILinePos,
   IPoint,
   TestController,
@@ -1104,11 +1103,134 @@ export const controllerCommandHistoryTests = {
   },
 
   testUndoDeleteEvent: () => {
-    TrackAsserts.assert(false && "TODO");
+    const model = new ModelMock();
+    const widget1 = new ViewMock();
+    const widget2 = new ViewMock();
+    const toolbar = new ViewMock();
+    const logger = new LoggerMock();
+    const controller =
+      new TestController(model, [widget1, widget2, toolbar], logger);
+
+    const linePosFinish: ILinePos = {
+      a: {x:4, y:5, z:6},
+      b: {x:44, y:55, z:66},
+    };
+
+    // Add a line.
+    widget1.simulateLineEvent(new EventUiMouseDrag({
+      widgetType: widget1.widgetType,
+      sequence: "sequence_1",
+      startPoint: linePosFinish.a,
+      finishPoint: linePosFinish.b,
+    }));
+    const line1: ILine = {
+      id: "drawnLine_1",
+      finishPos: linePosFinish,
+      selected: true,
+    };
+    model.mockGetSelectedLines = {};
+    model.mockGetSelectedLines[line1.id] = line1;
+    model.mockGetLineValue = line1;
+
+    // Confirm we are on track.
+    TrackAsserts.assert(model.lineEvents.length === 1);
+
+    // Delete the line.
+    toolbar.simulateButtonPress("delete");
+
+    // Confirm we are on track.
+    TrackAsserts.assert(model.lineEvents.length === 2);
+
+    // Undo the Delete.
+    toolbar.simulateButtonPress("undo");
+
+    // Confirm we are on track.
+    TrackAsserts.assert(model.lineEvents.length === 3);
+
+    // Redo the Delete.
+    model.mockGetSelectedLines = {};
+    model.mockGetSelectedLines[line1.id] = line1;
+    model.mockGetLineValue = line1;
+    toolbar.simulateButtonPress("redo");
+
+    TrackAsserts.assert(model.lineEvents.length === 4);
+    TrackAsserts.assert(
+      model.lineEvents[0].constructor.name === "EventLineNew");
+    TrackAsserts.assert(
+      model.lineEvents[1].constructor.name === "EventLineDelete");
+    TrackAsserts.assert(
+      model.lineEvents[2].constructor.name === "EventLineNew");
+    TrackAsserts.assert(
+      model.lineEvents[3].constructor.name === "EventLineDelete");
+
+    TrackAsserts.assert(JSON.stringify(model.lineEvents[0]) ===
+                        JSON.stringify(model.lineEvents[2]));
+    TrackAsserts.assert(JSON.stringify(model.lineEvents[1]) ===
+                        JSON.stringify(model.lineEvents[3]));
+
   },
 
   testUndoMirrorEvent: () => {
-    TrackAsserts.assert(false && "TODO");
+    const model = new ModelMock();
+    const widget1 = new ViewMock();
+    const widget2 = new ViewMock();
+    const toolbar = new ViewMock();
+    const logger = new LoggerMock();
+    const controller =
+      new TestController(model, [widget1, widget2, toolbar], logger);
+
+    const linePosFinish: ILinePos = {
+      a: {x:4, y:5, z:6},
+      b: {x:44, y:55, z:66},
+    };
+
+    // Add a line.
+    widget1.simulateLineEvent(new EventUiMouseDrag({
+      widgetType: widget1.widgetType,
+      sequence: "sequence_1",
+      startPoint: linePosFinish.a,
+      finishPoint: linePosFinish.b,
+    }));
+    const line1: ILine = {
+      id: "drawnLine_1",
+      finishPos: linePosFinish,
+      selected: true,
+    };
+    model.mockGetSelectedLines = {};
+    model.mockGetSelectedLines[line1.id] = line1;
+    model.mockGetLineValue = line1;
+
+    // Confirm we are on track.
+    TrackAsserts.assert(model.lineEvents.length === 1);
+
+    // Delete the line.
+    toolbar.simulateButtonPress("mirror");
+
+    // Confirm we are on track.
+    TrackAsserts.assert(model.lineEvents.length === 2);
+
+    // Undo the Delete.
+    toolbar.simulateButtonPress("undo");
+
+    // Confirm we are on track.
+    TrackAsserts.assert(model.lineEvents.length === 3);
+
+    // Redo the Delete.
+    model.mockGetSelectedLines = {};
+    model.mockGetSelectedLines[line1.id] = line1;
+    model.mockGetLineValue = line1;
+    toolbar.simulateButtonPress("redo");
+
+    TrackAsserts.assert(model.lineEvents.length === 4);
+
+    TrackAsserts.assert(
+      model.lineEvents[0].constructor.name === "EventLineNew");
+    TrackAsserts.assert(
+      model.lineEvents[1].constructor.name === "EventLineMirror");
+    TrackAsserts.assert(
+      model.lineEvents[2].constructor.name === "EventLineMirror");
+    TrackAsserts.assert(
+      model.lineEvents[3].constructor.name === "EventLineMirror");
   },
 };
 

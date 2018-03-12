@@ -15,11 +15,11 @@ import {
   EventUiSelectRib,
   LineEnd} from "./events";
 import {ModelBase} from "./model";
-import {ViewBase} from "./view";
+import {ViewBase, ViewSection} from "./view";
 
 const storageName = "shipYardCommandBuffers";
 
-interface ICommand {
+export interface ICommand {
   events?: EventBase[];
   backgroundImageEvents?: IBackgroundImageEvent[];
 }
@@ -60,14 +60,6 @@ export interface ILine {
   highlight?: boolean;
   mirrored?: boolean;
   selected?: boolean;
-}
-
-export interface ILineEvent extends ILine {
-  sequence: string;         // Unique id for series of related commands.
-  widgetType?: string;      // Command originating widget type.
-  startPos?: ILinePos;      // Position before command executed.
-  toggleMirrored?: boolean; // Change mirroring status.
-  selecting?: boolean;      // Change selected status.
 }
 
 export function comparePoint(p1: IPoint, p2: IPoint): boolean {
@@ -122,11 +114,6 @@ export abstract class ControllerBase {
   public onEvent(event: EventBase) {
     console.error("Undefined method");
   }
-    /*public onLineEvent(
-    lineEvent: ILineEvent,
-    backgroundImageEvent?: IBackgroundImageEvent): void {
-    console.error("Undefined method");
-  }*/
   public onBackgroundImageEvent(event: IBackgroundImageEvent) {/**/}
   public updateViews(line: ILine): void {/**/}
   public updateViewsBackgroundImage(backgroundImage: IBackgroundImage): void {
@@ -139,6 +126,13 @@ export abstract class ControllerBase {
     return this.model.getLine(lineId);
   }
   public getFilenames(): string[] { return []; }
+  public highlightLines(
+      sequence: string, widgetType: string, lineIds: string[]) {
+    console.error("Unimplemented method");
+  }
+  public toggleLineSelect(widgetType: string, lineId: string) {
+    console.error("Unimplemented method");
+  }
 }
 
 export class Controller extends ControllerBase {
@@ -164,7 +158,6 @@ export class Controller extends ControllerBase {
       preventUnClick: true},
     allLayers: {value: false, clear: ["fileOps"]},
     selected_rib: {clear: ["fileOps"]},
-    clearSelectCursor: {value: false, clear: ["fileOps"]},
     fileOps: {value: 0},
     fileOpsSave: {},
     fileOpsLoad: {},
@@ -207,7 +200,6 @@ export class Controller extends ControllerBase {
            Boolean(this.buttonStates.backgroundImage.value):
         console.log("TODO: EventUiMouseDrag backgroundImage");
         break;
-
       case event.constructor.name === "EventUiMouseMove" &&
            Boolean(this.buttonStates.modifyLine.value):
         this.onUiMouseMove(event as EventUiMouseMove);
@@ -275,8 +267,6 @@ export class Controller extends ControllerBase {
         break;
       case "fileOpsNew":
         this.newCommands();
-        break;
-      case "clearSelectCursor":
         break;
       default:
         this.logger.warn("Invalid buttonLabel:", event.label);
@@ -364,6 +354,35 @@ export class Controller extends ControllerBase {
       allCommandBuffers = {};
     }
     return Object.keys(allCommandBuffers);
+  }
+
+  public highlightLines(
+      sequence: string, widgetType: string, lineIds: string[]) {
+    if(lineIds.length === 0) {
+      // Causes all highlights to clear.
+      lineIds.push(undefined);
+    }
+
+    const highlightCommand: ICommand = {};
+    highlightCommand.events = [];
+    lineIds.forEach((lineId) => {
+      const highlightEvent = new EventLineHighlight({
+        sequence,
+        widgetType,
+        lineId,
+      });
+      highlightCommand.events.push(highlightEvent);
+    });
+    // this.recordCommand(highlightCommand);
+    this.performCommand(null, highlightCommand);
+  }
+
+  public toggleLineSelect(widgetType: string, lineId: string) {
+    const selectEvent = new EventLineSelect({widgetType, lineId});
+    const command: ICommand = {};
+    command.events = [selectEvent];
+    this.recordCommand(command);
+    this.performCommand(null, command);
   }
 
   // Make endpoints move towards nearby endpoint if it is close enough.
@@ -480,7 +499,7 @@ export class Controller extends ControllerBase {
       }
       event.lineId = "drawnLine_" + event.sequence.slice(9);
       event.lineEnd = LineEnd.B1;
-      console.log("New line!!", event.lineId, event.lineEnd);
+      // console.log("New line!!", event.lineId, event.lineEnd);
       newLine = true;
     }
 
@@ -494,29 +513,41 @@ export class Controller extends ControllerBase {
   }
 
   private onUiMouseDragSelect(event: EventUiMouseDrag) {
-    if(!event.lineId) {
-      this.logger.warn("No lineId when selecting line");
+    if(event.lineId) {
+      this.toggleLineSelect(event.widgetType, event.lineId);
       return;
     }
-    const selectEvent = new EventLineSelect({
-      widgetType: event.widgetType,
-      lineId: event.lineId,
-    });
-    const command: ICommand = {};
-    command.events = [selectEvent];
-    this.recordCommand(command);
-    this.performCommand(null, command);
+    this.drawSelectBox(event);
+  }
+
+  private drawSelectBox(event: EventUiMouseDrag) {
+    this.views
+      .filter((view: ViewSection) => {
+        const fixedAxis = view.fixedAxis;
+        return view.widgetType === event.widgetType &&
+          view[fixedAxis] === event.startPoint[fixedAxis];
+      })
+      .forEach((view: ViewSection) => {
+        view.unhighlightAll();
+        const fixedAxis = view.fixedAxis;
+        console.assert(view[fixedAxis] === event.startPoint[fixedAxis]);
+        if(event.startPoint[fixedAxis] === event.finishPoint[fixedAxis]) {
+          view.drawSelectCursor(event.startPoint, event.finishPoint);
+        }
+      });
+  }
+
+  private clearSelectBoxes() {
+    this.views
+      .filter((view: ViewSection) => view.fixedAxis)
+      .forEach((view: ViewSection) => {
+        view.drawSelectCursor();
+      });
   }
 
   private onUiMouseMove(event: EventUiMouseMove) {
-    const highlightEvent = new EventLineHighlight({
-      widgetType: event.widgetType,
-      lineId: event.lineId,
-    });
-    const command: ICommand = {};
-    command.events = [highlightEvent];
-    this.recordCommand(command);
-    this.performCommand(null, command);
+    this.highlightLines(event.sequence, event.widgetType, [event.lineId]);
+    this.clearSelectBoxes();
   }
 
   private setButtonStates() {
@@ -631,7 +662,7 @@ export class Controller extends ControllerBase {
   private getLastCommandEvent(lineId: string): EventBase {
     let commandIndex = this.commandPointer -1;
     let returnEvent;
-    while(commandIndex > 0) {
+    while(commandIndex >= 0) {
       const command = this.commands[commandIndex--];
       if(command.events) {
         command.events.forEach((event) => {

@@ -41,6 +41,7 @@ export class Model extends ModelBase {
     backgroundImages: {},
     selectedLines: {},
   };
+  private highlightingSequence: string = "";
 
   public onLineEvent(event: EventBase) {
     switch(event.constructor.name) {
@@ -157,7 +158,6 @@ export class Model extends ModelBase {
   }
 
   private modifyLine(event: EventLineModify) {
-    console.log(event);
     console.assert(Boolean(event));
     console.assert(Boolean(event.finishPoint));
     console.assert(Boolean(event.lineId));
@@ -194,53 +194,6 @@ export class Model extends ModelBase {
     }
 
     this.controller.updateViews(line);
-
-    /*if(event.finishPoint) {
-      this.deSelectAll();
-      line.selected = true;
-      this.data.selectedLines[line.id] = true;
-      line.finishPos = JSON.parse(JSON.stringify(event.finishPoint));
-    } else if(event.highlight === undefined &&
-              event.toggleMirrored === undefined &&
-              event.selecting === undefined) {
-      delete line.finishPos;
-    }
-
-    if(event.highlight !== undefined) {
-      line.highlight = event.highlight;
-    }
-
-    if(event.toggleMirrored !== undefined) {
-      line.mirrored = !line.mirrored;
-    }
-
-    if(event.mirrored !== undefined) {
-      line.mirrored = event.mirrored;
-    }
-
-    if(event.selecting !== undefined) {
-      line.selected = !line.selected;
-      if(event.selected) {
-        line.selected = event.selected;
-      }
-      if(line.selected) {
-        this.data.selectedLines[line.id] = true;
-      } else {
-        delete this.data.selectedLines[line.id];
-      }
-      console.log(this.data.selectedLines);
-    }
-
-    this.controller.updateViews(line);
-
-    if(!event.finishPos &&
-        event.highlight === undefined &&
-        event.toggleMirrored === undefined &&
-        event.selecting === undefined) {
-      delete this.data.lines[event.lineId];
-    }
-    // console.log(line);*/
-    console.log(this.data);
   }
 
   private deleteLine(event: EventLineDelete) {
@@ -265,6 +218,9 @@ export class Model extends ModelBase {
 
     const line: ILine = this.data.lines[event.lineId];
     console.assert(Boolean(line));
+    if(!line) {
+      return;
+    }
 
     line.selected = !line.selected;
     this.data.selectedLines[line.id] = line.selected;
@@ -277,15 +233,19 @@ export class Model extends ModelBase {
   private highlightLine(event: EventLineHighlight) {
     console.assert(Boolean(event));
 
-    // Un-highlight all lines.
-    for(const key in this.data.lines) {
-      if(this.data.lines.hasOwnProperty(key)) {
-        if(this.data.lines[key].highlight) {
-          this.data.lines[key].highlight = false;
-          this.controller.updateViews(this.data.lines[key]);
+    if(!event.sequence ||
+       this.highlightingSequence !== event.sequence) {
+      // Un-highlight all lines.
+      for(const key in this.data.lines) {
+        if(this.data.lines.hasOwnProperty(key)) {
+          if(this.data.lines[key].highlight) {
+            this.data.lines[key].highlight = false;
+            this.controller.updateViews(this.data.lines[key]);
+          }
         }
       }
     }
+    this.highlightingSequence = event.sequence;
 
     const line: ILine = this.data.lines[event.lineId];
     if(!Boolean(line)) {
