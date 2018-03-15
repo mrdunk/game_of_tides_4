@@ -1,6 +1,7 @@
 // Copyright 2017 duncan law (mrdunk@gmail.com)
 
 import * as Konva from "konva";
+import * as THREE from "three";
 import {
   ControllerBase,
   IBackgroundImage,
@@ -117,7 +118,7 @@ export class ViewCanvas {
     const container = document.querySelector("#canvas") as HTMLCanvasElement;
     this.stage.width(container.offsetWidth);
     this.stage.height(container.offsetHeight);
-    this.stage.scale({x: 0.8, y: 0.8});
+    this.stage.scale({x: 1.0, y: 1.0});
   }
 }
 
@@ -998,6 +999,191 @@ export class ViewToolbar extends ViewBase {
       }
     });
     return returnButton;
+  }
+}
+
+export class ViewThree extends ViewBase {
+  public widgetType: string = "toolbar";
+  public offsetX: number;
+  public offsetY: number;
+  public width: number;
+  public height: number;
+  private canvas: ViewCanvas;
+  private scene: THREE.Scene;
+  // private camera: THREE.PerspectiveCamera;
+  private camera: THREE.OrthographicCamera;
+  private renderer: THREE.WebGLRenderer;
+  private lines: IHash = {};
+  private mouseDown: boolean = false;
+  private mouseLastX: number;
+  private mouseLastY: number;
+
+
+  constructor(canvas: ViewCanvas,
+              x?: number,
+              y?: number,
+              width?: number,
+              height?: number) {
+    super();
+
+    x = x || 0;
+    y = y || 0;
+    this.offsetX = x;
+    this.offsetY = y;
+    this.width = width || 400;
+    this.height = height || 400;
+    this.canvas = canvas;
+
+    const container = document.querySelector("#canvas") as HTMLCanvasElement;
+
+    this.scene = new THREE.Scene();
+    this.camera = new THREE.OrthographicCamera(
+      -this.width, this.width, this.height, -this.height,  1, 10000 );
+    // this.camera = new THREE.PerspectiveCamera(
+    //  75, this.width / this.height, 0.1, 2000 );
+
+    this.renderer = new THREE.WebGLRenderer();
+    this.renderer.setSize(this.width, this.height);
+    const div = document.createElement("div");
+    div.setAttribute("style",
+      "position:absolute; top:" + this.offsetY + "px; " +
+      "left:" + this.offsetX + "px;");
+    div.appendChild(this.renderer.domElement);
+    container.appendChild(div);
+
+    div.addEventListener("mousedown", this.onMouseDown.bind(this), false);
+    div.addEventListener("mouseup", this.onMouseUp.bind(this), false);
+    div.addEventListener("mousemove", this.onMouseMove.bind(this), false);
+
+
+    this.camera.position.set( -3000, 3000, -3000 );
+    this.camera.lookAt( new THREE.Vector3( 0, 0, 0 ) );
+
+    this.drawFrame();
+  }
+
+  public setButtonValue(buttonLabel: string, value: number) {
+    // console.log(buttonLabel, value);
+  }
+
+  public updateLine(lineEvent: ILine) {
+    console.log(lineEvent);
+    console.assert(Boolean(lineEvent.id));
+
+    if(!Boolean(lineEvent.finishPos)) {
+      console.log("Delete", lineEvent.id);
+      if(this.lines[lineEvent.id]) {
+        delete this.lines[lineEvent.id];
+      }
+    } else if(lineEvent.finishPos) {
+      this.lines[lineEvent.id] = lineEvent;
+    }
+    this.drawFrame();
+  }
+
+  private onMouseDown(event) {
+    this.mouseDown = true;
+    this.mouseLastX = event.clientX;
+    this.mouseLastY = event.clientY;
+  }
+
+  private onMouseUp(event) {
+    this.mouseDown = false;
+  }
+
+  private onMouseMove(event) {
+    if(this.mouseDown) {
+      if(this.mouseLastX !== undefined && this.mouseLastX !== undefined) {
+        this.onDrag(this.mouseLastX - event.clientX,
+          this.mouseLastY - event.clientY);
+      }
+      this.mouseLastX = event.clientX;
+      this.mouseLastY = event.clientY;
+    }
+  }
+
+  private onDrag(x: number, y: number) {
+    console.log(x, y);
+    requestAnimationFrame(this.cameraPan.bind(this, x / 100));
+    requestAnimationFrame(this.cameraHeight.bind(this, y * 100));
+  }
+
+  private cameraPan(angle: number) {
+    const angleCurrent =
+      Math.atan2(this.camera.position.z, this.camera.position.x);
+    const distCurrent =
+      Math.sqrt(Math.pow(this.camera.position.z, 2) +
+                Math.pow(this.camera.position.x, 2));
+
+    this.camera.position.z = Math.sin(angleCurrent + angle) * distCurrent;
+    this.camera.position.x = Math.cos(angleCurrent + angle) * distCurrent;
+
+    this.camera.lookAt( new THREE.Vector3( 0, 0, 0 ) );
+
+    this.renderer.render(this.scene, this.camera);
+  }
+
+  private cameraHeight(height: number) {
+    this.camera.position.y += height;
+    if(this.camera.position.y < -5000) {
+      this.camera.position.y = -5000;
+    }
+    if(this.camera.position.y > 5000) {
+      this.camera.position.y = 5000;
+    }
+
+    this.camera.lookAt( new THREE.Vector3( 0, 0, 0 ) );
+
+    this.renderer.render(this.scene, this.camera);
+  }
+
+  private drawFrame() {
+    console.log(this.lines);
+    // requestAnimationFrame(this.drawFrame);
+
+    while(this.scene.children.length > 0) {
+      this.scene.remove(this.scene.children[0]);
+    }
+
+    const materialSelect = new THREE.LineBasicMaterial( { color: 0xff8800 } );
+    const materialBasic = new THREE.LineBasicMaterial( { color: 0x0000ff } );
+    const materialCursor = new THREE.LineBasicMaterial( { color: 0xff0000 } );
+
+    const geometryCursor = new THREE.Geometry();
+    geometryCursor.vertices.push( new THREE.Vector3(0, 0, -600));
+    geometryCursor.vertices.push( new THREE.Vector3(0, 0, 600));
+    this.scene.add(new THREE.Line(geometryCursor, materialCursor));
+
+    Object.getOwnPropertyNames(this.lines).forEach((lineId) => {
+      const geometry1 = new THREE.Geometry();
+      const geometry2 = new THREE.Geometry();
+      const line = this.lines[lineId];
+      const pointA = line.finishPos.a;
+      const pointB = line.finishPos.b;
+      geometry1.vertices.push(
+        new THREE.Vector3(pointA.x, pointA.y, pointA.z));
+      geometry1.vertices.push(
+        new THREE.Vector3(pointB.x, pointB.y, pointB.z));
+      if(line.selected) {
+        this.scene.add(new THREE.Line(geometry1, materialSelect));
+      } else {
+        this.scene.add(new THREE.Line(geometry1, materialBasic));
+      }
+
+      if(line.mirrored) {
+        geometry2.vertices.push(
+          new THREE.Vector3(-pointA.x, pointA.y, pointA.z));
+        geometry2.vertices.push(
+          new THREE.Vector3(-pointB.x, pointB.y, pointB.z));
+        if(line.selected) {
+          this.scene.add(new THREE.Line(geometry2, materialSelect));
+        } else {
+          this.scene.add(new THREE.Line(geometry2, materialBasic));
+        }
+      }
+    }, this);
+
+    this.renderer.render(this.scene, this.camera);
   }
 }
 

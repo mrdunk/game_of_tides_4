@@ -18,6 +18,7 @@ html, body {
   margin: 2px;
   background: antiquewhite;
   height: 100%;
+  position: relative;
 }
 
 .inline {
