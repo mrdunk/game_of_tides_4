@@ -81,7 +81,8 @@ export class Model extends ModelBase {
     let mirrored = false;
     Object.getOwnPropertyNames(this.data.lines).forEach((lineName) => {
       const testLine = this.data.lines[lineName];
-      if(ignoreLines.indexOf(lineName) < 0) {
+      if(ignoreLines.indexOf(lineName) < 0 &&
+         point.z === testLine.finishPos.a.z) {
         let dist =
           Math.abs(testLine.finishPos.a.x - point.x) +
           Math.abs(testLine.finishPos.a.y - point.y);
