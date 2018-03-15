@@ -1015,6 +1015,8 @@ export class ViewThree extends ViewBase {
   private renderer: THREE.WebGLRenderer;
   private lines: IHash = {};
   private mouseDown: boolean = false;
+  private mouseLastX: number;
+  private mouseLastY: number;
 
 
   constructor(canvas: ViewCanvas,
@@ -1081,6 +1083,8 @@ export class ViewThree extends ViewBase {
 
   private onMouseDown(event) {
     this.mouseDown = true;
+    this.mouseLastX = event.clientX;
+    this.mouseLastY = event.clientY;
   }
 
   private onMouseUp(event) {
@@ -1089,16 +1093,22 @@ export class ViewThree extends ViewBase {
 
   private onMouseMove(event) {
     if(this.mouseDown) {
-      this.onDrag();
+      if(this.mouseLastX !== undefined && this.mouseLastX !== undefined) {
+        this.onDrag(this.mouseLastX - event.clientX,
+          this.mouseLastY - event.clientY);
+      }
+      this.mouseLastX = event.clientX;
+      this.mouseLastY = event.clientY;
     }
   }
 
-  private onDrag() {
-    requestAnimationFrame(this.cameraPan.bind(this, 0.01));
+  private onDrag(x: number, y: number) {
+    console.log(x, y);
+    requestAnimationFrame(this.cameraPan.bind(this, x / 100));
+    requestAnimationFrame(this.cameraHeight.bind(this, y * 100));
   }
 
   private cameraPan(angle: number) {
-    console.log("cameraPan(", angle, ")", this.camera.position);
     const angleCurrent =
       Math.atan2(this.camera.position.z, this.camera.position.x);
     const distCurrent =
@@ -1107,6 +1117,20 @@ export class ViewThree extends ViewBase {
 
     this.camera.position.z = Math.sin(angleCurrent + angle) * distCurrent;
     this.camera.position.x = Math.cos(angleCurrent + angle) * distCurrent;
+
+    this.camera.lookAt( new THREE.Vector3( 0, 0, 0 ) );
+
+    this.renderer.render(this.scene, this.camera);
+  }
+
+  private cameraHeight(height: number) {
+    this.camera.position.y += height;
+    if(this.camera.position.y < -5000) {
+      this.camera.position.y = -5000;
+    }
+    if(this.camera.position.y > 5000) {
+      this.camera.position.y = 5000;
+    }
 
     this.camera.lookAt( new THREE.Vector3( 0, 0, 0 ) );
 
