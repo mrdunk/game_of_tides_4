@@ -14,11 +14,13 @@ window.onload = () => {
   const toolbar = new ViewToolbar();
   const canvas = new ViewCanvas();
   const crossSection = new ViewCrossSection(canvas, 10, 10, 300, 300);
+  const crossSection2 = new ViewCrossSection(canvas, 320, 10, 300, 300);
   const lengthSection = new ViewLengthSection(canvas, 10, 400, 1200, 300);
   crossSection.registerLengthSection(lengthSection);
-  const threeD = new ViewThree(canvas, 320, 10, 600, 300);
+  crossSection2.registerLengthSection(lengthSection);
+  const threeD = new ViewThree(canvas, 630, 10, 600, 300);
   const controller = new Controller(
-    model, [toolbar, crossSection, lengthSection, threeD]);
+    model, [toolbar, crossSection, crossSection2, lengthSection, threeD]);
 
   window.addEventListener("resize", canvas.resize.bind(canvas));
 };

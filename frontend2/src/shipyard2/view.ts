@@ -19,6 +19,7 @@ import {
   EventUiInputElement,
   EventUiMouseDrag,
   EventUiMouseMove,
+  EventUiSelectCrossSectionView,
   EventUiSelectRib,
   LineEnd } from "./events";
 import {
@@ -34,8 +35,8 @@ export class ViewBase {
   public widgetType: string = "base";
   protected controller: ControllerBase;
   protected sequence: string = "";
+  protected widgetId: number;
   private sequenceCounter: number = 0;
-  private widgetId: number;
 
   constructor() {
     this.widgetId = ViewBase.widgetIdConter++;
@@ -420,12 +421,16 @@ export abstract class ViewSection extends ViewBase {
 }
 
 export class ViewCrossSection extends ViewSection {
+  protected static first: boolean = true;
+  public active: boolean = false;
   public z: number = 0;
   public widgetType: string = "cross";
   private showLayersValue: boolean = false;
   private lengthSection: ViewSection;
   private lengthCursorL: Konva.Line;
   private lengthCursorR: Konva.Line;
+  private highlight: Konva.Rect;
+  private selectedWidgetId: number = 0;
 
   constructor(canvas: ViewCanvas,
               x?: number,
@@ -445,6 +450,22 @@ export class ViewCrossSection extends ViewSection {
 
     this.background.add(midline);
     this.fixedAxis = "z";
+
+    this.highlight = new Konva.Rect({
+      width: this.background.width(),
+      height: this.background.height(),
+      stroke: "red",
+      strokeWidth: 5,
+      visible: false,
+    });
+    this.background.add(this.highlight);
+
+    if(ViewCrossSection.first) {
+      this.selectView(this.widgetId);
+      ViewCrossSection.first = false;
+    }
+
+    this.background.on("mousedown", this.onMouseDown.bind(this));
   }
 
   public registerLengthSection(section: ViewSection) {
@@ -531,16 +552,16 @@ export class ViewCrossSection extends ViewSection {
         this.showLayers(Boolean(value));
         break;
       case "selected_rib":
-        // console.log(buttonLabel, value);
-        this.z = value;
-        this.showLayers();
-        this.updateLengthCursor();
+        this.selectRib(value);
         break;
       case "backgroundImageShowCross":
         this.updateBackgroundImage(Boolean(value), null);
         break;
       case "backgroundImageUrlCross":
         this.updateBackgroundImage(null, value);
+        break;
+      case "select_cross_section":
+        this.selectView(value);
         break;
     }
   }
@@ -571,12 +592,14 @@ export class ViewCrossSection extends ViewSection {
         }
       });
       this.newSequence();
+      // TODO Use Event.
       this.controller.highlightLines(
         this.sequence, this.widgetType, this.selectedLines);
       return;
     }
 
     this.selectedLines.forEach((lineId) => {
+      // TODO Use Event.
       this.controller.toggleLineSelect(this.widgetType, lineId);
     });
     this.selectedLines = [];
@@ -585,9 +608,43 @@ export class ViewCrossSection extends ViewSection {
     this.layer.draw();
   }
 
+  protected onMouseDown(event) {
+    if(!this.active) {
+      const selectViewEvent = new EventUiSelectCrossSectionView({
+        widgetType: this.widgetType,
+        widgetId: this.widgetId,
+      });
+      this.controller.onEvent(selectViewEvent);
+      this.layer.draw();
+    }
+  }
+
   protected getMousePosIn3d(hint?: IPoint): IPoint {
     const mousePos = this.getPointerPosition();
     return {x: mousePos.x, y: mousePos.y, z: this.z};
+  }
+
+  private selectRib(value: number) {
+    if(this.active) {
+      this.z = value;
+      this.showLayers();
+      this.updateLengthCursor();
+    } else {
+      this.z =
+        this.selectedWidgetId < this.widgetId? value + 20 : value - 20;
+      this.showLayers();
+      this.updateLengthCursor();
+      console.log(this.selectedWidgetId, this.widgetId, value, this.z);
+    }
+  }
+
+  private selectView(widgetId: number) {
+    this.selectedWidgetId = widgetId;
+    const state = this.widgetId === widgetId;
+    console.log("selecting", this.widgetId, "=", state);
+
+    this.highlight.visible(state);
+    this.active = state;
   }
 
   private showLayers(value?: boolean) {
@@ -753,12 +810,14 @@ export class ViewLengthSection extends ViewSection {
         }
       });
       this.newSequence();
+      // TODO Use Event.
       this.controller.highlightLines(
         this.sequence, this.widgetType, this.selectedLines);
       return;
     }
 
     this.selectedLines.forEach((lineId) => {
+      // TODO Use Event.
       this.controller.toggleLineSelect(this.widgetType, lineId);
     });
     this.selectedLines = [];
@@ -1067,7 +1126,6 @@ export class ViewThree extends ViewBase {
   }
 
   public updateLine(lineEvent: ILine) {
-    console.log(lineEvent);
     console.assert(Boolean(lineEvent.id));
 
     if(!Boolean(lineEvent.finishPos)) {
@@ -1103,7 +1161,6 @@ export class ViewThree extends ViewBase {
   }
 
   private onDrag(x: number, y: number) {
-    console.log(x, y);
     requestAnimationFrame(this.cameraPan.bind(this, x / 100));
     requestAnimationFrame(this.cameraHeight.bind(this, y * 100));
   }
@@ -1138,7 +1195,6 @@ export class ViewThree extends ViewBase {
   }
 
   private drawFrame() {
-    console.log(this.lines);
     // requestAnimationFrame(this.drawFrame);
 
     while(this.scene.children.length > 0) {

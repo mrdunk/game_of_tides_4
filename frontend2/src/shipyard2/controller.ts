@@ -12,6 +12,7 @@ import {
   EventUiInputElement,
   EventUiMouseDrag,
   EventUiMouseMove,
+  EventUiSelectCrossSectionView,
   EventUiSelectRib,
   LineEnd} from "./events";
 import {ModelBase} from "./model";
@@ -158,6 +159,7 @@ export class Controller extends ControllerBase {
       preventUnClick: true},
     allLayers: {value: false, clear: ["fileOps"]},
     selected_rib: {clear: ["fileOps"]},
+    select_cross_section: {clear: ["fileOps"]},
     fileOps: {value: 0},
     fileOpsSave: {},
     fileOpsLoad: {},
@@ -186,6 +188,11 @@ export class Controller extends ControllerBase {
 
       case event.constructor.name === "EventUiSelectRib":
         this.updateButton("selected_rib", (event as EventUiSelectRib).z);
+        break;
+
+      case event.constructor.name === "EventUiSelectCrossSectionView":
+        this.updateButton("select_cross_section",
+          (event as EventUiSelectCrossSectionView).widgetId);
         break;
 
       case event.constructor.name === "EventUiMouseDrag" &&
