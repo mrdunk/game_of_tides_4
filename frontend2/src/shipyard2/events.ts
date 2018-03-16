@@ -43,6 +43,15 @@ export class EventUiSelectRib extends EventBase {
   }
 }
 
+export class EventUiSelectCrossSectionView extends EventBase {
+  public widgetId: number;
+
+  constructor(args: EventUiSelectCrossSectionView) {
+    super(args);
+    this.widgetId = args.widgetId;
+  }
+}
+
 export class EventUiMouseMove extends EventBase {
   public startPoint: IPoint;
   public lineId?: string;
