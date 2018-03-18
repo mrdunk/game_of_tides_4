@@ -123,6 +123,23 @@ export class Model extends ModelBase {
     return {point: nearest, mirrored};
   }
 
+  public nearestPopulatedRib(z: number): [number, number] {
+    let lower: number = -999999;
+    let higher: number = 999999;
+
+    Object.getOwnPropertyNames(this.data.lines).forEach((lineName) => {
+      const line = this.data.lines[lineName];
+      if(line.finishPos.a.z > lower && line.finishPos.a.z < z) {
+        lower = line.finishPos.a.z;
+      }
+      if(line.finishPos.a.z < higher && line.finishPos.a.z > z) {
+        higher = line.finishPos.a.z;
+      }
+    });
+
+    return [lower, higher];
+  }
+
   public getLine(lineId: string): ILine {
     return this.data.lines[lineId];
   }
@@ -160,9 +177,19 @@ export class Model extends ModelBase {
 
   private modifyLine(event: EventLineModify) {
     console.assert(Boolean(event));
+    console.assert(Boolean(event.startPoint));
     console.assert(Boolean(event.finishPoint));
+    console.assert(event.startPoint.z === event.finishPoint.z);
     console.assert(Boolean(event.lineId));
     console.assert(event.lineEnd !== undefined && event.lineEnd !== null);
+    if(!event.startPoint ||
+       !event.finishPoint ||
+       event.startPoint.z !== event.finishPoint.z ||
+       !event.lineId ||
+       event.lineEnd === undefined ||
+       event.lineEnd === null) {
+      return;
+    }
 
     if(!this.data.lines[event.lineId]) {
       this.createLine(event);
@@ -263,6 +290,9 @@ export class Model extends ModelBase {
 
     const line: ILine = this.data.lines[event.lineId];
     console.assert(Boolean(line));
+    if(!line) {
+      return;
+    }
 
     line.mirrored = !line.mirrored;
     this.controller.updateViews(line);

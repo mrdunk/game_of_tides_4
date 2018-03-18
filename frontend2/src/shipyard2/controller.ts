@@ -15,8 +15,8 @@ import {
   EventUiSelectCrossSectionView,
   EventUiSelectRib,
   LineEnd} from "./events";
-import {ModelBase} from "./model";
-import {ViewBase, ViewSection} from "./view";
+import {Model, ModelBase} from "./model";
+import {IHash, ViewBase, ViewCrossSection, ViewSection} from "./view";
 
 const storageName = "shipYardCommandBuffers";
 
@@ -170,6 +170,7 @@ export class Controller extends ControllerBase {
     backgroundImageUrlCross: {},
     backgroundImageUrlLength: {},
   };
+  private registeredCrossSections: IHash = {};
 
   constructor(model: ModelBase, views: ViewBase[], logger?) {
     super(model, views, logger);
@@ -178,6 +179,13 @@ export class Controller extends ControllerBase {
     this.onStartupCommands();
 
     this.setButtonStates();
+
+    this.views.forEach((view) => {
+      if(view.widgetType === "cross") {
+        this.registeredCrossSections[view.widgetId] =
+          (view as ViewCrossSection).active;
+      }
+    });
   }
 
   public onEvent(event: EventBase) {
@@ -187,12 +195,19 @@ export class Controller extends ControllerBase {
         break;
 
       case event.constructor.name === "EventUiSelectRib":
-        this.updateButton("selected_rib", (event as EventUiSelectRib).z);
+        this.selectRib((event as EventUiSelectRib).z || 0);
         break;
 
       case event.constructor.name === "EventUiSelectCrossSectionView":
-        this.updateButton("select_cross_section",
-          (event as EventUiSelectCrossSectionView).widgetId);
+        const widgetId = (event as EventUiSelectCrossSectionView).widgetId;
+        this.updateButton("select_cross_section", widgetId);
+        Object.keys(this.registeredCrossSections).forEach((cs) => {
+          this.registeredCrossSections[cs] = false;
+          if(cs === "" + widgetId) {
+            this.registeredCrossSections[cs] = true;
+          }
+        });
+        this.selectRib((event as EventUiSelectCrossSectionView).z);
         break;
 
       case event.constructor.name === "EventUiMouseDrag" &&
@@ -474,6 +489,34 @@ export class Controller extends ControllerBase {
     while(this.commandPointer < this.commands.length) {
       this.redoCommand();
     }
+  }
+
+  private selectRib(z: number) {
+    const returnValues: IHash = {};
+    const keys = [];
+    let target;
+    Object.keys(this.registeredCrossSections).forEach((csId) => {
+      if(this.registeredCrossSections[csId]) {
+        target = parseInt(csId, 10);
+      }
+      keys.push(parseInt(csId, 10));
+    });
+
+    keys.forEach((csId) => {
+      let [lower, higher] = (this.model as Model).nearestPopulatedRib(z);
+      if(lower <= -999999) {
+        lower = z - 20;
+      }
+      if(higher >= 999999) {
+        higher = z + 20;
+      }
+
+      returnValues[csId] =
+        (csId < target)? lower : (csId > target)? higher : z;
+    });
+    returnValues.selected = target;
+
+    this.updateButton("selected_rib", returnValues);
   }
 
   private onUiMouseDragModifyLine(event: EventUiMouseDrag) {
@@ -861,12 +904,17 @@ export class Controller extends ControllerBase {
   private applyClasses(data) {
     const returnData = [];
     data.forEach((command) => {
-      const newCommand = {events: []};
-      returnData.push(newCommand);
-      command.events.forEach((event) => {
-        const cloneObj = new testEvents[event.className](event);
-        newCommand.events.push(cloneObj);
-      });
+      console.log(command);
+      if(command.events) {
+        const newCommand = {events: []};
+        returnData.push(newCommand);
+        command.events.forEach((event) => {
+          const cloneObj = new testEvents[event.className](event);
+          newCommand.events.push(cloneObj);
+        });
+      } else {
+        console.warn("missing command.events in:", command);
+      }
     });
     return returnData;
   }

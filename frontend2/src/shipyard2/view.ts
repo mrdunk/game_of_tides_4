@@ -26,16 +26,16 @@ import {
   DropDown,
   Modal} from "./modal";
 
-interface IHash {
+export interface IHash {
   [key: string]: any;
 }
 
 export class ViewBase {
   protected static widgetIdConter: number = 0;
   public widgetType: string = "base";
+  public widgetId: number;
   protected controller: ControllerBase;
   protected sequence: string = "";
-  protected widgetId: number;
   private sequenceCounter: number = 0;
 
   constructor() {
@@ -66,7 +66,7 @@ export class ViewBase {
     this.controller = controller;
   }
 
-  public setButtonValue(buttonLabel: string, value: number) {
+  public setButtonValue(buttonLabel: string, value: any) {
     console.error("Undefined method");
   }
 
@@ -460,12 +460,19 @@ export class ViewCrossSection extends ViewSection {
     });
     this.background.add(this.highlight);
 
+    this.background.on("mousedown", this.onMouseDown.bind(this));
+  }
+
+  public init(controller: ControllerBase) {
+    super.init(controller);
+
     if(ViewCrossSection.first) {
-      this.selectView(this.widgetId);
+      window.setTimeout(function() {
+        this.onMouseDown(null);
+      }.bind(this), 0);
+      
       ViewCrossSection.first = false;
     }
-
-    this.background.on("mousedown", this.onMouseDown.bind(this));
   }
 
   public registerLengthSection(section: ViewSection) {
@@ -613,9 +620,9 @@ export class ViewCrossSection extends ViewSection {
       const selectViewEvent = new EventUiSelectCrossSectionView({
         widgetType: this.widgetType,
         widgetId: this.widgetId,
+        z: this.z,
       });
       this.controller.onEvent(selectViewEvent);
-      this.layer.draw();
     }
   }
 
@@ -624,17 +631,11 @@ export class ViewCrossSection extends ViewSection {
     return {x: mousePos.x, y: mousePos.y, z: this.z};
   }
 
-  private selectRib(value: number) {
-    if(this.active) {
-      this.z = value;
+  private selectRib(value: IHash) {
+    if(value[this.widgetId] !== undefined) {
+      this.z = value[this.widgetId];
       this.showLayers();
       this.updateLengthCursor();
-    } else {
-      this.z =
-        this.selectedWidgetId < this.widgetId? value + 20 : value - 20;
-      this.showLayers();
-      this.updateLengthCursor();
-      console.log(this.selectedWidgetId, this.widgetId, value, this.z);
     }
   }
 
@@ -678,6 +679,8 @@ export class ViewCrossSection extends ViewSection {
     const y2 = this.lengthSection.offsetY;
     this.lengthCursorL.points([x1, y1, x2, y2]);
     this.lengthCursorR.points([x1 + this.width, y1, x2, y2]);
+    this.lengthCursorL.stroke(this.active? "red" : "yellow");
+    this.lengthCursorR.stroke(this.active? "red" : "yellow");
     this.layer.draw();
   }
 }
@@ -687,7 +690,7 @@ export class ViewLengthSection extends ViewSection {
   public cursorPos: number = 0;
   public widgetType: string = "length";
   private cursorHover: Konva.Rect;
-  private cursor: Konva.Rect;
+  private cursors: IHash = {};
   private cursorWidth: number = 20;
   private zResolution: number = 20;
 
@@ -708,21 +711,10 @@ export class ViewLengthSection extends ViewSection {
       visible: false,
     });
 
-    this.cursor = new Konva.Rect({
-      x: this.cursorPos + (this.width / 2) - (this.cursorWidth / 2),
-      y: 0,
-      width: this.cursorWidth,
-      height: this.height,
-      fill: "yellow",
-      opacity: 0.5,
-      visible: true,
-    });
-
     this.background.add(this.cursorHover);
-    this.background.add(this.cursor);
     this.background.draw();
 
-    this.background.on("mousedown", this.setCursor.bind(this));
+    this.background.on("mousedown", this.selectRib.bind(this));
     this.background.on("mousemove", this.moveCursor.bind(this));
     this.background.on("mouseleave", this.hideCursor.bind(this));
 
@@ -772,7 +764,7 @@ export class ViewLengthSection extends ViewSection {
     this.layer.draw();
   }
 
-  public setButtonValue(buttonLabel: string, value: number) {
+  public setButtonValue(buttonLabel: string, value: any) {
     // console.log(buttonLabel, value);
     switch (buttonLabel) {
       case "backgroundImageShowLength":
@@ -781,7 +773,30 @@ export class ViewLengthSection extends ViewSection {
       case "backgroundImageUrlLength":
         this.updateBackgroundImage(null, "" + value);
         break;
+      case "selected_rib":
+        this.setCursor(value);
+        break;
     }
+  }
+
+  public setCursor(values: IHash) {
+    Object.keys(values).forEach((viewId) => {
+      if(viewId !== "selected" && this.cursors[viewId] === undefined) {
+        this.cursors[viewId] = this.newCursor();
+      }
+    });
+
+    Object.keys(this.cursors).forEach((cursorId) => {
+      const cursor = this.cursors[cursorId];
+      const z = values[cursorId];
+      cursor.fill("yellow");
+      if("" + cursorId === "" + values.selected) {
+        cursor.fill("red");
+      }
+      cursor.x(z + (this.width / 2) - (this.cursorWidth / 2));
+      cursor.visible(true);
+      this.canvas.layer.draw();
+    });
   }
 
   // TODO Refactor into Base class.
@@ -836,19 +851,29 @@ export class ViewLengthSection extends ViewSection {
     return {x, y: mousePos.y, z: mousePos.x};
   }
 
-  private setCursor(event) {
+  private newCursor(): Konva.Rect {
+    const cursor = new Konva.Rect({
+      x: this.cursorPos + (this.width / 2) - (this.cursorWidth / 2),
+      y: 0,
+      width: this.cursorWidth,
+      height: this.height,
+      fill: "red",
+      opacity: 0.5,
+      visible: true,
+    });
+    this.background.add(cursor);
+    return cursor;
+  }
+
+  private selectRib(event) {
     const mousePos = this.getPointerPosition();
     mousePos.x = Math.round(mousePos.x / this.zResolution) * this.zResolution;
+    this.cursorPos = mousePos.x;
 
     if(mousePos.x >= (-this.width / 2) && mousePos.x <= (this.width / 2)) {
-      this.cursorPos = mousePos.x;
-      this.cursor.x(mousePos.x + (this.width / 2) - (this.cursorWidth / 2));
-      this.cursor.visible(true);
-      this.canvas.layer.draw();
-
       const dragEvent = new EventUiSelectRib({
         widgetType: this.widgetType,
-        z: this.cursorPos,
+        z: mousePos.x,
       });
       this.controller.onEvent(dragEvent);
     }

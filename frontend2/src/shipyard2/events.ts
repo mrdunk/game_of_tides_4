@@ -45,10 +45,12 @@ export class EventUiSelectRib extends EventBase {
 
 export class EventUiSelectCrossSectionView extends EventBase {
   public widgetId: number;
+  public z: number;
 
   constructor(args: EventUiSelectCrossSectionView) {
     super(args);
     this.widgetId = args.widgetId;
+    this.z = args.z;
   }
 }
 
