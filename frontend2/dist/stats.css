@@ -1,4 +1,6 @@
 pre {outline: 1px solid #ccc; padding: 5px; margin: 5px; }
+td, th { border: 1px solid grey; }
+
 .string { color: green; }
 .number { color: darkorange; }
 .boolean { color: blue; }

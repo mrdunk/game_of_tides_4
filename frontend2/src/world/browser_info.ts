@@ -12,7 +12,14 @@ interface ISystemData {
   workerType?: string;
   state?: string;
   cleanShutdown?: boolean;
-  startupTime?: number;
+  startTime?: string;
+  startupDuration?: number;
+  runDuration?: number;
+  uploading?: boolean;
+  fpsFrame?: number;
+  fpsLong?: number;
+  fpsAverage?: number;
+  owner_id?: string;   // Variable name must match MongoDB user_id.
 }
 
 // https://stackoverflow.com/a/105074/2669284
@@ -27,7 +34,6 @@ function guid() {
 }
 
 export class BrowserInfo {
-  public client;
   public db;
   private data: ISystemData = {};
   private start: number = Date.now();
@@ -47,50 +53,59 @@ export class BrowserInfo {
       }
     });
 
-    this.data["start_time"] = Date();
+    this.data.startTime = Date();
     this.data.sessionId = guid();
     this.data.hardwareConcurrency = window.navigator.hardwareConcurrency;
     this.data.workerType = Globals.workerType;
+    this.data.uploading = false;
 
-    if(window.location.hostname !== "localhost") {
+    // if(window.location.hostname !== "localhost") {
       this.mongoLogin();
-    }
+    // }
     setInterval(this.service.bind(this), 10000);
   }
 
   public mongoLogin() {
-    this.client = new stitch.StitchClient("got-yyggd");
-    this.db = this.client.service("mongodb", "mongodb-atlas").db("got");
-    this.client.login().then(() => {
-      console.log(this.client.authedId(), this.client.userProfile());
+    try {
 
-      if(window.location.hostname === "localhost") {
-        return;
-      }
+      const clientPromise = stitch.StitchClientFactory.create("got-yyggd");
+      clientPromise.then((client) => {
+        this.db = client.service("mongodb", "mongodb-atlas").db("got");
+        client.login().then(() => {
+          console.log(client.authedId(), client.userProfile());
 
-      // If a previous session's data is in Localstorage, retrieve and push to
-      // DB.
-      this.pullLocalStorage();
+          // If a previous session"s data is in Localstorage, retrieve and push
+          // to DB.
+          this.pullLocalStorage();
 
-      // Push this session to DB.
-      this.data["owner_id"] = this.client.authedId();
-      this.data.state = "starting";
-      this.pushMongo();
-      this.data.state = "running";
-      setTimeout(this.pushMongo.bind(this), 10000);  // 10 seconds.
-      setTimeout(this.pushMongo.bind(this), 60000);  // 60 seconds.
-      setTimeout(this.pushMongo.bind(this), 600000);  // 10 minutes.
+          // Push this session to DB.
+          this.data.owner_id = client.authedId();
+          this.data.state = "starting";
+          this.pushMongo();
+          this.data.state = "running";
+          setTimeout(this.pushMongo.bind(this), 10000);  // 10 seconds.
+          setTimeout(this.pushMongo.bind(this), 60000);  // 60 seconds.
+          setTimeout(this.pushMongo.bind(this), 600000);  // 10 minutes.
 
-      window.addEventListener("beforeunload", this.unloadPage.bind(this));
-    });
+          window.addEventListener("beforeunload", this.unloadPage.bind(this));
+          this.data.uploading = true;
+        }).catch((err) => {
+          this.data.uploading = false;
+          console.error(err);
+        });
+      });
+    } catch(error) {
+      this.data.uploading = false;
+      console.error(error);
+    }
   }
 
   public update() {
-    this.data.startupTime = Math.round(Globals.startupTime);
-    this.data["fps_frame"] = Math.round(MainLoop.FPS * 100) / 100;
-    this.data["fps_average"] = Math.round(MainLoop.averageFPS * 100) / 100;
-    this.data["fps_long"] = Math.round(MainLoop.longAverageFPS * 100) / 100;
-    this.data["run_time"] = Math.round((Date.now() - this.start) / 1000);
+    this.data.startupDuration = Math.round(Globals.startupDuration);
+    this.data.fpsFrame = Math.round(MainLoop.FPS * 100) / 100;
+    this.data.fpsAverage = Math.round(MainLoop.averageFPS * 100) / 100;
+    this.data.fpsLong = Math.round(MainLoop.longAverageFPS * 100) / 100;
+    this.data.runDuration = Math.round((Date.now() - this.start) / 1000);
   }
 
   public service() {

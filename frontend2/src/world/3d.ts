@@ -750,8 +750,8 @@ export class Scene extends THREE.Scene {
       // Queue empty.
       this.cleanUpOldTiles();
 
-      if(!Globals.startupTime) {
-        Globals.startupTime = performance.now();
+      if(!Globals.startupDuration) {
+        Globals.startupDuration = performance.now();
       }
       console.log((performance.now() - this.updateTimer) / 1000);
       this.updating = false;
