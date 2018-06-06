@@ -67,7 +67,6 @@ export class BrowserInfo {
 
   public mongoLogin() {
     try {
-
       const clientPromise = stitch.StitchClientFactory.create("got-yyggd");
       clientPromise.then((client) => {
         this.db = client.service("mongodb", "mongodb-atlas").db("got");
@@ -151,10 +150,9 @@ export class BrowserInfo {
       data = this.data;
     }
 
-    this.db.collection("sessions").updateOne(
-      {sessionId: data.sessionId},
-      data,
-      {upsert: true})
+    this.db.collection("sessions").updateOne( {sessionId: data.sessionId},
+                                              data,
+                                              {upsert: true} )
       .then(() => {console.log("sent data");},
             (e) => {console.log("error:", e);});
 
@@ -164,19 +162,20 @@ export class BrowserInfo {
     localStorage.setItem("sessionData", JSON.stringify(this.data));
   }
 
-  /* If a previous instance on this brouser left a cache behind, push it to the
+  /* If a previous instance on this browser left a cache behind, push it to the
    * DB. */
   private pullLocalStorage() {
     const data = localStorage.getItem("sessionData");
     if(data !== undefined && data !== null) {
       const jsonData: ISystemData = JSON.parse(data);
-      console.log("Pushing previous session data to MongoDb.", data);
+      console.log("Pushing previous session data to MongoDb:", data);
       if(jsonData.state === "closing") {
         jsonData.cleanShutdown = true;
       }
       jsonData.state = "closed";
       this.pushMongo(jsonData);
       localStorage.removeItem("sessionData");
+      console.log("Pushing previous session data to MongoDb: done.");
     }
   }
 
